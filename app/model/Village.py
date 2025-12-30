@@ -11,7 +11,6 @@ class Village:
     iron: int
     crop: int
     free_crop: int
-    population: int
     source_pits: list[SourcePit]
     buildings: list[Building]
     warehouse_capacity: int

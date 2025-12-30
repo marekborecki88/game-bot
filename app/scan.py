@@ -7,11 +7,11 @@ from app.model.Account import Account
 from app.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
 
 
-def scan_vliage_list(page: Page, config: Config) -> list[str]:
+def scan_village_list() -> list[str]:
     return ["dorf1"]
 
 
-def scan_vilage_source(page: Page) -> list[SourcePit]:
+def scan_village_source(page: Page) -> list[SourcePit]:
     """Scan all resource fields from the village resource view."""
 
     # Wait for the resource field container to appear
@@ -198,10 +198,10 @@ def _parse_resource_value(text: str) -> int:
 
 def scan(page: Page, config: Config) -> Account:
     print("Scanning...")
-    indices = scan_vliage_list(page, config)
+    indices = scan_village_list()
     villages = []
     for index in indices:
-        source_pits = scan_vilage_source(page)
+        source_pits = scan_village_source(page)
         buildings = scan_village_center(page, config)
         building_queue = scan_building_queue(page)
         stock_data = scan_stock_bar(page)
@@ -214,7 +214,6 @@ def scan(page: Page, config: Config) -> Account:
             free_crop=stock_data["free_crop"],
             warehouse_capacity=stock_data["warehouse_capacity"],
             granary_capacity=stock_data["granary_capacity"],
-            population=0,  # TODO: scan from elsewhere
             source_pits=source_pits,
             buildings=buildings,
             building_queue=building_queue,

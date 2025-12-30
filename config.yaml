@@ -1,7 +1,5 @@
-server_url: "https://ts6.x1.international.travian.com/"
-#server_url: "https://cw.x2.international.travian.com/"
+server_url: ${SERVER_URL}
 speed: 1
-user_login: "konfucjusz#KK"
-#user_login: "konfucjusz#KO"
-user_password: "nieStraszNieStrasz"
+user_login: ${USER_LOGIN}
+user_password: ${USER_PASSWORD}
 headless: false
