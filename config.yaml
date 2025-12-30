@@ -1,0 +1,7 @@
+server_url: "https://ts6.x1.international.travian.com/"
+#server_url: "https://cw.x2.international.travian.com/"
+speed: 1
+user_login: "konfucjusz#KK"
+#user_login: "konfucjusz#KO"
+user_password: "nieStraszNieStrasz"
+headless: false
