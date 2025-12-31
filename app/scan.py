@@ -1,15 +1,18 @@
 import re
 
-from playwright.sync_api import Page
+from playwright.sync_api import Page, Locator
 
 from app.config import Config
 from app.model.Account import Account
 from app.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
 
 
-def scan_village_list() -> list[str]:
-    return ["dorf1"]
+def scan_village_list(page: Page) -> list[str]:
+    """Scan the list of villages from the village overview page."""
+    page.wait_for_selector(".villageList")
+    names = page.locator(".villageList .name")
 
+    return list(map(clean_inner_text, names.all()))
 
 def scan_village_source(page: Page) -> list[SourcePit]:
     """Scan all resource fields from the village resource view."""
@@ -57,6 +60,15 @@ def scan_village_source(page: Page) -> list[SourcePit]:
     return source_pits
 
 
+def parse_int_or_zero(text_number: Locator):
+    if text_number.count() > 0:
+        level_text = clean_inner_text(text_number.first)
+        if level_text.isdigit():
+            return int(level_text)
+
+    return 0
+
+
 def scan_village_center(page: Page, config: Config) -> list[Building]:
     """Scan all buildings from the village center view."""
     from app.model.Village import Building, BuildingType
@@ -94,11 +106,7 @@ def scan_village_center(page: Page, config: Config) -> list[Building]:
 
         # Extract level from the level element
         level_elem = slot.locator(".labelLayer")
-        level = 0
-        if level_elem.count() > 0:
-            level_text = level_elem.first.inner_text().strip()
-            if level_text.isdigit():
-                level = int(level_text)
+        level = parse_int_or_zero(level_elem.first)
 
         buildings.append(Building(
             id=building_id,
@@ -128,9 +136,7 @@ def scan_building_queue(page: Page) -> list[BuildingJob]:
         if name_elem.count() == 0:
             continue
 
-        name_text = name_elem.inner_text().strip()
-        # Format: "Building Name Level X"
-        level_match = re.search(r'(\d+)$', name_text)
+        level_match = re.search(r'(\d+)$', clean_inner_text(name_elem))
         target_level = int(level_match.group(1)) if level_match else 0
 
         # Extract building id from the link or data attribute
@@ -188,35 +194,27 @@ def scan_stock_bar(page: Page) -> dict:
 
 
 def _parse_resource_value(text: str) -> int:
-    """Parse resource value from text, removing unicode markers and formatting."""
-    # Remove unicode left-to-right markers (U+202D, U+202C) and whitespace
-    cleaned = text.replace('\u202d', '').replace('\u202c', '').strip()
-    # Remove thousand separators (comma)
-    cleaned = cleaned.replace(',', '')
-    return int(cleaned)
+    """Parse resource value from text, removing UNICODE markers and formatting."""
+    # Remove UNICODE left-to-right markers (U+202D, U+202C) and whitespace
+    cleaned = "".join(c for c in text if c.isdigit())
+    return int(cleaned) if cleaned else 0
+
+
+def scan_village(page, config, name) -> Village:
+    return Village(
+        name=name,
+        source_pits=(scan_village_source(page)),
+        buildings=(scan_village_center(page, config)),
+        building_queue=(scan_building_queue(page)),
+        **(scan_stock_bar(page))
+    )
 
 
 def scan(page: Page, config: Config) -> Account:
-    print("Scanning...")
-    indices = scan_village_list()
-    villages = []
-    for index in indices:
-        source_pits = scan_village_source(page)
-        buildings = scan_village_center(page, config)
-        building_queue = scan_building_queue(page)
-        stock_data = scan_stock_bar(page)
-        villages.append(Village(
-            name=index,
-            lumber=stock_data["lumber"],
-            clay=stock_data["clay"],
-            iron=stock_data["iron"],
-            crop=stock_data["crop"],
-            free_crop=stock_data["free_crop"],
-            warehouse_capacity=stock_data["warehouse_capacity"],
-            granary_capacity=stock_data["granary_capacity"],
-            source_pits=source_pits,
-            buildings=buildings,
-            building_queue=building_queue,
-        ))
-
+    names = scan_village_list(page)
+    villages = [scan_village(page, config, name) for name in names]
     return Account(villages=villages)
+
+
+def clean_inner_text(html) -> str:
+    return html.inner_text().strip()
