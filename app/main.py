@@ -15,5 +15,8 @@ with sync_playwright() as p:
 
     print(account)
 
+    account.build(page, config, village_name="Sodoma", id=1)
+
+
     time.sleep(5)
     browser.close()

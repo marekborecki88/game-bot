@@ -1,6 +1,38 @@
 from dataclasses import dataclass
 
 from enum import Enum
+from playwright.sync_api import Page, Locator
+
+from app.config import Config
+
+
+@dataclass
+class BuildingContract:
+    lumber: int
+    clay: int
+    iron: int
+    crop: int
+    crop_consumption: int
+
+
+def scan_contract(page: Page) -> BuildingContract:
+
+    resource_wrapper = page.locator(".resourceWrapper")
+    resource_values = resource_wrapper.locator(".inlineIcon.resource .value").all_text_contents()
+
+    lumber = int(resource_values[0])
+    clay = int(resource_values[1])
+    iron = int(resource_values[2])
+    crop = int(resource_values[3])
+    crop_consumption = int(resource_values[4])
+
+    return BuildingContract(
+        lumber=lumber,
+        clay=clay,
+        iron=iron,
+        crop=crop,
+        crop_consumption=crop_consumption
+    )
 
 
 @dataclass
@@ -16,6 +48,20 @@ class Village:
     warehouse_capacity: int
     granary_capacity: int
     building_queue: list[BuildingJob]
+
+    def build(self, page: Page, config: Config, id: int):
+        source_pit = next((s for s in self.source_pits if s.id == id), None)
+        if not source_pit:
+            return
+
+        page.goto(f"{config.server_url}/build.php?id={id}&gid={source_pit.type.value}")
+        page.wait_for_selector("#contract ")
+
+        print("Scanning building contract...")
+        contract = scan_contract(page)
+
+        print(contract)
+
 
 
 @dataclass
