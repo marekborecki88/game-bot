@@ -62,6 +62,12 @@ class Village:
 
         print(contract)
 
+        # Click the upgrade button (first one, not the video feature button)
+        upgrade_button = page.locator("button.textButtonV1.green.build").first
+        upgrade_button.click()
+        print("Clicked upgrade button")
+
+
 
 
 @dataclass
