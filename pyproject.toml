@@ -2,8 +2,9 @@
 name = "game-bot"
 version = "0.1.0"
 description = ""
-authors = ["marek.borecki <marek.borecki@fasolutions.com>"]
+authors = ["marek.borecki <marekborecki88>"]
 readme = "README.md"
+packages = [{include = "app"}]
 
 [tool.poetry.scripts]
 game-bot = "app.main:main"
