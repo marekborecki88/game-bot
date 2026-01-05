@@ -17,10 +17,16 @@ class Bot:
         self.scanner = scanner
 
     def run(self):
+        print("run...")
         should_exit = False
         all_villages_have_building_queue = False
         while not should_exit:
-            villages = self.scanner.scan().villages
+            print("scanning...")
+            account = self.scanner.scan()
+
+            villages = account.villages
+
+            print("checking villages without building queue...")
 
             villages_without_building_queue = [v for v in villages if v.building_queue_is_empty()]
 

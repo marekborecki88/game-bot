@@ -26,7 +26,9 @@ def parse_int_or_zero(text_number: Locator):
 
     return 0
 
-
+#TODO: this class should be refactored
+# it should just accept peaces of html and return data models
+# methods of this class should be invoked by other part of the app where driver is invoked as well to grab html
 class Scanner:
     def __init__(self, page: Page, config: Config):
         self.page = page
@@ -35,6 +37,8 @@ class Scanner:
 
     def scan_village_list(self) -> list[str]:
         """Scan the list of villages from the village overview page."""
+        print("scanning village list...")
+        self.page.goto(f"{self.config.server_url}/dorf1.php")
         self.page.wait_for_selector(".villageList")
         names = self.page.locator(".villageList .name")
 
@@ -220,6 +224,7 @@ class Scanner:
 
 
     def scan(self) -> Account:
+        print("scanning account...")
         names = self.scan_village_list()
         villages = [self.scan_village(name) for name in names]
         return Account(villages=villages)
