@@ -5,6 +5,9 @@ description = ""
 authors = ["marek.borecki <marek.borecki@fasolutions.com>"]
 readme = "README.md"
 
+[tool.poetry.scripts]
+game-bot = "app.main:main"
+
 [tool.poetry.dependencies]
 python = "^3.14"
 playwright = "^1.57.0"

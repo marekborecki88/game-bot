@@ -1,11 +1,12 @@
 from playwright.sync_api import sync_playwright
-
+from pathlib import Path
 from app.config import load_config, Config
 from app.core.bot import Bot
 from app.driver_adapter.driver import Driver
 from app.scan_adapter.scanner import Scanner
 
-config: Config = load_config("../config.yaml")
+config_path = Path(__file__).parent.parent / "config.yaml"
+config: Config = load_config(str(config_path))
 
 def run_bot():
     with sync_playwright() as playwright:
@@ -20,4 +21,10 @@ def run_bot():
         driver.stop()
 
 
-run_bot()
+def main():
+    run_bot()
+
+if __name__ == "__main__":
+    main()
+
+
