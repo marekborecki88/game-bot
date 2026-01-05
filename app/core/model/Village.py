@@ -84,6 +84,11 @@ class Village:
         pits_with_given_type = [pit for pit in self.source_pits if pit.type == lowest_source]
         return min(pits_with_given_type, key=lambda p: p.level)
 
+    def building_queue_duration(self):
+        if not self.building_queue:
+            return 0
+        return max(self.building_queue, key=lambda job: job.time_remaining).time_remaining
+
 
 @dataclass
 class Building:

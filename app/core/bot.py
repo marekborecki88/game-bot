@@ -1,6 +1,13 @@
-from app.core.model.Village import Village
+import time
+import random
+
+from app.core.model.Village import Village, SourceType
 from app.driver_adapter.driver import Driver
 from app.scan_adapter.scanner import Scanner
+
+
+def shortest_building_queue(villages: list[Village]) -> int:
+    return min([v.building_queue_duration() for v in villages])
 
 
 class Bot:
@@ -9,13 +16,28 @@ class Bot:
         self.scanner = scanner
 
     def run(self):
-        exit = False
-        while not exit:
+        should_exit = False
+        all_villages_have_building_queue = False
+        while not should_exit:
             villages = self.scanner.scan().villages
 
-            [self.even_build_economy(v) for v in villages if v.building_queue_is_empty()]
+            villages_without_building_queue = [v for v in villages if v.building_queue_is_empty()]
 
-            exit = True
+            [self.even_build_economy(v) for v in villages_without_building_queue]
+
+            if len(villages_without_building_queue) == 0:
+                if not all_villages_have_building_queue:
+                    print("All villages have building queues. Waiting...")
+                all_villages_have_building_queue = True
+
+            if all_villages_have_building_queue:
+                shortest_queue_duration = shortest_building_queue(villages)
+
+                if shortest_queue_duration > 60*60*3:
+                    print("All villages have building queues, but the shortest queue is longer than 3 hours. Exit loop.")
+                    should_exit = True
+                else:
+                    time.sleep(shortest_queue_duration + random.uniform(7, 70))
 
 
     def even_build_economy(self, village: Village) -> None:
@@ -31,7 +53,7 @@ class Bot:
         )
 
     def build(self, village_name: str, id: int, gid: int) -> None:
-        print("building in village:", village_name, "id:", id, "gid:", gid)
+        print("building in village:", village_name, "id:", id, "pit type:", next((st for st in SourceType if st.value == gid), None).name)
 
         # I don't like this code
         self.driver.page.goto(f"{self.driver.config.server_url}/build.php?id={id}&gid={gid}")
