@@ -40,7 +40,7 @@ class Bot:
                     should_exit = True
                 else:
                     pause_and_display_progress_bar(
-                        pause_duration=shortest_queue_duration + random.uniform(7, 70),
+                        pause_duration=shortest_queue_duration + random.randint(7, 70),
                         message="Waiting for the shortest building queue to finish..."
                     )
 

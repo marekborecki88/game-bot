@@ -1,7 +1,7 @@
 import time
 from tqdm import tqdm
 
-def pause_and_display_progress_bar(pause_duration: int, message: str, interval: int = 5) -> None:
+def pause_and_display_progress_bar(pause_duration: float, message: str, interval: int = 5) -> None:
     """Pause execution for a specified duration while displaying a progress bar.
 
     Args:
@@ -12,9 +12,12 @@ def pause_and_display_progress_bar(pause_duration: int, message: str, interval: 
 
 
     print(message)
-    with tqdm(total=int(pause_duration), unit="s") as pbar:
+    with tqdm(total=pause_duration, unit="s") as pbar:
         elapsed = 0
         while elapsed < pause_duration:
             time.sleep(min(interval, pause_duration - elapsed))
             elapsed += min(interval, pause_duration - elapsed)
             pbar.update(min(interval, pause_duration - elapsed))
+
+        #wait some random part of 1 second to avoid being too "bot-like"
+        time.sleep(random.uniform(0.1, 1.0))
