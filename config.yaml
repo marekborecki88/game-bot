@@ -2,4 +2,4 @@ server_url: ${SERVER_URL}
 speed: 1
 user_login: ${USER_LOGIN}
 user_password: ${USER_PASSWORD}
-headless: false
+headless: true

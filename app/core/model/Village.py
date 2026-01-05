@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from enum import Enum
-from playwright.sync_api import Page, Locator
+from playwright.sync_api import Page
 
 from app.config import Config
 
@@ -67,7 +67,22 @@ class Village:
         upgrade_button.click()
         print("Clicked upgrade button")
 
+    def building_queue_is_empty(self):
+        return len(self.building_queue) == 0
 
+    def lowest_source(self):
+        source_dict = {
+            SourceType.LUMBER: self.lumber,
+            SourceType.CLAY: self.clay,
+            SourceType.IRON: self.iron,
+            SourceType.CROP: self.crop,
+        }
+        
+        return min(source_dict, key=source_dict.get)
+
+    def pit_with_lowest_level_building(self, lowest_source: SourceType):
+        pits_with_given_type = [pit for pit in self.source_pits if pit.type == lowest_source]
+        return min(pits_with_given_type, key=lambda p: p.level)
 
 
 @dataclass

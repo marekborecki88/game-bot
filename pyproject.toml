@@ -10,6 +10,7 @@ python = "^3.14"
 playwright = "^1.57.0"
 pyyaml = "^6.0.3"
 python-dotenv = "^1.2.1"
+playwright-stealth = "^2.0.0"
 
 
 [build-system]

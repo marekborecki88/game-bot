@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
 from app.config import Config
-from app.model.Village import Village
-from playwright.sync_api import Page, Locator
+from app.core.model.Village import Village
+from playwright.sync_api import Page
 
 
 @dataclass
