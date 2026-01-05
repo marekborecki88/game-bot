@@ -3,6 +3,7 @@ import random
 
 from app.core.model.Village import Village, SourceType
 from app.driver_adapter.driver import Driver
+from app.driver_adapter.pause import pause_and_display_progress_bar
 from app.scan_adapter.scanner import Scanner
 
 
@@ -33,11 +34,15 @@ class Bot:
             if all_villages_have_building_queue:
                 shortest_queue_duration = shortest_building_queue(villages)
 
+                #TODO: this value should come from config
                 if shortest_queue_duration > 60*60*3:
                     print("All villages have building queues, but the shortest queue is longer than 3 hours. Exit loop.")
                     should_exit = True
                 else:
-                    time.sleep(shortest_queue_duration + random.uniform(7, 70))
+                    pause_and_display_progress_bar(
+                        pause_duration=shortest_queue_duration + random.uniform(7, 70),
+                        message="Waiting for the shortest building queue to finish..."
+                    )
 
 
     def even_build_economy(self, village: Village) -> None:
