@@ -9,7 +9,6 @@ config_path = Path(__file__).parent.parent / "config.yaml"
 config: Config = load_config(str(config_path))
 
 def run_bot():
-    print("run_bot() called")
     with sync_playwright() as playwright:
         driver: Driver = Driver(playwright=playwright, config=config)
         page = driver.login()
@@ -23,7 +22,6 @@ def run_bot():
 
 
 def main():
-    print("main called")
     run_bot()
 
 if __name__ == "__main__":

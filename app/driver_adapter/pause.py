@@ -1,7 +1,8 @@
+import sys
 import time
-from tqdm import tqdm
 
-def pause_and_display_progress_bar(pause_duration: float, message: str, interval: int = 5) -> None:
+
+def pause_and_display_progress_bar(pause_duration: int, message: str, refresh) -> None:
     """Pause execution for a specified duration while displaying a progress bar.
 
     Args:
@@ -11,13 +12,27 @@ def pause_and_display_progress_bar(pause_duration: float, message: str, interval
     """
 
 
-    print(message)
-    with tqdm(total=pause_duration, unit="s") as pbar:
-        elapsed = 0
-        while elapsed < pause_duration:
-            time.sleep(min(interval, pause_duration - elapsed))
-            elapsed += min(interval, pause_duration - elapsed)
-            pbar.update(min(interval, pause_duration - elapsed))
+    print(message, pause_duration/60, " minutes")
+    items = list(range(0, 100))
+    l = len(items)
+    interval = pause_duration / 100
 
-        #wait some random part of 1 second to avoid being too "bot-like"
-        time.sleep(random.uniform(0.1, 1.0))
+    total_time = 0
+    refresh_amount = 0
+
+    print_progress(0, l, prefix='Progress:', length=30)
+    for i, item in enumerate(items):
+        time.sleep(interval)
+        total_time += interval
+        print_progress(i + 1, l, prefix='Progress:', length=30)
+        if total_time >= (refresh_amount + 1) * 120:
+            refresh()
+            refresh_amount += 1
+
+def print_progress(iteration, total, prefix='', length=30):
+    percent = f"{100 * (iteration / float(total)):.1f}"
+    filled_length = int(length * iteration // total)
+    bar = '█' * filled_length + '-' * (length - filled_length)
+
+    sys.stdout.write(f'\r{prefix} |{bar}| {percent}% Complete')
+    sys.stdout.flush()
