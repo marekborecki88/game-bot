@@ -1,8 +1,8 @@
-import random
+import sys
+import time
 
 from app.core.model.Village import Village, SourceType
 from app.driver_adapter.driver import Driver
-from app.driver_adapter.pause import pause_and_display_progress_bar
 from app.scan_adapter.scanner import Scanner
 
 
@@ -44,12 +44,7 @@ class Bot:
                         "All villages have building queues, but the shortest queue is longer than 3 hours. Exit loop.")
                     should_exit = True
                 else:
-                    # this method is not precise, so for logs readability it would be better to rewrite it
-                    pause_and_display_progress_bar(
-                        pause_duration=shortest_queue_duration + random.randint(7, 70),
-                        message="Waiting for the shortest building queue to finish...",
-                        refresh=lambda: self.refresh()
-                    )
+                    self.wait_for_next_task(shortest_queue_duration)
 
     def even_build_economy(self, village: Village) -> None:
         # here we should check if first granary or warehouse upgrade is needed
@@ -63,8 +58,7 @@ class Bot:
             gid=pit.type.value
         )
 
-    def refresh(self) -> None:
-        print("Refreshing page...")
+    def _refresh(self) -> None:
         self.driver.page.reload()
 
     def build(self, village_name: str, id: int, gid: int) -> None:
@@ -80,3 +74,20 @@ class Bot:
         upgrade_button = self.driver.page.locator("button.textButtonV1.green.build").first
         upgrade_button.click()
         print("Clicked upgrade button")
+
+    def wait_for_next_task(self, seconds: int) -> None:
+        print(f"Wait {seconds} seconds for next task...")
+        self._count_down(seconds)
+
+    def _count_down(self, seconds: int) -> int:
+        if seconds == 0:
+            sys.stdout.write('\rWaiting for next task: Finished')
+            sys.stdout.flush()
+            return 0
+        elif seconds%60 == 0:
+            self._refresh()
+
+        sys.stdout.write(f'\rWaiting for next task: {seconds} seconds remaining')
+        time.sleep(1)
+        sys.stdout.flush()
+        return self._count_down(seconds - 1)
