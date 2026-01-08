@@ -8,6 +8,7 @@
     - Resource oriented
     - Military oriented (Defense/Offense)
     - Supporter (just support other account)
+3. Would be great to be able to define policies in configuration
 
 
 # MINOR TODOs
