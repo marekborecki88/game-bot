@@ -1,3 +1,4 @@
+# MAJOR TODOs
 1. There should be mechanism to:
     - Scan villages
     - Prepare list of tasks for each village (with some forecasting level of resources in time, based on buildings costs instructions)
@@ -7,3 +8,9 @@
     - Resource oriented
     - Military oriented (Defense/Offense)
     - Supporter (just support other account)
+
+
+# MINOR TODOs
+1. Refactor code to encapsulate features into correct classes
+2. Extract static values into configuration
+3. Introduce Interfaces to revert dependencies
