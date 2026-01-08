@@ -3,7 +3,6 @@ import re
 from playwright.sync_api import Page, Locator
 
 from app.config import Config
-from app.core.model.Account import Account
 from app.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
 
 
@@ -223,9 +222,8 @@ class Scanner:
         )
 
 
-    def scan(self) -> Account:
+    def scan(self) -> list[Village]:
         print("scanning account...")
         names = self.scan_village_list()
-        villages = [self.scan_village(name) for name in names]
-        return Account(villages=villages)
+        return [self.scan_village(name) for name in names]
 
