@@ -9,7 +9,8 @@ from app.scan_adapter.scanner import Scanner
 def shortest_building_queue(villages: list[Village]) -> int:
     return min([v.building_queue_duration() for v in villages])
 
-
+# this class should be just an interface
+# the implementation should be in driver_adapter
 class Bot:
     def __init__(self, driver: Driver, scanner: Scanner):
         self.driver = driver
