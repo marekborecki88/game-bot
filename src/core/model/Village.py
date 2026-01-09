@@ -147,3 +147,9 @@ class BuildingJob:
     building_id: int
     target_level: int
     time_remaining: int
+
+@dataclass
+class VillageIdentity:
+    name: str
+    coordinate_x: int
+    coordinate_y: int

@@ -1,12 +1,12 @@
 import re
+from bs4 import BeautifulSoup
 
 from playwright.sync_api import Page, Locator
 
-from app.config import Config
-from app.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
 from src.config import Config
 from src.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
 from src.core.model.Village import Building, BuildingType
+from src.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity
 
 
 def _parse_resource_value(text: str) -> int:
@@ -32,19 +32,54 @@ def parse_int_or_zero(text_number: Locator):
 # it should just accept peaces of html and return data models
 # methods of this class should be invoked by other part of the app where driver is invoked as well to grab html
 class Scanner:
-    def __init__(self, page: Page, config: Config):
+    def __init__(self, page: Page = None, config: Config = None):
         self.page = page
         self.config = config
 
 
-    def scan_village_list(self) -> list[str]:
-        """Scan the list of villages from the village overview page."""
-        print("scanning village list...")
-        self.page.goto(f"{self.config.server_url}/dorf1.php")
-        self.page.wait_for_selector(".villageList")
-        names = self.page.locator(".villageList .name")
+    def scan_village_list(self, html: str) -> list[VillageIdentity]:
+        """Parse village names and coordinates from HTML string."""
 
-        return list(map(clean_inner_text, names.all()))
+        soup = BeautifulSoup(html, 'html.parser')
+        villages = []
+
+        # Find all village list entries
+        village_entries = soup.select('.villageList .listEntry.village')
+
+        for entry in village_entries:
+            # Extract village name
+            name_elem = entry.select_one('.name')
+            if not name_elem:
+                continue
+            name = name_elem.get_text().strip()
+
+            # Extract coordinates
+            coord_x_elem = entry.select_one('.coordinateX')
+            coord_y_elem = entry.select_one('.coordinateY')
+
+            if not coord_x_elem or not coord_y_elem:
+                continue
+
+            # Parse X coordinate - remove LTR markers and parenthesis
+            x_text = coord_x_elem.get_text().strip()
+            x_cleaned = "".join(c for c in x_text if c.isdigit() or c == '-')
+            coordinate_x = int(x_cleaned) if x_cleaned else 0
+
+            # Parse Y coordinate - remove LTR markers and parenthesis
+            y_text = coord_y_elem.get_text().strip()
+            # Remove UNICODE markers and extract the number
+            y_cleaned = "".join(c for c in y_text if c.isdigit() or c == '-' or c == '−')
+            # Replace minus sign (−) with hyphen (-)
+            y_cleaned = y_cleaned.replace('−', '-')
+            coordinate_y = int(y_cleaned) if y_cleaned else 0
+
+            villages.append(VillageIdentity(
+                name=name,
+                coordinate_x=coordinate_x,
+                coordinate_y=coordinate_y
+            ))
+
+        return villages
 
 
     def scan_village_source(self) -> list[SourcePit]:
@@ -226,6 +261,11 @@ class Scanner:
 
     def scan(self) -> list[Village]:
         print("scanning account...")
-        names = self.scan_village_list()
-        return [self.scan_village(name) for name in names]
+        # Navigate to village overview and get the HTML
+        self.page.goto(f"{self.config.server_url}/dorf1.php")
+        self.page.wait_for_selector(".villageList")
+        html = self.page.content()
+
+        village_identities = self.scan_village_list(html)
+        return [self.scan_village(village.name) for village in village_identities]
 
