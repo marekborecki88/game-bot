@@ -37,35 +37,29 @@ class Scanner:
         self.config = config
 
 
+    def _extract_text(self, entry, css_class: str) -> str:
+        """Extract text content from HTML element."""
+        elem = entry.select_one(css_class)
+        if not elem:
+            raise ValueError(f"Element missing {css_class}")
+        return elem.get_text().strip()
+
+    def _extract_coordinate(self, entry, css_class: str, village_name: str) -> int:
+        """Extract and parse a coordinate value from HTML element."""
+        coord_elem = entry.select_one(css_class)
+        if not coord_elem:
+            raise ValueError(f"Village '{village_name}' missing {css_class} element")
+
+        coord_text = coord_elem.get_text().strip()
+        coord_cleaned = "".join(c for c in coord_text if c.isdigit() or c == '-' or c == '−')
+        coord_cleaned = coord_cleaned.replace('−', '-')
+        return int(coord_cleaned) if coord_cleaned else 0
+
     def _parse_village_entry(self, entry) -> VillageIdentity:
         """Parse a single village entry from HTML element."""
-        # Extract village name
-        name_elem = entry.select_one('.name')
-        if not name_elem:
-            raise ValueError("Village entry missing .name element")
-        name = name_elem.get_text().strip()
-
-        # Extract coordinates
-        coord_x_elem = entry.select_one('.coordinateX')
-        coord_y_elem = entry.select_one('.coordinateY')
-
-        if not coord_x_elem:
-            raise ValueError(f"Village '{name}' missing .coordinateX element")
-        if not coord_y_elem:
-            raise ValueError(f"Village '{name}' missing .coordinateY element")
-
-        # Parse X coordinate - remove LTR markers and parenthesis
-        x_text = coord_x_elem.get_text().strip()
-        x_cleaned = "".join(c for c in x_text if c.isdigit() or c == '-')
-        coordinate_x = int(x_cleaned) if x_cleaned else 0
-
-        # Parse Y coordinate - remove LTR markers and parenthesis
-        y_text = coord_y_elem.get_text().strip()
-        # Remove UNICODE markers and extract the number
-        y_cleaned = "".join(c for c in y_text if c.isdigit() or c == '-' or c == '−')
-        # Replace minus sign (−) with hyphen (-)
-        y_cleaned = y_cleaned.replace('−', '-')
-        coordinate_y = int(y_cleaned) if y_cleaned else 0
+        name = self._extract_text(entry, '.name')
+        coordinate_x = self._extract_coordinate(entry, '.coordinateX', name)
+        coordinate_y = self._extract_coordinate(entry, '.coordinateY', name)
 
         return VillageIdentity(
             name=name,
