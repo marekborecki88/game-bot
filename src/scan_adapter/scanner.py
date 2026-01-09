@@ -44,22 +44,26 @@ class Scanner:
             raise ValueError(f"Element missing {css_class}")
         return elem.get_text().strip()
 
-    def _extract_coordinate(self, entry, css_class: str, village_name: str) -> int:
-        """Extract and parse a coordinate value from HTML element."""
-        coord_elem = entry.select_one(css_class)
-        if not coord_elem:
-            raise ValueError(f"Village '{village_name}' missing {css_class} element")
+    def _extract_number(self, entry, css_class: str) -> int:
+        """Extract and parse a number value from HTML element."""
+        element = entry.select_one(css_class)
+        if not element:
+            raise ValueError(f"Element missing {css_class}")
 
-        coord_text = coord_elem.get_text().strip()
-        coord_cleaned = "".join(c for c in coord_text if c.isdigit() or c == '-' or c == '−')
-        coord_cleaned = coord_cleaned.replace('−', '-')
-        return int(coord_cleaned) if coord_cleaned else 0
+        return self._parse_number(element.get_text())
+
+    def _parse_number(self, text: str) -> int:
+        text = text.strip().replace('−', '-')
+        cleaned_text = "".join(c for c in text if c.isdigit() or c == '-')
+        if not cleaned_text:
+            raise ValueError(f"text {text} contains no valid number")
+        return int(cleaned_text)
 
     def _parse_village_entry(self, entry) -> VillageIdentity:
         """Parse a single village entry from HTML element."""
         name = self._extract_text(entry, '.name')
-        coordinate_x = self._extract_coordinate(entry, '.coordinateX', name)
-        coordinate_y = self._extract_coordinate(entry, '.coordinateY', name)
+        coordinate_x = self._extract_number(entry, '.coordinateX')
+        coordinate_y = self._extract_number(entry, '.coordinateY')
 
         return VillageIdentity(
             name=name,
