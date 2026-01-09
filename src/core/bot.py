@@ -1,9 +1,9 @@
 import sys
 import time
 
-from app.core.model.Village import Village, SourceType
-from app.driver_adapter.driver import Driver
-from app.scan_adapter.scanner import Scanner
+from src.core.model.Village import Village, SourceType
+from src.driver_adapter.driver import Driver
+from src.scan_adapter.scanner import Scanner
 
 
 def shortest_building_queue(villages: list[Village]) -> int:

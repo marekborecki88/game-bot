@@ -4,6 +4,9 @@ from playwright.sync_api import Page, Locator
 
 from app.config import Config
 from app.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
+from src.config import Config
+from src.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
+from src.core.model.Village import Building, BuildingType
 
 
 def _parse_resource_value(text: str) -> int:
@@ -91,7 +94,6 @@ class Scanner:
 
     def scan_village_center(self) -> list[Building]:
         """Scan all buildings from the village center view."""
-        from app.core.model.Village import Building, BuildingType
 
         self.page.goto(f"{self.config.server_url}/dorf2.php")
         self.page.wait_for_selector("#villageContent")

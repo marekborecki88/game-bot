@@ -3,7 +3,7 @@ import time
 
 from playwright.sync_api import Playwright
 
-from app.config import Config
+from src.config import Config
 
 
 class Driver:

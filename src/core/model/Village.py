@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from playwright.sync_api import Page
 
-from app.config import Config
+from src.config import Config
 
 
 @dataclass
