@@ -37,49 +37,47 @@ class Scanner:
         self.config = config
 
 
+    def _parse_village_entry(self, entry) -> VillageIdentity:
+        """Parse a single village entry from HTML element."""
+        # Extract village name
+        name_elem = entry.select_one('.name')
+        if not name_elem:
+            raise ValueError("Village entry missing .name element")
+        name = name_elem.get_text().strip()
+
+        # Extract coordinates
+        coord_x_elem = entry.select_one('.coordinateX')
+        coord_y_elem = entry.select_one('.coordinateY')
+
+        if not coord_x_elem:
+            raise ValueError(f"Village '{name}' missing .coordinateX element")
+        if not coord_y_elem:
+            raise ValueError(f"Village '{name}' missing .coordinateY element")
+
+        # Parse X coordinate - remove LTR markers and parenthesis
+        x_text = coord_x_elem.get_text().strip()
+        x_cleaned = "".join(c for c in x_text if c.isdigit() or c == '-')
+        coordinate_x = int(x_cleaned) if x_cleaned else 0
+
+        # Parse Y coordinate - remove LTR markers and parenthesis
+        y_text = coord_y_elem.get_text().strip()
+        # Remove UNICODE markers and extract the number
+        y_cleaned = "".join(c for c in y_text if c.isdigit() or c == '-' or c == '−')
+        # Replace minus sign (−) with hyphen (-)
+        y_cleaned = y_cleaned.replace('−', '-')
+        coordinate_y = int(y_cleaned) if y_cleaned else 0
+
+        return VillageIdentity(
+            name=name,
+            coordinate_x=coordinate_x,
+            coordinate_y=coordinate_y
+        )
+
     def scan_village_list(self, html: str) -> list[VillageIdentity]:
         """Parse village names and coordinates from HTML string."""
-
         soup = BeautifulSoup(html, 'html.parser')
-        villages = []
-
-        # Find all village list entries
         village_entries = soup.select('.villageList .listEntry.village')
-
-        for entry in village_entries:
-            # Extract village name
-            name_elem = entry.select_one('.name')
-            if not name_elem:
-                continue
-            name = name_elem.get_text().strip()
-
-            # Extract coordinates
-            coord_x_elem = entry.select_one('.coordinateX')
-            coord_y_elem = entry.select_one('.coordinateY')
-
-            if not coord_x_elem or not coord_y_elem:
-                continue
-
-            # Parse X coordinate - remove LTR markers and parenthesis
-            x_text = coord_x_elem.get_text().strip()
-            x_cleaned = "".join(c for c in x_text if c.isdigit() or c == '-')
-            coordinate_x = int(x_cleaned) if x_cleaned else 0
-
-            # Parse Y coordinate - remove LTR markers and parenthesis
-            y_text = coord_y_elem.get_text().strip()
-            # Remove UNICODE markers and extract the number
-            y_cleaned = "".join(c for c in y_text if c.isdigit() or c == '-' or c == '−')
-            # Replace minus sign (−) with hyphen (-)
-            y_cleaned = y_cleaned.replace('−', '-')
-            coordinate_y = int(y_cleaned) if y_cleaned else 0
-
-            villages.append(VillageIdentity(
-                name=name,
-                coordinate_x=coordinate_x,
-                coordinate_y=coordinate_y
-            ))
-
-        return villages
+        return [self._parse_village_entry(entry) for entry in village_entries]
 
 
     def scan_village_source(self) -> list[SourcePit]:
