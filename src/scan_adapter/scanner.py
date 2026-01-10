@@ -255,13 +255,9 @@ class Scanner:
         )
 
 
-    def scan(self) -> list[Village]:
+    def scan(self, dorf1: str) -> list[Village]:
         print("scanning account...")
-        # Navigate to village overview and get the HTML
-        self.page.goto(f"{self.config.server_url}/dorf1.php")
-        self.page.wait_for_selector(".villageList")
-        html = self.page.content()
 
-        village_identities = self.scan_village_list(html)
+        village_identities = self.scan_village_list(dorf1)
         return [self.scan_village(village.name) for village in village_identities]
 

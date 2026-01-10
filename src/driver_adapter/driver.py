@@ -34,3 +34,8 @@ class Driver:
 
     def stop(self):
         self.browser.close()
+
+    def get_html(self, dorf: str):
+        self.page.goto(f"{self.config.server_url}/{dorf}.php")
+        self.page.wait_for_selector(".villageList")
+        return self.page.content()

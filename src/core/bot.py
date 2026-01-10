@@ -21,9 +21,8 @@ class Bot:
         should_exit = False
         all_villages_have_building_queue = False
         while not should_exit:
-            account = self.scanner.scan()
-
-            villages = account.villages
+            dorf1: str = self.driver.get_html("dorf1")
+            villages = self.scanner.scan(dorf1)
 
             print("checking villages without building queue...")
 
