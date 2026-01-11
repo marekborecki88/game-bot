@@ -18,33 +18,15 @@ class Bot:
 
     def run(self):
         print("running bot...")
+
         should_exit = False
-        all_villages_have_building_queue = False
+
         while not should_exit:
             dorf1: str = self.driver.get_html("dorf1")
-            villages = self.scanner.scan(dorf1)
+            dorf2: str = self.driver.get_html("dorf2")
 
-            print("checking villages without building queue...")
+            village: Village = self.scanner.scan_village(dorf1, dorf2)
 
-            villages_without_building_queue = [v for v in villages if v.building_queue_is_empty()]
-
-            [self.even_build_economy(v) for v in villages_without_building_queue]
-
-            if len(villages_without_building_queue) == 0:
-                if not all_villages_have_building_queue:
-                    print("All villages have building queues. Waiting...")
-                all_villages_have_building_queue = True
-
-            if all_villages_have_building_queue:
-                shortest_queue_duration = shortest_building_queue(villages)
-
-                # TODO: this value should come from config
-                if shortest_queue_duration > 60 * 60 * 3:
-                    print(
-                        "All villages have building queues, but the shortest queue is longer than 3 hours. Exit loop.")
-                    should_exit = True
-                else:
-                    self.wait_for_next_task(shortest_queue_duration)
 
     def even_build_economy(self, village: Village) -> None:
         # here we should check if first granary or warehouse upgrade is needed

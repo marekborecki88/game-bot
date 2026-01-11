@@ -78,7 +78,7 @@ class Scanner:
         return [self._parse_village_entry(entry) for entry in village_entries]
 
 
-    def scan_village_source(self) -> list[SourcePit]:
+    def scan_village_source(self, html: str) -> list[SourcePit]:
         """Scan all resource fields from the village resource view."""
 
         # Wait for the resource field container to appear
@@ -123,7 +123,7 @@ class Scanner:
 
         return source_pits
 
-    def scan_village_center(self) -> list[Building]:
+    def scan_village_center(self, html: str) -> list[Building]:
         """Scan all buildings from the village center view."""
 
         self.page.goto(f"{self.config.server_url}/dorf2.php")
@@ -170,7 +170,7 @@ class Scanner:
         return buildings
 
 
-    def scan_building_queue(self) -> list[BuildingJob]:
+    def scan_building_queue(self, html: str) -> list[BuildingJob]:
         """Scan the building queue from the current page."""
         building_queue = []
 
@@ -215,7 +215,7 @@ class Scanner:
         return building_queue
 
 
-    def scan_stock_bar(self) -> dict:
+    def scan_stock_bar(self, html: str) -> dict:
         stock_bar = self.page.locator("#stockBar")
 
         # Parse warehouse capacity
@@ -245,13 +245,13 @@ class Scanner:
             "granary_capacity": granary_capacity,
         }
 
-    def scan_village(self, name) -> Village:
+    def scan_village(self, dorf1, dorf2) -> Village:
         return Village(
-            name=name,
-            source_pits=(self.scan_village_source()),
-            buildings=(self.scan_village_center()),
-            building_queue=(self.scan_building_queue()),
-            **(self.scan_stock_bar())
+            name=(self.scan_village_name(dorf1)),
+            source_pits=(self.scan_village_source(dorf1)),
+            buildings=(self.scan_village_center(dorf2)),
+            building_queue=(self.scan_building_queue(dorf1)),
+            **(self.scan_stock_bar(dorf1))
         )
 
 
@@ -260,4 +260,7 @@ class Scanner:
 
         village_identities = self.scan_village_list(dorf1)
         return [self.scan_village(village.name) for village in village_identities]
+
+    def scan_village_name(self, dorf1) -> str:
+        pass
 
