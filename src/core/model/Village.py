@@ -37,6 +37,7 @@ def scan_contract(page: Page) -> BuildingContract:
 
 @dataclass
 class Village:
+    id: int
     name: str
     lumber: int
     clay: int
