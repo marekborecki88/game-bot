@@ -6,18 +6,24 @@ from src.scan_adapter.scanner import Scanner
 
 
 @pytest.fixture
-def html_content():
+def dorf1_html():
     test_dir = Path(__file__).parent
     html_file = test_dir / "dorf1.html"
     return html_file.read_text(encoding='utf-8')
 
+@pytest.fixture
+def dorf2_html():
+    test_dir = Path(__file__).parent
+    html_file = test_dir / "dorf2.html"
+    return html_file.read_text(encoding='utf-8')
 
-def test_scan_village_list(html_content):
+
+def test_scan_village_list(dorf1_html):
     # Given
     scanner = Scanner()
 
     # When
-    result = scanner.scan_village_list(html_content)
+    result = scanner.scan_village_list(dorf1_html)
 
     # Then
     assert len(result) == 3
@@ -26,12 +32,12 @@ def test_scan_village_list(html_content):
     assert result[2] == VillageIdentity(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
 
 
-def test_scan_village_source(html_content):
+def test_scan_village_source(dorf1_html):
     # Given
     scanner = Scanner()
 
     # When
-    result = scanner.scan_village_source(html_content)
+    result = scanner.scan_village_source(dorf1_html)
 
     # Then
     assert len(result) == 18
