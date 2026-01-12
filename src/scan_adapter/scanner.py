@@ -69,6 +69,40 @@ def scan_village_name(dorf1: str) -> str:
     return active_village.get_text().strip()
 
 
+def scan_stock_bar(html: str) -> dict:
+    soup = BeautifulSoup(html, 'html.parser')
+    stock_bar = soup.select_one("#stockBar")
+    if not stock_bar:
+        raise ValueError("Stock bar not found in HTML")
+
+    # Parse warehouse capacity
+    warehouse_capacity = _parse_resource_value(
+        stock_bar.select_one(".warehouse .capacity .value").get_text()
+    )
+
+    # Parse granary capacity
+    granary_capacity = _parse_resource_value(
+        stock_bar.select_one(".granary .capacity .value").get_text()
+    )
+
+    # Parse resources
+    lumber = _parse_resource_value(stock_bar.select_one("#l1").get_text())
+    clay = _parse_resource_value(stock_bar.select_one("#l2").get_text())
+    iron = _parse_resource_value(stock_bar.select_one("#l3").get_text())
+    crop = _parse_resource_value(stock_bar.select_one("#l4").get_text())
+    free_crop = _parse_resource_value(stock_bar.select_one("#stockBarFreeCrop").get_text())
+
+    return {
+        "lumber": lumber,
+        "clay": clay,
+        "iron": iron,
+        "crop": crop,
+        "free_crop": free_crop,
+        "warehouse_capacity": warehouse_capacity,
+        "granary_capacity": granary_capacity,
+    }
+
+
 class Scanner:
     def __init__(self, page: Page = None, config: Config = None):
         self.page = page
@@ -213,37 +247,6 @@ class Scanner:
 
         return building_queue
 
-
-    def scan_stock_bar(self, html: str) -> dict:
-        stock_bar = self.page.locator("#stockBar")
-
-        # Parse warehouse capacity
-        warehouse_capacity = _parse_resource_value(
-            stock_bar.locator(".warehouse .capacity .value").inner_text()
-        )
-
-        # Parse granary capacity
-        granary_capacity = _parse_resource_value(
-            stock_bar.locator(".granary .capacity .value").inner_text()
-        )
-
-        # Parse resources
-        lumber = _parse_resource_value(stock_bar.locator("#l1").inner_text())
-        clay = _parse_resource_value(stock_bar.locator("#l2").inner_text())
-        iron = _parse_resource_value(stock_bar.locator("#l3").inner_text())
-        crop = _parse_resource_value(stock_bar.locator("#l4").inner_text())
-        free_crop = _parse_resource_value(stock_bar.locator("#stockBarFreeCrop").inner_text())
-
-        return {
-            "lumber": lumber,
-            "clay": clay,
-            "iron": iron,
-            "crop": crop,
-            "free_crop": free_crop,
-            "warehouse_capacity": warehouse_capacity,
-            "granary_capacity": granary_capacity,
-        }
-
     def scan_village(self, village_id: int, dorf1, dorf2) -> Village:
         return Village(
             id=village_id,
@@ -251,7 +254,7 @@ class Scanner:
             source_pits=(self.scan_village_source(dorf1)),
             buildings=(self.scan_village_center(dorf2)),
             building_queue=(self.scan_building_queue(dorf1)),
-            **(self.scan_stock_bar(dorf1))
+            **(scan_stock_bar(dorf1))
         )
 
 

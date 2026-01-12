@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from src.core.model.Village import VillageIdentity, SourcePit, SourceType, Building, BuildingType
-from src.scan_adapter.scanner import Scanner
+from src.scan_adapter.scanner import Scanner, scan_village_name, scan_stock_bar
 
 
 @pytest.fixture
@@ -95,3 +95,21 @@ def test_scan_village_name(dorf1_html):
 
     # Then
     assert result == "New village"
+
+
+def test_scan_stock_bar(dorf1_html):
+    # When
+    result = scan_stock_bar(dorf1_html)
+
+    # Then
+    expected = {
+        "lumber": 5636,
+        "clay": 5475,
+        "iron": 5844,
+        "crop": 14284,
+        "free_crop": 1503,
+        "warehouse_capacity": 6300,
+        "granary_capacity": 14400,
+    }
+    assert result == expected
+
