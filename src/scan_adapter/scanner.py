@@ -1,11 +1,10 @@
 import re
-from bs4 import BeautifulSoup
 
+from bs4 import BeautifulSoup
 from playwright.sync_api import Page, Locator
 
 from src.config import Config
-from src.core.model.Village import Building, BuildingType
-from src.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity
+from src.core.model.Village import BuildingType, Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity
 
 
 def _parse_resource_value(text: str) -> int:
@@ -74,6 +73,13 @@ class Scanner:
             coordinate_y=coordinate_y
         )
 
+    def _extract_by_regex(self, pattern: str, text: str) -> str:
+        """Extract the first capturing group from text using regex pattern. Raises ValueError if not found."""
+        match = re.search(pattern, text)
+        if not match or not match.groups():
+            raise ValueError(f"Pattern {pattern} not found or no capturing group in text: '{text}'")
+        return match.group(1)
+
     def scan_village_list(self, html: str) -> list[VillageIdentity]:
         """Parse village names and coordinates from HTML string."""
         soup = BeautifulSoup(html, 'html.parser')
@@ -99,19 +105,13 @@ class Scanner:
             if "villageCenter" in class_str:
                 continue
 
-            gid_match = re.search(r'gid(\d+)', class_str)
-            if not gid_match:
-                continue
-            gid = int(gid_match.group(1))
+            gid = int(self._extract_by_regex(r'gid(\d+)', class_str))
 
             # Map gid to SourceType
             source_type = next((st for st in SourceType if st.value == gid), None)
 
             # Extract buildingSlot (field id)
-            slot_match = re.search(r'buildingSlot(\d+)', class_str)
-            if not slot_match:
-                continue
-            field_id = int(slot_match.group(1))
+            field_id = int(self._extract_by_regex(r'buildingSlot(\d+)', class_str))
 
             # Extract level
             level_match = re.search(r'level(\d+)', class_str)
@@ -141,10 +141,7 @@ class Scanner:
             class_attr = slot.get_attribute("class") or ""
 
             # Extract gid (building type)
-            gid_match = re.search(r'g(\d+)', class_attr)
-            if not gid_match:
-                continue
-            gid = int(gid_match.group(1))
+            gid = int(self._extract_by_regex(r'g(\d+)', class_attr))
 
             # Skip empty slots (gid 0)
             if gid == 0:
@@ -154,10 +151,7 @@ class Scanner:
             building_type = next((bt for bt in BuildingType if bt.value == gid), None)
 
             # Extract building slot id
-            slot_match = re.search(r'a(\d+)', class_attr)
-            if not slot_match:
-                continue
-            building_id = int(slot_match.group(1))
+            building_id = int(self._extract_by_regex(r'a(\d+)', class_attr))
 
             # Extract level from the level element
             level_elem = slot.locator(".labelLayer")
