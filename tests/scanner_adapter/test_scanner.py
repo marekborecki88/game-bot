@@ -41,7 +41,7 @@ def test_scan_village_source(dorf1_html):
     scanner = Scanner()
 
     # When
-    result = scanner.scan_village_source(dorf1_html)
+    result = scan_village_source(dorf1_html)
 
     # Then
     expected = [
@@ -73,7 +73,7 @@ def test_scan_village_center(dorf2_html):
     scanner = Scanner()
 
     # When
-    result = scanner.scan_village_center(dorf2_html)
+    result = scan_village_center(dorf2_html)
 
     # Then
     expected = [

@@ -17,17 +17,6 @@ def clean_inner_text(html) -> str:
     return html.inner_text().strip()
 
 
-def parse_int_or_zero(text_number: Locator):
-    if text_number.count() > 0:
-        level_text = clean_inner_text(text_number.first)
-        if level_text.isdigit():
-            return int(level_text)
-
-    return 0
-
-#TODO: this class should be refactored
-# it should just accept peaces of html and return data models
-# methods of this class should be invoked by other part of the app where driver is invoked as well to grab html
 def _extract_by_regex(pattern: str, text: str) -> str:
     """Extract the first capturing group from text using regex pattern. Raises ValueError if not found."""
     match = re.search(pattern, text)
@@ -103,18 +92,75 @@ def scan_stock_bar(html: str) -> dict:
     }
 
 
+def _extract_text(entry, css_class: str) -> str:
+    """Extract text content from HTML element."""
+    elem = entry.select_one(css_class)
+    if not elem:
+        raise ValueError(f"Element missing {css_class}")
+    return elem.get_text().strip()
+
+
+def _parse_number(text: str) -> int:
+    text = text.strip().replace('−', '-')
+    cleaned_text = "".join(c for c in text if c.isdigit() or c == '-')
+    if not cleaned_text:
+        raise ValueError(f"text {text} contains no valid number")
+    return int(cleaned_text)
+
+
+def scan_village_source(html: str) -> list[SourcePit]:
+    soup = BeautifulSoup(html, 'html.parser')
+    container = soup.select_one("#resourceFieldContainer")
+    if not container:
+        raise ValueError("Resource field container not found in HTML")
+
+    resource_fields = container.select("a")
+    source_pits = []
+
+    for field in resource_fields:
+        class_attr = field.get('class', "")
+        class_str = ' '.join(class_attr) if isinstance(class_attr, list) else class_attr
+
+        # Skip if it's the village center
+        if "villageCenter" in class_str:
+            continue
+
+        gid = int(_extract_by_regex(r'gid(\d+)', class_str))
+
+        # Map gid to SourceType
+        source_type = next((st for st in SourceType if st.value == gid), None)
+
+        # Extract buildingSlot (field id)
+        field_id = int(_extract_by_regex(r'buildingSlot(\d+)', class_str))
+
+        # Extract level
+        level_match = re.search(r'level(\d+)', class_str)
+        level = int(level_match.group(1)) if level_match else 0
+
+        source_pits.append(SourcePit(
+            id=field_id,
+            type=source_type,
+            level=level,
+        ))
+
+    return source_pits
+
+
+def scan_village_center(html: str) -> list[Building]:
+    soup = BeautifulSoup(html, 'html.parser')
+    container = soup.select_one("#villageContent")
+    if not container:
+        raise ValueError("Village container not found in HTML")
+
+    building_slots = container.select("div.buildingSlot")
+
+    return [building for slot in building_slots if (building := _scan_building(slot))]
+
+
 class Scanner:
     def __init__(self, page: Page = None, config: Config = None):
         self.page = page
         self.config = config
-
-
-    def _extract_text(self, entry, css_class: str) -> str:
-        """Extract text content from HTML element."""
-        elem = entry.select_one(css_class)
-        if not elem:
-            raise ValueError(f"Element missing {css_class}")
-        return elem.get_text().strip()
 
     def _extract_number(self, entry, css_class: str) -> int:
         """Extract and parse a number value from HTML element."""
@@ -122,14 +168,7 @@ class Scanner:
         if not element:
             raise ValueError(f"Element missing {css_class}")
 
-        return self._parse_number(element.get_text())
-
-    def _parse_number(self, text: str) -> int:
-        text = text.strip().replace('−', '-')
-        cleaned_text = "".join(c for c in text if c.isdigit() or c == '-')
-        if not cleaned_text:
-            raise ValueError(f"text {text} contains no valid number")
-        return int(cleaned_text)
+        return _parse_number(element.get_text())
 
     def _parse_village_entry(self, entry) -> VillageIdentity:
         """Parse a single village entry from HTML element."""
@@ -137,7 +176,7 @@ class Scanner:
         if not village_id:
             raise ValueError("Village entry missing data-did attribute")
 
-        name = self._extract_text(entry, '.name')
+        name = _extract_text(entry, '.name')
         coordinate_x = self._extract_number(entry, '.coordinateX')
         coordinate_y = self._extract_number(entry, '.coordinateY')
 
@@ -153,55 +192,6 @@ class Scanner:
         soup = BeautifulSoup(html, 'html.parser')
         village_entries = soup.select('.villageList .listEntry.village')
         return [self._parse_village_entry(entry) for entry in village_entries]
-
-
-    def scan_village_source(self, html: str) -> list[SourcePit]:
-        soup = BeautifulSoup(html, 'html.parser')
-        container = soup.select_one("#resourceFieldContainer")
-        if not container:
-            raise ValueError("Resource field container not found in HTML")
-
-        resource_fields = container.select("a")
-        source_pits = []
-
-        for field in resource_fields:
-            class_attr = field.get('class', "")
-            class_str = ' '.join(class_attr) if isinstance(class_attr, list) else class_attr
-
-            # Skip if it's the village center
-            if "villageCenter" in class_str:
-                continue
-
-            gid = int(_extract_by_regex(r'gid(\d+)', class_str))
-
-            # Map gid to SourceType
-            source_type = next((st for st in SourceType if st.value == gid), None)
-
-            # Extract buildingSlot (field id)
-            field_id = int(_extract_by_regex(r'buildingSlot(\d+)', class_str))
-
-            # Extract level
-            level_match = re.search(r'level(\d+)', class_str)
-            level = int(level_match.group(1)) if level_match else 0
-
-            source_pits.append(SourcePit(
-                id=field_id,
-                type=source_type,
-                level=level,
-            ))
-
-        return source_pits
-
-    def scan_village_center(self, html: str) -> list[Building]:
-        soup = BeautifulSoup(html, 'html.parser')
-        container = soup.select_one("#villageContent")
-        if not container:
-            raise ValueError("Village container not found in HTML")
-
-        building_slots = container.select("div.buildingSlot")
-
-        return [building for slot in building_slots if (building := _scan_building(slot))]
-
 
     def scan_building_queue(self, html: str) -> list[BuildingJob]:
         """Scan the building queue from the current page."""
@@ -251,8 +241,8 @@ class Scanner:
         return Village(
             id=village_id,
             name=(scan_village_name(dorf1)),
-            source_pits=(self.scan_village_source(dorf1)),
-            buildings=(self.scan_village_center(dorf2)),
+            source_pits=(scan_village_source(dorf1)),
+            buildings=(scan_village_center(dorf2)),
             building_queue=(self.scan_building_queue(dorf1)),
             **(scan_stock_bar(dorf1))
         )
