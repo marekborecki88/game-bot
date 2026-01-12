@@ -28,6 +28,47 @@ def parse_int_or_zero(text_number: Locator):
 #TODO: this class should be refactored
 # it should just accept peaces of html and return data models
 # methods of this class should be invoked by other part of the app where driver is invoked as well to grab html
+def _extract_by_regex(pattern: str, text: str) -> str:
+    """Extract the first capturing group from text using regex pattern. Raises ValueError if not found."""
+    match = re.search(pattern, text)
+    if not match or not match.groups():
+        raise ValueError(f"Pattern {pattern} not found or no capturing group in text: '{text}'")
+    return match.group(1)
+
+
+def _scan_building(slot: Tag) -> Building | None:
+    class_attr = slot.get('class', "")
+    class_str = " ".join(class_attr) if isinstance(class_attr, list) else class_attr
+
+    # Extract gid (building type)
+    gid = int(_extract_by_regex(r'g(\d+)', class_str))
+
+    # Skip empty slots (gid 0)
+    if gid == 0:
+        return None
+
+    # Extract building slot id
+    building_id = int(_extract_by_regex(r'a(\d+)', class_str))
+
+    # Extract level from the level element
+    level_elem = slot.select_one(".labelLayer")
+    level = int(level_elem.text) if level_elem else 0
+
+    return Building(
+        id=building_id,
+        type=(BuildingType(gid)),
+        level=level,
+    )
+
+
+def scan_village_name(dorf1: str) -> str:
+    soup = BeautifulSoup(dorf1, 'html.parser')
+    active_village = soup.select_one('.villageList .listEntry.village.active .name')
+    if not active_village:
+        raise ValueError("Active village name not found in HTML")
+    return active_village.get_text().strip()
+
+
 class Scanner:
     def __init__(self, page: Page = None, config: Config = None):
         self.page = page
@@ -73,13 +114,6 @@ class Scanner:
             coordinate_y=coordinate_y
         )
 
-    def _extract_by_regex(self, pattern: str, text: str) -> str:
-        """Extract the first capturing group from text using regex pattern. Raises ValueError if not found."""
-        match = re.search(pattern, text)
-        if not match or not match.groups():
-            raise ValueError(f"Pattern {pattern} not found or no capturing group in text: '{text}'")
-        return match.group(1)
-
     def scan_village_list(self, html: str) -> list[VillageIdentity]:
         """Parse village names and coordinates from HTML string."""
         soup = BeautifulSoup(html, 'html.parser')
@@ -104,13 +138,13 @@ class Scanner:
             if "villageCenter" in class_str:
                 continue
 
-            gid = int(self._extract_by_regex(r'gid(\d+)', class_str))
+            gid = int(_extract_by_regex(r'gid(\d+)', class_str))
 
             # Map gid to SourceType
             source_type = next((st for st in SourceType if st.value == gid), None)
 
             # Extract buildingSlot (field id)
-            field_id = int(self._extract_by_regex(r'buildingSlot(\d+)', class_str))
+            field_id = int(_extract_by_regex(r'buildingSlot(\d+)', class_str))
 
             # Extract level
             level_match = re.search(r'level(\d+)', class_str)
@@ -132,7 +166,7 @@ class Scanner:
 
         building_slots = container.select("div.buildingSlot")
 
-        return [building for slot in building_slots if (building := self._scan_building(slot))]
+        return [building for slot in building_slots if (building := _scan_building(slot))]
 
 
     def scan_building_queue(self, html: str) -> list[BuildingJob]:
@@ -213,7 +247,7 @@ class Scanner:
     def scan_village(self, village_id: int, dorf1, dorf2) -> Village:
         return Village(
             id=village_id,
-            name=(self.scan_village_name(dorf1)),
+            name=(scan_village_name(dorf1)),
             source_pits=(self.scan_village_source(dorf1)),
             buildings=(self.scan_village_center(dorf2)),
             building_queue=(self.scan_building_queue(dorf1)),
@@ -226,34 +260,3 @@ class Scanner:
 
         village_identities = self.scan_village_list(dorf1)
         return [self.scan_village(village.id, dorf1, dorf1) for village in village_identities]
-
-    def scan_village_name(self, dorf1: str) -> str:
-        soup = BeautifulSoup(dorf1, 'html.parser')
-        active_village = soup.select_one('.villageList .listEntry.village.active .name')
-        if not active_village:
-            raise ValueError("Active village name not found in HTML")
-        return active_village.get_text().strip()
-
-    def _scan_building(self, slot: Tag) -> Building | None:
-        class_attr = slot.get('class', "")
-        class_str = " ".join(class_attr) if isinstance(class_attr, list) else class_attr
-
-        # Extract gid (building type)
-        gid = int(self._extract_by_regex(r'g(\d+)', class_str))
-
-        # Skip empty slots (gid 0)
-        if gid == 0:
-            return None
-
-        # Extract building slot id
-        building_id = int(self._extract_by_regex(r'a(\d+)', class_str))
-
-        # Extract level from the level element
-        level_elem = slot.select_one(".labelLayer")
-        level = int(level_elem.text) if level_elem else 0
-
-        return Building(
-            id=building_id,
-            type=(BuildingType(gid)),
-            level=level,
-        )

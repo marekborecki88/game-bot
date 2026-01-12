@@ -91,7 +91,7 @@ def test_scan_village_name(dorf1_html):
     scanner = Scanner()
 
     # When
-    result = scanner.scan_village_name(dorf1_html)
+    result = scan_village_name(dorf1_html)
 
     # Then
     assert result == "New village"
