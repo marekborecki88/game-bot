@@ -227,8 +227,12 @@ class Scanner:
         village_identities = self.scan_village_list(dorf1)
         return [self.scan_village(village.id, dorf1, dorf1) for village in village_identities]
 
-    def scan_village_name(self, dorf1) -> str:
-        pass
+    def scan_village_name(self, dorf1: str) -> str:
+        soup = BeautifulSoup(dorf1, 'html.parser')
+        active_village = soup.select_one('.villageList .listEntry.village.active .name')
+        if not active_village:
+            raise ValueError("Active village name not found in HTML")
+        return active_village.get_text().strip()
 
     def _scan_building(self, slot: Tag) -> Building | None:
         class_attr = slot.get('class', "")

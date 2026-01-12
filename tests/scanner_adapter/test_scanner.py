@@ -85,3 +85,13 @@ def test_scan_village_center(dorf2_html):
 
     assert result == expected
 
+
+def test_scan_village_name(dorf1_html):
+    # Given
+    scanner = Scanner()
+
+    # When
+    result = scanner.scan_village_name(dorf1_html)
+
+    # Then
+    assert result == "New village"
