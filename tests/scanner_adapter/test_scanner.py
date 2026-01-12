@@ -34,9 +34,10 @@ def test_scan_village_list():
 
     # Then
     assert result == [
-        VillageIdentity(name="Sodoma", coordinate_x=85, coordinate_y=-81)
+        VillageIdentity(id=37498, name="Sodoma", coordinate_x=85, coordinate_y=-81)
     ]
 
 
 def test_scan_village_source():
     assert False
+

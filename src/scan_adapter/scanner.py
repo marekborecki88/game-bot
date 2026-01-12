@@ -59,11 +59,17 @@ class Scanner:
 
     def _parse_village_entry(self, entry) -> VillageIdentity:
         """Parse a single village entry from HTML element."""
+        # Extract village ID from data-did attribute
+        village_id = entry.get('data-did')
+        if not village_id:
+            raise ValueError("Village entry missing data-did attribute")
+
         name = self._extract_text(entry, '.name')
         coordinate_x = self._extract_number(entry, '.coordinateX')
         coordinate_y = self._extract_number(entry, '.coordinateY')
 
         return VillageIdentity(
+            id=int(village_id),
             name=name,
             coordinate_x=coordinate_x,
             coordinate_y=coordinate_y
@@ -243,8 +249,9 @@ class Scanner:
             "granary_capacity": granary_capacity,
         }
 
-    def scan_village(self, dorf1, dorf2) -> Village:
+    def scan_village(self, village_id: int, dorf1, dorf2) -> Village:
         return Village(
+            id=village_id,
             name=(self.scan_village_name(dorf1)),
             source_pits=(self.scan_village_source(dorf1)),
             buildings=(self.scan_village_center(dorf2)),
@@ -257,7 +264,7 @@ class Scanner:
         print("scanning account...")
 
         village_identities = self.scan_village_list(dorf1)
-        return [self.scan_village(village.name) for village in village_identities]
+        return [self.scan_village(village.id, dorf1, dorf1) for village in village_identities]
 
     def scan_village_name(self, dorf1) -> str:
         pass
