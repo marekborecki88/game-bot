@@ -83,24 +83,23 @@ class Scanner:
 
     def scan_village_source(self, html: str) -> list[SourcePit]:
         """Scan all resource fields from the village resource view."""
+        soup = BeautifulSoup(html, 'html.parser')
+        container = soup.select_one("#resourceFieldContainer")
+        if not container:
+            raise ValueError("Resource field container not found in HTML")
 
-        # Wait for the resource field container to appear
-        self.page.wait_for_selector("#resourceFieldContainer")
-
-        container = self.page.locator("#resourceFieldContainer")
-        resource_fields = container.locator("a")
-
+        resource_fields = container.select("a")
         source_pits = []
 
-        for i in range(resource_fields.count()):
-            field = resource_fields.nth(i)
-            class_attr = field.get_attribute("class") or ""
+        for field in resource_fields:
+            class_attr = field.get('class', [])
+            class_str = ' '.join(class_attr) if isinstance(class_attr, list) else class_attr
 
             # Skip if it's the village center
-            if "villageCenter" in class_attr:
+            if "villageCenter" in class_str:
                 continue
 
-            gid_match = re.search(r'gid(\d+)', class_attr)
+            gid_match = re.search(r'gid(\d+)', class_str)
             if not gid_match:
                 continue
             gid = int(gid_match.group(1))
@@ -109,13 +108,13 @@ class Scanner:
             source_type = next((st for st in SourceType if st.value == gid), None)
 
             # Extract buildingSlot (field id)
-            slot_match = re.search(r'buildingSlot(\d+)', class_attr)
+            slot_match = re.search(r'buildingSlot(\d+)', class_str)
             if not slot_match:
                 continue
             field_id = int(slot_match.group(1))
 
             # Extract level
-            level_match = re.search(r'level(\d+)', class_attr)
+            level_match = re.search(r'level(\d+)', class_str)
             level = int(level_match.group(1)) if level_match else 0
 
             source_pits.append(SourcePit(
