@@ -1,19 +1,23 @@
+import pytest
 from pathlib import Path
 
 from src.core.model.Village import VillageIdentity
 from src.scan_adapter.scanner import Scanner
 
 
-def test_scan_village_list():
-    scanner = Scanner()
-
-    # Load HTML from file
+@pytest.fixture
+def html_content():
     test_dir = Path(__file__).parent
     html_file = test_dir / "dorf1.html"
-    html = html_file.read_text(encoding='utf-8')
+    return html_file.read_text(encoding='utf-8')
+
+
+def test_scan_village_list(html_content):
+    # Given
+    scanner = Scanner()
 
     # When
-    result = scanner.scan_village_list(html)
+    result = scanner.scan_village_list(html_content)
 
     # Then
     assert len(result) == 3
