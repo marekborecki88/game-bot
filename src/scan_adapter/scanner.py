@@ -59,7 +59,6 @@ class Scanner:
 
     def _parse_village_entry(self, entry) -> VillageIdentity:
         """Parse a single village entry from HTML element."""
-        # Extract village ID from data-did attribute
         village_id = entry.get('data-did')
         if not village_id:
             raise ValueError("Village entry missing data-did attribute")

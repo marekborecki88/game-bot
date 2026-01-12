@@ -151,5 +151,6 @@ class BuildingJob:
 @dataclass
 class VillageIdentity:
     id: int
+    name: str
     coordinate_x: int
     coordinate_y: int
