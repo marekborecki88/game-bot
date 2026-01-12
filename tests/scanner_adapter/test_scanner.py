@@ -42,23 +42,23 @@ def test_scan_village_source(dorf1_html):
     # Then
     assert len(result) == 18
     # Check all 18 resource fields
-    assert result[0] == SourcePit(id=1, type=SourceType.LUMBER, level=5)
-    assert result[1] == SourcePit(id=2, type=SourceType.CROP, level=5)
-    assert result[2] == SourcePit(id=3, type=SourceType.CROP, level=5)
+    assert result[0] == SourcePit(id=1, type=SourceType.LUMBER, level=8)
+    assert result[1] == SourcePit(id=2, type=SourceType.CROP, level=10)
+    assert result[2] == SourcePit(id=3, type=SourceType.CROP, level=0)
     assert result[3] == SourcePit(id=4, type=SourceType.LUMBER, level=5)
     assert result[4] == SourcePit(id=5, type=SourceType.CLAY, level=5)
     assert result[5] == SourcePit(id=6, type=SourceType.CLAY, level=6)
     assert result[6] == SourcePit(id=7, type=SourceType.IRON, level=5)
-    assert result[7] == SourcePit(id=8, type=SourceType.CROP, level=5)
+    assert result[7] == SourcePit(id=8, type=SourceType.CROP, level=3)
     assert result[8] == SourcePit(id=9, type=SourceType.CROP, level=5)
-    assert result[9] == SourcePit(id=10, type=SourceType.IRON, level=5)
+    assert result[9] == SourcePit(id=10, type=SourceType.IRON, level=2)
     assert result[10] == SourcePit(id=11, type=SourceType.IRON, level=5)
-    assert result[11] == SourcePit(id=12, type=SourceType.CROP, level=5)
+    assert result[11] == SourcePit(id=12, type=SourceType.CROP, level=4)
     assert result[12] == SourcePit(id=13, type=SourceType.CROP, level=5)
-    assert result[13] == SourcePit(id=14, type=SourceType.LUMBER, level=5)
-    assert result[14] == SourcePit(id=15, type=SourceType.CROP, level=5)
-    assert result[15] == SourcePit(id=16, type=SourceType.CLAY, level=5)
+    assert result[13] == SourcePit(id=14, type=SourceType.LUMBER, level=8)
+    assert result[14] == SourcePit(id=15, type=SourceType.CROP, level=3)
+    assert result[15] == SourcePit(id=16, type=SourceType.CLAY, level=7)
     assert result[16] == SourcePit(id=17, type=SourceType.LUMBER, level=5)
-    assert result[17] == SourcePit(id=18, type=SourceType.CLAY, level=5)
+    assert result[17] == SourcePit(id=18, type=SourceType.CLAY, level=9)
 
 
