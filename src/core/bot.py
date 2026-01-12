@@ -3,7 +3,7 @@ import time
 
 from src.core.model.Village import Village, SourceType
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import Scanner
+from src.scan_adapter.scanner import scan_village
 
 
 def shortest_building_queue(villages: list[Village]) -> int:
@@ -12,9 +12,8 @@ def shortest_building_queue(villages: list[Village]) -> int:
 # this class should be just an interface
 # the implementation should be in driver_adapter
 class Bot:
-    def __init__(self, driver: Driver, scanner: Scanner):
+    def __init__(self, driver: Driver):
         self.driver = driver
-        self.scanner = scanner
 
     def run(self):
         print("running bot...")
@@ -25,7 +24,7 @@ class Bot:
             dorf1: str = self.driver.get_html("dorf1")
             dorf2: str = self.driver.get_html("dorf2")
 
-            village: Village = self.scanner.scan_village(dorf1, dorf2)
+            village: Village = scan_village(dorf1, dorf2)
 
 
     def even_build_economy(self, village: Village) -> None:

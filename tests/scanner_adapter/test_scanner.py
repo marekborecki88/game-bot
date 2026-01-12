@@ -2,8 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from src.core.model.Village import VillageIdentity, SourcePit, SourceType, Building, BuildingType
-from src.scan_adapter.scanner import Scanner, scan_village_name, scan_stock_bar
+from src.core.model.Village import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob
+from src.scan_adapter.scanner import (
+    scan_village_name,
+    scan_stock_bar,
+    scan_building_queue,
+    scan_village_source,
+    scan_village_center, scan_village_list,
+)
 
 
 @pytest.fixture
@@ -21,11 +27,9 @@ def dorf2_html():
 
 
 def test_scan_village_list(dorf1_html):
-    # Given
-    scanner = Scanner()
 
     # When
-    result = scanner.scan_village_list(dorf1_html)
+    result = scan_village_list(dorf1_html)
 
     # Then
     expected = [
@@ -37,8 +41,6 @@ def test_scan_village_list(dorf1_html):
 
 
 def test_scan_village_source(dorf1_html):
-    # Given
-    scanner = Scanner()
 
     # When
     result = scan_village_source(dorf1_html)
@@ -69,8 +71,6 @@ def test_scan_village_source(dorf1_html):
 
 
 def test_scan_village_center(dorf2_html):
-    # Given
-    scanner = Scanner()
 
     # When
     result = scan_village_center(dorf2_html)
@@ -87,8 +87,6 @@ def test_scan_village_center(dorf2_html):
 
 
 def test_scan_village_name(dorf1_html):
-    # Given
-    scanner = Scanner()
 
     # When
     result = scan_village_name(dorf1_html)
@@ -113,3 +111,14 @@ def test_scan_stock_bar(dorf1_html):
     }
     assert result == expected
 
+
+def test_scan_building_queue(dorf1_html):
+    # When
+    result = scan_building_queue(dorf1_html)
+
+    # Then
+    expected = [
+        BuildingJob(building_id=0, target_level=2, time_remaining=98),
+        BuildingJob(building_id=0, target_level=3, time_remaining=628)
+    ]
+    assert result == expected

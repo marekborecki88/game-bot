@@ -1,10 +1,9 @@
 import re
 
 from bs4 import BeautifulSoup, Tag
-from playwright.sync_api import Page, Locator
-
-from src.config import Config
 from src.core.model.Village import BuildingType, Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity
+
+HTML_PARSER = 'html.parser'
 
 
 def _parse_resource_value(text: str) -> int:
@@ -51,7 +50,7 @@ def _scan_building(slot: Tag) -> Building | None:
 
 
 def scan_village_name(dorf1: str) -> str:
-    soup = BeautifulSoup(dorf1, 'html.parser')
+    soup = BeautifulSoup(dorf1, HTML_PARSER)
     active_village = soup.select_one('.villageList .listEntry.village.active .name')
     if not active_village:
         raise ValueError("Active village name not found in HTML")
@@ -59,7 +58,7 @@ def scan_village_name(dorf1: str) -> str:
 
 
 def scan_stock_bar(html: str) -> dict:
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, HTML_PARSER)
     stock_bar = soup.select_one("#stockBar")
     if not stock_bar:
         raise ValueError("Stock bar not found in HTML")
@@ -90,6 +89,43 @@ def scan_stock_bar(html: str) -> dict:
         "warehouse_capacity": warehouse_capacity,
         "granary_capacity": granary_capacity,
     }
+
+
+def scan_building_queue(html: str) -> list[BuildingJob]:
+    """Scan the building queue from the current page."""
+    soup = BeautifulSoup(html, 'html.parser')
+    building_queue = []
+
+    queue_container = soup.select_one(".buildingList")
+    if not queue_container:
+        return building_queue
+
+    queue_items = queue_container.select("ul li")
+
+    for item in queue_items:
+        name_elem = item.select_one(".name")
+        if not name_elem:
+            continue
+
+        name_text = name_elem.get_text(separator=" ", strip=True)
+        level_match = re.search(r'Level\s+(\d+)', name_text)
+        target_level = int(level_match.group(1)) if level_match else 0
+
+        # Extract remaining time in seconds
+        timer_elem = item.select_one(".timer")
+        time_remaining = 0
+        if timer_elem:
+            timer_value = timer_elem.get('value')
+            if timer_value and timer_value.isdigit():
+                time_remaining = int(timer_value)
+
+        building_queue.append(BuildingJob(
+            building_id=0,  # Cannot easily determine building_id from this view
+            target_level=target_level,
+            time_remaining=time_remaining,
+        ))
+
+    return building_queue
 
 
 def _extract_text(entry, css_class: str) -> str:
@@ -157,99 +193,54 @@ def scan_village_center(html: str) -> list[Building]:
     return [building for slot in building_slots if (building := _scan_building(slot))]
 
 
-class Scanner:
-    def __init__(self, page: Page = None, config: Config = None):
-        self.page = page
-        self.config = config
-
-    def _extract_number(self, entry, css_class: str) -> int:
-        """Extract and parse a number value from HTML element."""
-        element = entry.select_one(css_class)
-        if not element:
-            raise ValueError(f"Element missing {css_class}")
-
-        return _parse_number(element.get_text())
-
-    def _parse_village_entry(self, entry) -> VillageIdentity:
-        """Parse a single village entry from HTML element."""
-        village_id = entry.get('data-did')
-        if not village_id:
-            raise ValueError("Village entry missing data-did attribute")
-
-        name = _extract_text(entry, '.name')
-        coordinate_x = self._extract_number(entry, '.coordinateX')
-        coordinate_y = self._extract_number(entry, '.coordinateY')
-
-        return VillageIdentity(
-            id=int(village_id),
-            name=name,
-            coordinate_x=coordinate_x,
-            coordinate_y=coordinate_y
-        )
-
-    def scan_village_list(self, html: str) -> list[VillageIdentity]:
-        """Parse village names and coordinates from HTML string."""
-        soup = BeautifulSoup(html, 'html.parser')
-        village_entries = soup.select('.villageList .listEntry.village')
-        return [self._parse_village_entry(entry) for entry in village_entries]
-
-    def scan_building_queue(self, html: str) -> list[BuildingJob]:
-        """Scan the building queue from the current page."""
-        building_queue = []
-
-        # Building queue is in .buildingList
-        queue_container = self.page.locator(".buildingList")
-        if queue_container.count() == 0:
-            return building_queue
-
-        queue_items = queue_container.locator("li")
-
-        for i in range(queue_items.count()):
-            item = queue_items.nth(i)
-
-            # Extract building name and level from the text
-            name_elem = item.locator(".name")
-            if name_elem.count() == 0:
-                continue
-
-            level_match = re.search(r'(\d+)$', clean_inner_text(name_elem))
-            target_level = int(level_match.group(1)) if level_match else 0
-
-            # Extract building id from the link or data attribute
-            link = item.locator("a").first
-            href = link.get_attribute("href") or ""
-            id_match = re.search(r'id=(\d+)', href)
-            building_id = int(id_match.group(1)) if id_match else 0
-
-            # Extract remaining time in seconds
-            timer_elem = item.locator(".timer")
-            time_remaining = 0
-            if timer_elem.count() > 0:
-                timer_value = timer_elem.get_attribute("value")
-                if timer_value and timer_value.isdigit():
-                    time_remaining = int(timer_value)
-
-            building_queue.append(BuildingJob(
-                building_id=building_id,
-                target_level=target_level,
-                time_remaining=time_remaining,
-            ))
-
-        return building_queue
-
-    def scan_village(self, village_id: int, dorf1, dorf2) -> Village:
-        return Village(
-            id=village_id,
-            name=(scan_village_name(dorf1)),
-            source_pits=(scan_village_source(dorf1)),
-            buildings=(scan_village_center(dorf2)),
-            building_queue=(self.scan_building_queue(dorf1)),
-            **(scan_stock_bar(dorf1))
-        )
+def scan_village(village_id: int, dorf1, dorf2) -> Village:
+    return Village(
+        id=village_id,
+        name=(scan_village_name(dorf1)),
+        source_pits=(scan_village_source(dorf1)),
+        buildings=(scan_village_center(dorf2)),
+        building_queue=(scan_building_queue(dorf1)),
+        **(scan_stock_bar(dorf1))
+    )
 
 
-    def scan(self, dorf1: str) -> list[Village]:
-        print("scanning account...")
+def _extract_number(entry, css_class: str) -> int:
+    """Extract and parse a number value from HTML element."""
+    element = entry.select_one(css_class)
+    if not element:
+        raise ValueError(f"Element missing {css_class}")
 
-        village_identities = self.scan_village_list(dorf1)
-        return [self.scan_village(village.id, dorf1, dorf1) for village in village_identities]
+    return _parse_number(element.get_text())
+
+
+def _parse_village_entry(entry) -> VillageIdentity:
+    """Parse a single village entry from HTML element."""
+    village_id = entry.get('data-did')
+    if not village_id:
+        raise ValueError("Village entry missing data-did attribute")
+
+    name = _extract_text(entry, '.name')
+    coordinate_x = _extract_number(entry, '.coordinateX')
+    coordinate_y = _extract_number(entry, '.coordinateY')
+
+    return VillageIdentity(
+        id=int(village_id),
+        name=name,
+        coordinate_x=coordinate_x,
+        coordinate_y=coordinate_y
+    )
+
+
+def scan_village_list(html: str) -> list[VillageIdentity]:
+    """Parse village names and coordinates from HTML string."""
+    soup = BeautifulSoup(html, 'html.parser')
+    village_entries = soup.select('.villageList .listEntry.village')
+    return [_parse_village_entry(entry) for entry in village_entries]
+
+
+def scan(dorf1: str) -> list[Village]:
+    print("scanning account...")
+
+    village_identities = scan_village_list(dorf1)
+    return [scan_village(village.id, dorf1, dorf1) for village in village_identities]
+
