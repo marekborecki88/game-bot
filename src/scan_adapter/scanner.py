@@ -1,6 +1,6 @@
 import re
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from playwright.sync_api import Page, Locator
 
 from src.config import Config
@@ -88,7 +88,6 @@ class Scanner:
 
 
     def scan_village_source(self, html: str) -> list[SourcePit]:
-        """Scan all resource fields from the village resource view."""
         soup = BeautifulSoup(html, 'html.parser')
         container = soup.select_one("#resourceFieldContainer")
         if not container:
@@ -98,7 +97,7 @@ class Scanner:
         source_pits = []
 
         for field in resource_fields:
-            class_attr = field.get('class', [])
+            class_attr = field.get('class', "")
             class_str = ' '.join(class_attr) if isinstance(class_attr, list) else class_attr
 
             # Skip if it's the village center
@@ -126,44 +125,14 @@ class Scanner:
         return source_pits
 
     def scan_village_center(self, html: str) -> list[Building]:
-        """Scan all buildings from the village center view."""
+        soup = BeautifulSoup(html, 'html.parser')
+        container = soup.select_one("#villageContent")
+        if not container:
+            raise ValueError("Village container not found in HTML")
 
-        self.page.goto(f"{self.config.server_url}/dorf2.php")
-        self.page.wait_for_selector("#villageContent")
+        building_slots = container.select("div.buildingSlot")
 
-        container = self.page.locator("#villageContent")
-        building_slots = container.locator("div.buildingSlot")
-
-        buildings = []
-
-        for i in range(building_slots.count()):
-            slot = building_slots.nth(i)
-            class_attr = slot.get_attribute("class") or ""
-
-            # Extract gid (building type)
-            gid = int(self._extract_by_regex(r'g(\d+)', class_attr))
-
-            # Skip empty slots (gid 0)
-            if gid == 0:
-                continue
-
-            # Map gid to BuildingType
-            building_type = next((bt for bt in BuildingType if bt.value == gid), None)
-
-            # Extract building slot id
-            building_id = int(self._extract_by_regex(r'a(\d+)', class_attr))
-
-            # Extract level from the level element
-            level_elem = slot.locator(".labelLayer")
-            level = parse_int_or_zero(level_elem.first)
-
-            buildings.append(Building(
-                id=building_id,
-                type=building_type,
-                level=level,
-            ))
-
-        return buildings
+        return [building for slot in building_slots if (building := self._scan_building(slot))]
 
 
     def scan_building_queue(self, html: str) -> list[BuildingJob]:
@@ -261,3 +230,26 @@ class Scanner:
     def scan_village_name(self, dorf1) -> str:
         pass
 
+    def _scan_building(self, slot: Tag) -> Building | None:
+        class_attr = slot.get('class', "")
+        class_str = " ".join(class_attr) if isinstance(class_attr, list) else class_attr
+
+        # Extract gid (building type)
+        gid = int(self._extract_by_regex(r'g(\d+)', class_str))
+
+        # Skip empty slots (gid 0)
+        if gid == 0:
+            return None
+
+        # Extract building slot id
+        building_id = int(self._extract_by_regex(r'a(\d+)', class_str))
+
+        # Extract level from the level element
+        level_elem = slot.select_one(".labelLayer")
+        level = int(level_elem.text) if level_elem else 0
+
+        return Building(
+            id=building_id,
+            type=(BuildingType(gid)),
+            level=level,
+        )

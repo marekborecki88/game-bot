@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.core.model.Village import VillageIdentity, SourcePit, SourceType
+from src.core.model.Village import VillageIdentity, SourcePit, SourceType, Building, BuildingType
 from src.scan_adapter.scanner import Scanner
 
 
@@ -66,3 +66,22 @@ def test_scan_village_source(dorf1_html):
     ]
 
     assert result == expected
+
+
+def test_scan_village_center(dorf2_html):
+    # Given
+    scanner = Scanner()
+
+    # When
+    result = scanner.scan_village_center(dorf2_html)
+
+    # Then
+    expected = [
+        Building(id=20, type=BuildingType.WAREHOUSE, level=7),
+        Building(id=21, type=BuildingType.GRANARY, level=11),
+        Building(id=26, type=BuildingType.MAIN_BUILDING, level=3),
+        Building(id=39, type=BuildingType.RALLY_POINT, level=1)
+    ]
+
+    assert result == expected
+
