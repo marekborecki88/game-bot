@@ -193,9 +193,9 @@ def scan_village_center(html: str) -> list[Building]:
     return [building for slot in building_slots if (building := _scan_building(slot))]
 
 
-def scan_village(village_id: int, dorf1, dorf2) -> Village:
+def scan_village(identity: VillageIdentity, dorf1, dorf2) -> Village:
     return Village(
-        id=village_id,
+        id=identity.id,
         name=(scan_village_name(dorf1)),
         source_pits=(scan_village_source(dorf1)),
         buildings=(scan_village_center(dorf2)),

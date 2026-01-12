@@ -39,3 +39,6 @@ class Driver:
         self.page.goto(f"{self.config.server_url}/{dorf}.php")
         self.page.wait_for_selector(".villageList")
         return self.page.content()
+
+    def navigate_to_village(self, id):
+        pass

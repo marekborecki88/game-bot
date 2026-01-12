@@ -1,9 +1,10 @@
 import sys
 import time
 
+from src.core.logic_engine import LogicEngine
 from src.core.model.Village import Village, SourceType
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village
+from src.scan_adapter.scanner import scan_village, scan_village_list
 
 
 def shortest_building_queue(villages: list[Village]) -> int:
@@ -14,17 +15,26 @@ def shortest_building_queue(villages: list[Village]) -> int:
 class Bot:
     def __init__(self, driver: Driver):
         self.driver = driver
+        self.logic_engine = LogicEngine()
 
     def run(self):
         print("running bot...")
 
+        jobs = []
+
         should_exit = False
-
         while not should_exit:
-            dorf1: str = self.driver.get_html("dorf1")
-            dorf2: str = self.driver.get_html("dorf2")
+            html: str = self.driver.get_html("dorf1")
+            village_list = scan_village_list(html)
+            for village_identity in village_list:
+                print("Scanning village:", village_identity.name)
+                self.driver.navigate_to_village(village_identity.id)
+                dorf1: str = self.driver.get_html("dorf1")
+                dorf2: str = self.driver.get_html("dorf2")
+                village: Village = scan_village(village_identity, dorf1, dorf2)
+                jobs += (self.logic_engine.create_plan_for_village(village))
 
-            village: Village = scan_village(dorf1, dorf2)
+
 
 
     def even_build_economy(self, village: Village) -> None:
