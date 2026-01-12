@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Village Resource View</title>
+</head>
+<body class="village1">
+
+<div id="navigation">
+    <a class="village resourceView" href="/dorf1.php"></a>
+    <a class="village buildingView" href="/dorf2.php"></a>
+    <a class="reports" href="/report">
+        <div class="indicator">1</div>
+    </a>
+</div>
+
+<div id="stockBar">
+    <div class="warehouse">
+        <div class="capacity">
+            <div class="value">6,300</div>
+        </div>
+        <a class="stockBarButton resource1">
+            <div id="l1" class="value">5,636</div>
+            <div class="barBox">
+                <div id="lbar1" class="bar" style="width:89%;"></div>
+            </div>
+        </a>
+        <a class="stockBarButton resource2">
+            <div id="l2" class="value">5,475</div>
+            <div class="barBox">
+                <div id="lbar2" class="bar" style="width:87%;"></div>
+            </div>
+        </a>
+        <a class="stockBarButton resource3">
+            <div id="l3" class="value">5,844</div>
+            <div class="barBox">
+                <div id="lbar3" class="bar" style="width:93%;"></div>
+            </div>
+        </a>
+    </div>
+    <div class="granary">
+        <div class="capacity">
+            <div class="value">14,400</div>
+        </div>
+        <a class="stockBarButton resource4">
+            <div id="l4" class="value">14,284</div>
+            <div class="barBox">
+                <div id="lbar4" class="bar" style="width:99%;"></div>
+            </div>
+        </a>
+        <a class="stockBarButton">
+            <div id="stockBarFreeCrop" class="value">1,503</div>
+        </a>
+    </div>
+</div>
+
+<script type="text/javascript">
+var resources = {
+    production: {"l1": 920,"l2": 1040,"l3": 690,"l4": 1504,"l5": 1503},
+    storage: {"l1": 5621,"l2": 5458,"l3": 5833,"l4": 14259},
+    maxStorage: {"l1": 6300,"l2": 6300,"l3": 6300,"l4": 14400}
+};
+</script>
+
+<div class="villageList">
+    <div class="dropContainer" data-sortid="village50275" data-sortlevel="0">
+        <div class="listEntry village" data-did="50275" data-sortid="village50275">
+            <a href="#">
+                <div class="iconAndNameWrapper">
+                    <span class="incomingTroops" data-id="50275"></span>
+                    <span class="name" data-did="50275">SODOMA</span>
+                </div>
+            </a>
+            <span class="coordinatesGrid">
+                <span class="coordinates coordinatesWrapper coordinatesAligned coordinatesltr">
+                    <span class="coordinateX">(1</span>
+                    <span class="coordinatePipe">|</span>
+                    <span class="coordinateY">146)</span>
+                </span>
+            </span>
+        </div>
+    </div>
+    <div class="dropContainer" data-sortid="village50281" data-sortlevel="0">
+        <div class="listEntry village" data-did="50281" data-sortid="village50281">
+            <a href="#">
+                <div class="iconAndNameWrapper">
+                    <span class="incomingTroops" data-id="50281"></span>
+                    <span class="name" data-did="50281">GOMORA</span>
+                </div>
+            </a>
+            <span class="coordinatesGrid">
+                <span class="coordinates coordinatesWrapper coordinatesAligned coordinatesltr">
+                    <span class="coordinateX">(2</span>
+                    <span class="coordinatePipe">|</span>
+                    <span class="coordinateY">146)</span>
+                </span>
+            </span>
+        </div>
+    </div>
+    <div class="dropContainer" data-sortid="village50287" data-sortlevel="0">
+        <div class="listEntry village active" data-did="50287" data-sortid="village50287">
+            <a href="#" class="active">
+                <div class="iconAndNameWrapper">
+                    <span class="incomingTroops" data-id="50287"></span>
+                    <span class="name" data-did="50287">New village</span>
+                </div>
+            </a>
+            <span class="coordinatesGrid">
+                <span class="coordinates coordinatesWrapper coordinatesAligned coordinatesltr">
+                    <span class="coordinateX">(2</span>
+                    <span class="coordinatePipe">|</span>
+                    <span class="coordinateY">147)</span>
+                </span>
+            </span>
+        </div>
+    </div>
+</div>
+
+<div id="resourceFieldContainer" class="resourceField7 tribe6">
+    <a href="/dorf2.php" class="villageCenter"></a>
+    <a href="/build.php?id=1" class="level colorLayer resourceField gid1 buildingSlot1 level5" data-aid="1" data-gid="1">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=2" class="level colorLayer resourceField gid4 buildingSlot2 level5" data-aid="2" data-gid="4">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=3" class="level colorLayer resourceField gid4 buildingSlot3 level5" data-aid="3" data-gid="4">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=4" class="level colorLayer resourceField gid1 buildingSlot4 level5" data-aid="4" data-gid="1">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=5" class="level colorLayer resourceField gid2 buildingSlot5 level5" data-aid="5" data-gid="2">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=6" class="level colorLayer resourceField gid2 buildingSlot6 level6" data-aid="6" data-gid="2">
+        <div class="labelLayer">6</div>
+    </a>
+    <a href="/build.php?id=7" class="level colorLayer resourceField gid3 buildingSlot7 level5" data-aid="7" data-gid="3">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=8" class="level colorLayer resourceField gid4 buildingSlot8 level5" data-aid="8" data-gid="4">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=9" class="level colorLayer resourceField gid4 buildingSlot9 level5" data-aid="9" data-gid="4">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=10" class="level colorLayer resourceField gid3 buildingSlot10 level5" data-aid="10" data-gid="3">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=11" class="level colorLayer resourceField gid3 buildingSlot11 level5" data-aid="11" data-gid="3">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=12" class="level colorLayer resourceField gid4 buildingSlot12 level5" data-aid="12" data-gid="4">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=13" class="level colorLayer resourceField gid4 buildingSlot13 level5" data-aid="13" data-gid="4">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=14" class="level colorLayer resourceField gid1 buildingSlot14 level5" data-aid="14" data-gid="1">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=15" class="level colorLayer resourceField gid4 buildingSlot15 level5" data-aid="15" data-gid="4">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=16" class="level colorLayer resourceField gid2 buildingSlot16 level5" data-aid="16" data-gid="2">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=17" class="level colorLayer resourceField gid1 buildingSlot17 level5" data-aid="17" data-gid="1">
+        <div class="labelLayer">5</div>
+    </a>
+    <a href="/build.php?id=18" class="level colorLayer resourceField gid2 buildingSlot18 level5" data-aid="18" data-gid="2">
+        <div class="labelLayer">5</div>
+    </a>
+</div>
+
+</body>
+</html>
+

@@ -4,14 +4,12 @@ from bs4 import BeautifulSoup
 from playwright.sync_api import Page, Locator
 
 from src.config import Config
-from src.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob
 from src.core.model.Village import Building, BuildingType
 from src.core.model.Village import Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity
 
 
 def _parse_resource_value(text: str) -> int:
     """Parse resource value from text, removing UNICODE markers and formatting."""
-    # Remove UNICODE left-to-right markers (U+202D, U+202C) and whitespace
     cleaned = "".join(c for c in text if c.isdigit())
     return int(cleaned) if cleaned else 0
 

@@ -4,7 +4,7 @@ from src.core.model.Village import VillageIdentity
 from src.scan_adapter.scanner import Scanner
 
 
-#TODO: This test demand upgrade to scan multiple villages
+# TODO: This test demand upgrade to scan multiple villages
 def test_scan_village_list():
     scanner = Scanner()
     html = """
@@ -36,3 +36,7 @@ def test_scan_village_list():
     assert result == [
         VillageIdentity(name="Sodoma", coordinate_x=85, coordinate_y=-81)
     ]
+
+
+def test_scan_village_source():
+    assert False
