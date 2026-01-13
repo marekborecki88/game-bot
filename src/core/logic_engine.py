@@ -3,6 +3,6 @@ from src.core.model.Village import Village
 
 
 class LogicEngine:
-    def create_plan_for_village(self, village: Village) -> list[Job]:
+    def create_plan_for_village(self, villages: list[Village]) -> list[Job]:
         pass
 

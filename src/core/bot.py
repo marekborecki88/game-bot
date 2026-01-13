@@ -1,8 +1,9 @@
 import sys
 import time
 
+from src.core.job import Job
 from src.core.logic_engine import LogicEngine
-from src.core.model.Village import Village, SourceType
+from src.core.model.Village import Village, SourceType, VillageIdentity
 from src.driver_adapter.driver import Driver
 from src.scan_adapter.scanner import scan_village, scan_village_list
 
@@ -20,35 +21,17 @@ class Bot:
     def run(self):
         print("running bot...")
 
-        jobs = []
+        jobs = self.planning()
 
-        should_exit = False
-        while not should_exit:
-            html: str = self.driver.get_html("dorf1")
-            village_list = scan_village_list(html)
-            for village_identity in village_list:
-                print("Scanning village:", village_identity.name)
-                self.driver.navigate_to_village(village_identity.id)
-                dorf1: str = self.driver.get_html("dorf1")
-                dorf2: str = self.driver.get_html("dorf2")
-                village: Village = scan_village(village_identity, dorf1, dorf2)
-                jobs += (self.logic_engine.create_plan_for_village(village))
 
-    def run2(self):
-        print("running bot (run2)...")
-        
-        # Get village list
+    def planning(self) -> list[Job]:
+        villages = [self.scan_village(v) for v in self.village_list()]
+        return self.logic_engine.create_plan_for_village(villages)
+
+    def village_list(self) -> list[VillageIdentity]:
         html: str = self.driver.get_html("dorf1")
         village_list = scan_village_list(html)
-        
-        # Iterate through each village
-        for village_identity in village_list:
-            print("Processing village:", village_identity.name)
-            
-            # Navigate to the village
-            self.driver.navigate_to_village(village_identity.id)
-            
-            self.build(village_identity.name, 1, 1)
+        return village_list
 
     def build(self, village_name: str, id: int, gid: int) -> None:
         print("building in village:", village_name, "id:", id, "pit type:",
@@ -80,3 +63,8 @@ class Bot:
         time.sleep(1)
         sys.stdout.flush()
         return self._count_down(seconds - 1)
+
+    def scan_village(self, village_identity: VillageIdentity) -> Village:
+        print("Scanning village:", village_identity.name)
+        dorf1, dorf2 = self.driver.get_village_inner_html(village_identity.id)
+        return scan_village(village_identity, dorf1, dorf2)

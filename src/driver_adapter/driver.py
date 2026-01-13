@@ -46,3 +46,10 @@ class Driver:
 
     def refresh(self):
         self.page.reload()
+
+    def get_village_inner_html(self, id: int) -> tuple[str, str]:
+        self.navigate_to_village(id)
+        dorf1: str = self.get_html("dorf1")
+        dorf2: str = self.get_html("dorf2")
+
+        return dorf1, dorf2
