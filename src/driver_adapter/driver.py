@@ -42,3 +42,6 @@ class Driver:
 
     def navigate_to_village(self, id):
         pass
+
+    def refresh(self):
+        self.page.reload()

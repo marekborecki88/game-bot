@@ -34,24 +34,6 @@ class Bot:
                 village: Village = scan_village(village_identity, dorf1, dorf2)
                 jobs += (self.logic_engine.create_plan_for_village(village))
 
-
-
-
-    def even_build_economy(self, village: Village) -> None:
-        # here we should check if first granary or warehouse upgrade is needed
-
-        lowest_source = village.lowest_source()
-        pit = village.pit_with_lowest_level_building(lowest_source)
-
-        self.build(
-            village_name=village.name,
-            id=pit.id,
-            gid=pit.type.value
-        )
-
-    def _refresh(self) -> None:
-        self.driver.page.reload()
-
     def build(self, village_name: str, id: int, gid: int) -> None:
         print("building in village:", village_name, "id:", id, "pit type:",
               next((st for st in SourceType if st.value == gid), None).name)
@@ -76,7 +58,7 @@ class Bot:
             sys.stdout.flush()
             return 0
         elif seconds%60 == 0:
-            self._refresh()
+            self.driver.refresh()
 
         sys.stdout.write(f'\rWaiting for next task: {seconds} seconds remaining')
         time.sleep(1)

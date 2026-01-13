@@ -7,7 +7,7 @@ from src.driver_adapter.driver import Driver
 config_path = Path(__file__).parent.parent / "config.yaml"
 config: Config = load_config(str(config_path))
 
-def run_bot():
+def main():
     with sync_playwright() as playwright:
         driver: Driver = Driver(playwright=playwright, config=config)
 
@@ -15,10 +15,6 @@ def run_bot():
         bot.run()
 
         driver.stop()
-
-
-def main():
-    run_bot()
 
 if __name__ == "__main__":
     main()
