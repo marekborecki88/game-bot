@@ -34,6 +34,22 @@ class Bot:
                 village: Village = scan_village(village_identity, dorf1, dorf2)
                 jobs += (self.logic_engine.create_plan_for_village(village))
 
+    def run2(self):
+        print("running bot (run2)...")
+        
+        # Get village list
+        html: str = self.driver.get_html("dorf1")
+        village_list = scan_village_list(html)
+        
+        # Iterate through each village
+        for village_identity in village_list:
+            print("Processing village:", village_identity.name)
+            
+            # Navigate to the village
+            self.driver.navigate_to_village(village_identity.id)
+            
+            self.build(village_identity.name, 1, 1)
+
     def build(self, village_name: str, id: int, gid: int) -> None:
         print("building in village:", village_name, "id:", id, "pit type:",
               next((st for st in SourceType if st.value == gid), None).name)

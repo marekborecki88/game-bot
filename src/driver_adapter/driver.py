@@ -41,7 +41,8 @@ class Driver:
         return self.page.content()
 
     def navigate_to_village(self, id):
-        pass
+        self.page.goto(f"{self.config.server_url}/dorf1.php?newdid={id}")
+        self.page.wait_for_load_state('networkidle')
 
     def refresh(self):
         self.page.reload()

@@ -12,7 +12,7 @@ def main():
         driver: Driver = Driver(playwright=playwright, config=config)
 
         bot = Bot(driver=driver)
-        bot.run()
+        bot.run2()
 
         driver.stop()
 
