@@ -91,41 +91,51 @@ def scan_stock_bar(html: str) -> dict:
     }
 
 
+def _get_item_or_raise_error(item: Tag, selector: str, error_message: str = None) -> Tag:
+    name_element: Tag | None = item.select_one(selector)
+    if not name_element:
+        raise ValueError(error_message or f"Element not found for selector: {selector} in item: {item}")
+    return name_element
+
+
+def _extract_target_level(item):
+    name_element = _get_item_or_raise_error(item, ".name")
+    name_text = name_element.get_text(separator=" ", strip=True)
+    level_match = re.search(r'Level\s+(\d+)', name_text)
+    return int(level_match.group(1)) if level_match else 0
+
+
+def _extract_remaining_time(item):
+    timer_elem = item.select_one(".timer")
+    time_remaining = 0
+    if timer_elem:
+        timer_value = timer_elem.get('value')
+        if timer_value and timer_value.isdigit():
+            time_remaining = int(timer_value)
+    return time_remaining
+
+
+def _extract_building_job(item):
+    target_level = _extract_target_level(item)
+    time_remaining = _extract_remaining_time(item)
+
+    return BuildingJob(
+        building_id=0,  # Cannot easily determine building_id from this view
+        target_level=target_level,
+        time_remaining=time_remaining,
+    )
+
+
 def scan_building_queue(html: str) -> list[BuildingJob]:
     """Scan the building queue from the current page."""
     soup = BeautifulSoup(html, HTML_PARSER)
-    building_queue = []
-
     queue_container = soup.select_one(".buildingList")
+
     if not queue_container:
-        return building_queue
+        return []
 
     queue_items = queue_container.select("ul li")
-
-    for item in queue_items:
-        name_elem = item.select_one(".name")
-        if not name_elem:
-            continue
-
-        name_text = name_elem.get_text(separator=" ", strip=True)
-        level_match = re.search(r'Level\s+(\d+)', name_text)
-        target_level = int(level_match.group(1)) if level_match else 0
-
-        # Extract remaining time in seconds
-        timer_elem = item.select_one(".timer")
-        time_remaining = 0
-        if timer_elem:
-            timer_value = timer_elem.get('value')
-            if timer_value and timer_value.isdigit():
-                time_remaining = int(timer_value)
-
-        building_queue.append(BuildingJob(
-            building_id=0,  # Cannot easily determine building_id from this view
-            target_level=target_level,
-            time_remaining=time_remaining,
-        ))
-
-    return building_queue
+    return [_extract_building_job(item) for item in queue_items]
 
 
 def _extract_text(entry, css_class: str) -> str:
