@@ -4,10 +4,10 @@ version = "0.1.0"
 description = ""
 authors = ["marek.borecki <marekborecki88>"]
 readme = "README.md"
-packages = [{include = "app"}]
+packages = [{include = "src"}]
 
 [tool.poetry.scripts]
-game-bot = "app.main:main"
+game-bot = "src.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.14"
