@@ -93,7 +93,7 @@ def scan_stock_bar(html: str) -> dict:
 
 def scan_building_queue(html: str) -> list[BuildingJob]:
     """Scan the building queue from the current page."""
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, HTML_PARSER)
     building_queue = []
 
     queue_container = soup.select_one(".buildingList")
@@ -145,7 +145,7 @@ def _parse_number(text: str) -> int:
 
 
 def scan_village_source(html: str) -> list[SourcePit]:
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, HTML_PARSER)
     container = soup.select_one("#resourceFieldContainer")
     if not container:
         raise ValueError("Resource field container not found in HTML")
@@ -183,7 +183,7 @@ def scan_village_source(html: str) -> list[SourcePit]:
 
 
 def scan_village_center(html: str) -> list[Building]:
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, HTML_PARSER)
     container = soup.select_one("#villageContent")
     if not container:
         raise ValueError("Village container not found in HTML")
@@ -233,14 +233,8 @@ def _parse_village_entry(entry) -> VillageIdentity:
 
 def scan_village_list(html: str) -> list[VillageIdentity]:
     """Parse village names and coordinates from HTML string."""
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, HTML_PARSER)
     village_entries = soup.select('.villageList .listEntry.village')
     return [_parse_village_entry(entry) for entry in village_entries]
 
-
-def scan(dorf1: str) -> list[Village]:
-    print("scanning account...")
-
-    village_identities = scan_village_list(dorf1)
-    return [scan_village(village.id, dorf1, dorf1) for village in village_identities]
 
