@@ -113,34 +113,58 @@ class SourceType(Enum):
 
 
 class BuildingType(Enum):
-    MAIN_BUILDING = 15
+    # Resources
+    WOODCUTTER = 1
+    CLAY_PIT = 2
+    IRON_MINE = 3
+    CROPLAND = 4
+    SAWMILL = 5
+    BRICKYARD = 6
+    IRON_FOUNDRY = 7
+    GRAIN_MILL = 8
+    BAKERY = 9
+
+    # Infrastructure
     WAREHOUSE = 10
     GRANARY = 11
-    RALLY_POINT = 16
+    MAIN_BUILDING = 15
     MARKETPLACE = 17
     EMBASSY = 18
-    BARRACKS = 19
-    STABLE = 20
-    WORKSHOP = 21
-    ACADEMY = 22
     CRANNY = 23
     TOWN_HALL = 24
     RESIDENCE = 25
     PALACE = 26
     TREASURY = 27
     TRADE_OFFICE = 28
-    GREAT_BARRACKS = 29
-    GREAT_STABLE = 30
-    WALL = 31  # Different per tribe (31-33)
-    STONEMASON = 34
+    STONEMASONS_LODGE = 34
     BREWERY = 35
-    TRAPPER = 36
-    HERO_MANSION = 37
     GREAT_WAREHOUSE = 38
     GREAT_GRANARY = 39
     WONDER_OF_THE_WORLD = 40
     HORSE_DRINKING_TROUGH = 41
+    COMMAND_CENTER = 44
+    WATERWORKS = 45
+
+    # Military
+    SMITHY = 13
     TOURNAMENT_SQUARE = 14
+    RALLY_POINT = 16
+    BARRACKS = 19
+    STABLE = 20
+    WORKSHOP = 21
+    ACADEMY = 22
+    GREAT_BARRACKS = 29
+    GREAT_STABLE = 30
+    CITY_WALL = 31
+    EARTH_WALL = 32
+    PALISADE = 33
+    TRAPPER = 36
+    HEROS_MANSION = 37
+    STONE_WALL = 42
+    MAKESHIFT_WALL = 43
+    HOSPITAL = 46
+    DEFENSIVE_WALL = 47
+    ASCLEPEION = 48
 
 
 @dataclass
