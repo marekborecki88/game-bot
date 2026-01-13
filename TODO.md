@@ -1,5 +1,5 @@
 # MAJOR TODOs
-1. There should be mechanism to:
+1. (In Progress) There should be mechanism to:
     - Scan villages
     - Prepare list of tasks for each village (with some forecasting level of resources in time, based on buildings costs instructions)
     - Take a list of tasks and create schedulable jobs with last job as prepare plan for next scan in interval from configuration
@@ -12,6 +12,5 @@
 
 
 # MINOR TODOs
-1. Refactor code to encapsulate features into correct classes
-2. Extract static values into configuration
-3. Introduce Interfaces to revert dependencies
+1. Extract static values into configuration
+2. Introduce Interfaces to revert dependencies
