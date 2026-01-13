@@ -1,7 +1,8 @@
 import sys
 import time
+from datetime import datetime, timedelta
 
-from src.core.job import Job
+from src.core.job import Job, JobStatus
 from src.core.logic_engine import LogicEngine
 from src.core.model.Village import Village, SourceType, VillageIdentity
 from src.driver_adapter.driver import Driver
@@ -14,14 +15,44 @@ def shortest_building_queue(villages: list[Village]) -> int:
 # this class should be just an interface
 # the implementation should be in driver_adapter
 class Bot:
+    PLANNING_INTERVAL = 3600  # seconds (60 minutes)
+    SCHEDULER_TICK = 1  # seconds
+
     def __init__(self, driver: Driver):
         self.driver = driver
         self.logic_engine = LogicEngine()
+        self.jobs: list[Job] = []
+        self.next_planning_time: datetime = datetime.now()
 
     def run(self):
         print("running bot...")
 
-        jobs = self.planning()
+        while True:
+            self._scheduler_tick()
+            time.sleep(self.SCHEDULER_TICK)
+
+    def _scheduler_tick(self):
+        # Check if it's time for planning
+        if datetime.now() >= self.next_planning_time:
+            self._run_planning()
+            self.next_planning_time = datetime.now() + timedelta(seconds=self.PLANNING_INTERVAL)
+
+        # Execute ready jobs
+        for job in self.jobs:
+            if job.should_execute():
+                try:
+                    job.execute()
+                except Exception as e:
+                    print(f"Job failed: {e}")
+
+        # Cleanup completed/expired/terminated jobs
+        self.jobs = [j for j in self.jobs if j.status == JobStatus.PENDING]
+
+    def _run_planning(self):
+        print("Running planning...")
+        new_jobs = self.planning()
+        self.jobs.extend(new_jobs)
+        print(f"Added {len(new_jobs)} new jobs. Total pending jobs: {len(self.jobs)}")
 
 
     def planning(self) -> list[Job]:
