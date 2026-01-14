@@ -1,8 +1,11 @@
+import logging
 import random
 
 from playwright.sync_api import Playwright
 
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class Driver:
@@ -13,7 +16,7 @@ class Driver:
         self.page = self.browser.new_page()
 
     def login(self):
-        print("Logging in...")
+        logger.info("Logging in...")
 
         self.page.goto(self.config.server_url)
 
@@ -28,14 +31,14 @@ class Driver:
 
         self.page.wait_for_load_state('networkidle')
 
-        print("logged in.")
+        logger.info("logged in.")
 
     def stop(self):
         self.browser.close()
 
     def get_html(self, dorf: str):
         self.page.goto(f"{self.config.server_url}/{dorf}.php")
-        self.page.wait_for_selector(".villageList")
+        self.page.wait_for_load_state('networkidle')
         return self.page.content()
 
     def navigate_to_village(self, id):

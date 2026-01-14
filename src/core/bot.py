@@ -2,7 +2,6 @@ import logging
 import signal
 import sys
 import time
-from datetime import datetime
 from types import FrameType
 
 import schedule
@@ -81,8 +80,8 @@ class Bot:
             if job.should_execute():
                 try:
                     logger.debug(f"Executing job scheduled for {job.scheduled_time}")
-                    job.execute()
-                    logger.info("Job executed successfully")
+                    summary = self._execute_job(job)
+                    logger.info(summary)
                 except Exception as e:
                     logger.error(f"Job execution failed: {e}", exc_info=True)
 
@@ -92,6 +91,36 @@ class Bot:
         cleaned = before_count - len(self.jobs)
         if cleaned > 0:
             logger.debug(f"Cleaned up {cleaned} completed jobs")
+
+    def _execute_job(self, job: Job) -> str:
+        """Execute a job and return a summary message."""
+        if job.is_expired():
+            job.status = JobStatus.EXPIRED
+            return f"Job expired (scheduled for {job.scheduled_time})"
+
+        job.status = JobStatus.RUNNING
+        try:
+            payload = job.task()
+
+            action = payload.get("action")
+            village_name = payload.get("village_name")
+            village_id = payload.get("village_id")
+            building_id = payload.get("building_id")
+            building_gid = payload.get("building_gid")
+            target_name = payload.get("target_name")
+            target_level = payload.get("target_level")
+
+            self.driver.navigate_to_village(village_id)
+
+            if action == "upgrade":
+                self.build(village_name, building_id, building_gid)
+
+            job.status = JobStatus.COMPLETED
+
+            return f"In the village {village_name} with id {village_id} was done {action} of {target_name} to level {target_level}"
+        except Exception as e:
+            job.status = JobStatus.TERMINATED
+            raise e
 
     def _run_planning(self) -> None:
         """Run the planning phase and add new jobs to the queue."""

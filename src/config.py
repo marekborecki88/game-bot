@@ -11,6 +11,7 @@ class Config:
     user_login: str
     user_password: str
     headless: bool
+    log_level: str = "INFO"
 
 
 def load_config(file_path: str) -> Config:
@@ -31,7 +32,8 @@ def load_config(file_path: str) -> Config:
         speed=data['speed'],
         user_login=data['user_login'],
         user_password=data['user_password'],
-        headless=data['headless']
+        headless=data['headless'],
+        log_level=data.get('log_level', 'INFO')
     )
 
 

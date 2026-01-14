@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass
 
 from enum import Enum
 from playwright.sync_api import Page
 
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -63,15 +66,15 @@ class Village:
         page.goto(f"{config.server_url}/build.php?id={id}&gid={source_pit.type.value}")
         page.wait_for_selector("#contract ")
 
-        print("Scanning building contract...")
+        logger.info("Scanning building contract...")
         contract = scan_contract(page)
 
-        print(contract)
+        logger.debug("Contract details: %s", contract)
 
         # Click the upgrade button (first one, not the video feature button)
         upgrade_button = page.locator("button.textButtonV1.green.build").first
         upgrade_button.click()
-        print("Clicked upgrade button")
+        logger.info("Clicked upgrade button")
 
     def building_queue_is_empty(self):
         return len(self.building_queue) == 0
