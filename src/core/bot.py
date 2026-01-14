@@ -45,6 +45,7 @@ class Bot:
         self._running = False
 
     def run(self) -> None:
+        self.driver.login()
         """Start the bot's main loop with scheduled tasks."""
         logger.info("Starting bot...")
         self._running = True
