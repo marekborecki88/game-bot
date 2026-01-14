@@ -1,18 +1,19 @@
 from datetime import datetime, timedelta
 
 from src.core.job import Job
-from src.core.model.Village import Village, BuildingType
+from src.core.model.Village import Village, BuildingType, SourceType
 
 
 class LogicEngine:
     def create_plan_for_village(self, villages: list[Village]) -> list[Job]:
-        return [job for v in villages if (job := self._plan_village(v)) is not None]
+        global_lowest = self.find_lowest_resource_type_in_all(villages)
+        return [job for v in villages if (job := self._plan_village(v, global_lowest)) is not None]
 
-    def _plan_village(self, village: Village) -> Job | None:
+    def _plan_village(self, village: Village, global_lowest: SourceType | None) -> Job | None:
         if not village.building_queue_is_empty():
             return None
 
-        return self._plan_storage_upgrade(village) or self._plan_source_pit_upgrade(village)
+        return self._plan_storage_upgrade(village) or self._plan_source_pit_upgrade(village, global_lowest)
 
     def _plan_storage_upgrade(self, village: Village) -> Job | None:
         storage_needs = self._find_insufficient_storage(village)
@@ -33,25 +34,23 @@ class LogicEngine:
         ]
         return [(bt, ratio) for bt, ratio in checks if ratio < 1.0]
 
-    def _plan_source_pit_upgrade(self, village: Village) -> Job | None:
+    def _plan_source_pit_upgrade(self, village: Village, global_lowest: SourceType | None) -> Job | None:
         upgradable = village.upgradable_source_pits()
         if not upgradable:
             return None
 
-        lowest_source = village.lowest_source()
-        pits_of_type = [p for p in upgradable if p.type == lowest_source]
-        
-        if not pits_of_type:
-            return None
+        # Prioritize upgrading the globally lowest resource type if applicable
+        # Otherwise, upgrade the lowest level pit available
+        pits_to_consider = [p for p in upgradable if p.type == global_lowest] or upgradable
 
-        pit = min(pits_of_type, key=lambda p: p.level)
+        pit = min(pits_to_consider, key=lambda p: p.level)
         return self._create_build_job(village, pit.id, pit.type.gid, pit.type.name, pit.level + 1)
 
     def _create_build_job(self, village: Village, building_id: int, building_gid: int, target_name: str, target_level: int) -> Job:
         now = datetime.now()
         return Job(
             task=lambda: {
-                "action": "upgrade",
+                "action": "build",
                 "village_name": village.name,
                 "village_id": village.id,
                 "building_id": building_id,
@@ -63,3 +62,29 @@ class LogicEngine:
             expires_at=now + timedelta(hours=1)
         )
 
+
+    def find_lowest_resource_type_in_all(self, villages: list[Village]) -> SourceType | None:
+        # If resource levels are globally unbalanced, we prioritize developing that
+        # specific resource everywhere, even if a particular village has a local surplus.
+        totals = {
+            SourceType.LUMBER: 0,
+            SourceType.CLAY: 0,
+            SourceType.IRON: 0,
+            SourceType.CROP: 0,
+        }
+
+        for v in villages:
+            totals[SourceType.LUMBER] += v.lumber
+            totals[SourceType.CLAY] += v.clay
+            totals[SourceType.IRON] += v.iron
+            totals[SourceType.CROP] += v.crop
+
+        min_val = min(totals.values())
+        max_val = max(totals.values())
+
+        if max_val != 0:
+            diff = (max_val - min_val) / max_val
+            if diff < 0.1:
+                return None
+
+        return min(totals, key=totals.get)

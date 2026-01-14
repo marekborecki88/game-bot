@@ -1,3 +1,4 @@
+import json
 import re
 
 from bs4 import BeautifulSoup, Tag
@@ -88,6 +89,20 @@ def scan_stock_bar(html: str) -> dict:
         "free_crop": free_crop,
         "warehouse_capacity": warehouse_capacity,
         "granary_capacity": granary_capacity,
+    }
+
+
+def scan_production(html: str) -> dict:
+    match = re.search(r'production:\s*({[^}]*})', html)
+    if not match:
+        return {}
+
+    prod_data = json.loads(match.group(1))
+    return {
+        "lumber_hourly_production": prod_data.get("l1", 0),
+        "clay_hourly_production": prod_data.get("l2", 0),
+        "iron_hourly_production": prod_data.get("l3", 0),
+        "crop_hourly_production": prod_data.get("l4", 0),
     }
 
 
@@ -210,7 +225,8 @@ def scan_village(identity: VillageIdentity, dorf1, dorf2) -> Village:
         source_pits=(scan_village_source(dorf1)),
         buildings=(scan_village_center(dorf2)),
         building_queue=(scan_building_queue(dorf1)),
-        **(scan_stock_bar(dorf1))
+        **(scan_stock_bar(dorf1)),
+        **(scan_production(dorf1))
     )
 
 
