@@ -44,7 +44,7 @@ def _scan_building(slot: Tag) -> Building | None:
 
     return Building(
         id=building_id,
-        type=(BuildingType(gid)),
+        type=BuildingType.from_gid(gid),
         level=level,
     )
 
@@ -174,7 +174,7 @@ def scan_village_source(html: str) -> list[SourcePit]:
         gid = int(_extract_by_regex(r'gid(\d+)', class_str))
 
         # Map gid to SourceType
-        source_type = next((st for st in SourceType if st.value == gid), None)
+        source_type = next((st for st in SourceType if st.gid == gid), None)
 
         # Extract buildingSlot (field id)
         field_id = int(_extract_by_regex(r'buildingSlot(\d+)', class_str))
@@ -246,5 +246,4 @@ def scan_village_list(html: str) -> list[VillageIdentity]:
     soup = BeautifulSoup(html, HTML_PARSER)
     village_entries = soup.select('.villageList .listEntry.village')
     return [_parse_village_entry(entry) for entry in village_entries]
-
 

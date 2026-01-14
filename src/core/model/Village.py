@@ -208,13 +208,13 @@ class BuildingType(Enum):
     def __init__(self, gid: int, max_level: int):
         self.gid = gid
         self.max_level = max_level
-    TRAPPER = 36
-    HEROS_MANSION = 37
-    STONE_WALL = 42
-    MAKESHIFT_WALL = 43
-    HOSPITAL = 46
-    DEFENSIVE_WALL = 47
-    ASCLEPEION = 48
+
+    @classmethod
+    def from_gid(cls, gid: int):
+        for member in cls:
+            if member.gid == gid:
+                return member
+        raise ValueError(f"No {cls.__name__} with gid {gid}")
 
 
 @dataclass
