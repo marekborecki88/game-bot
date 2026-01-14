@@ -45,7 +45,7 @@ class LogicEngine:
             return None
 
         pit = min(pits_of_type, key=lambda p: p.level)
-        return self._create_build_job(village, pit.id, pit.type.value)
+        return self._create_build_job(village, pit.id, pit.type.gid)
 
     def _create_build_job(self, village: Village, building_id: int, building_gid: int) -> Job:
         now = datetime.now()
