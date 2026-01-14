@@ -7,8 +7,8 @@ from types import FrameType
 import schedule
 
 from src.core.job import Job, JobStatus
-from src.core.logic_engine import LogicEngine
-from src.core.model.Village import Village, SourceType, VillageIdentity
+from src.core.planner.logic_engine import LogicEngine
+from src.core.model.model import Village, SourceType, VillageIdentity
 from src.driver_adapter.driver import Driver
 from src.scan_adapter.scanner import scan_village, scan_village_list
 
@@ -136,14 +136,18 @@ class Bot:
 
     def planning(self) -> list[Job]:
         """Create a plan for all villages and return new jobs."""
-        villages = [self.scan_village(v) for v in self.village_list()]
+        account = self.account_info()
+        villages = [self.fetch_village_info(v) for v in self.village_list()]
         return self.logic_engine.create_plan_for_village(villages)
+
+    def account_info(self):
+        html: str = self.driver.get_html("dorf1")
+        return scan_account_info(html)
 
     def village_list(self) -> list[VillageIdentity]:
         """Get the list of all villages."""
         html: str = self.driver.get_html("dorf1")
-        village_list = scan_village_list(html)
-        return village_list
+        return scan_village_list(html)
 
     def build(self, village_name: str, id: int, gid: int) -> None:
         """Build/upgrade a building in a village."""
@@ -180,7 +184,7 @@ class Bot:
         sys.stdout.flush()
         return self._count_down(seconds - 1)
 
-    def scan_village(self, village_identity: VillageIdentity) -> Village:
+    def fetch_village_info(self, village_identity: VillageIdentity) -> Village:
         """Scan a village and return its current state."""
         logger.debug(f"Scanning village: {village_identity.name}")
         dorf1, dorf2 = self.driver.get_village_inner_html(village_identity.id)

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from src.core.job import Job
-from src.core.model.Village import Village, BuildingType, SourceType
+from src.core.model.model import Village, BuildingType, SourceType
 
 
 class LogicEngine:
