@@ -23,7 +23,7 @@ class LogicEngine:
         building = village.get_building(building_type)
 
         if building and building.level < building_type.max_level:
-            return self._create_build_job(village, building.id, building_type.gid)
+            return self._create_build_job(village, building.id, building_type.gid, building_type.name, building.level + 1)
         return None
 
     def _find_insufficient_storage(self, village: Village) -> list[tuple[BuildingType, float]]:
@@ -45,12 +45,20 @@ class LogicEngine:
             return None
 
         pit = min(pits_of_type, key=lambda p: p.level)
-        return self._create_build_job(village, pit.id, pit.type.gid)
+        return self._create_build_job(village, pit.id, pit.type.gid, pit.type.name, pit.level + 1)
 
-    def _create_build_job(self, village: Village, building_id: int, building_gid: int) -> Job:
+    def _create_build_job(self, village: Village, building_id: int, building_gid: int, target_name: str, target_level: int) -> Job:
         now = datetime.now()
         return Job(
-            task=lambda: {"action": "build", "village_name": village.name, "building_id": building_id, "building_gid": building_gid},
+            task=lambda: {
+                "action": "upgrade",
+                "village_name": village.name,
+                "village_id": village.id,
+                "building_id": building_id,
+                "building_gid": building_gid,
+                "target_name": target_name,
+                "target_level": target_level
+            },
             scheduled_time=now,
             expires_at=now + timedelta(hours=1)
         )

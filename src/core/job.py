@@ -28,19 +28,3 @@ class Job:
             and not self.is_expired()
             and datetime.now() >= self.scheduled_time
         )
-
-    def execute(self) -> Any:
-        if self.is_expired():
-            self.status = JobStatus.EXPIRED
-            return None
-        if self.status != JobStatus.PENDING:
-            return None
-
-        self.status = JobStatus.RUNNING
-        try:
-            result = self.task()
-            self.status = JobStatus.COMPLETED
-            return result
-        except Exception as e:
-            self.status = JobStatus.TERMINATED
-            raise e
