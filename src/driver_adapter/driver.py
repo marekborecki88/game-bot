@@ -1,5 +1,4 @@
 import random
-import time
 
 from playwright.sync_api import Playwright
 
@@ -30,7 +29,6 @@ class Driver:
         self.page.wait_for_load_state('networkidle')
 
         print("logged in.")
-        return self.page
 
     def stop(self):
         self.browser.close()
