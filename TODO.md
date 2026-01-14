@@ -12,3 +12,11 @@
 2. add hero scanning
 3. add sending hero to adventure
 4. add posibility to use resources from hero's inventory
+
+ISSUES:
+
+1. improve logs
+       2026-01-14 15:07:29,069 INFO     src.core.bot - Building in village: GOMORA, id: 21, type: unknown
+2. remove dict from job execution
+       use dedicated type, add abstraction to reflect different type of jobs like building, sending troops, sending merchants, etc.
+3. ____
