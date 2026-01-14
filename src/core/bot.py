@@ -1,6 +1,11 @@
+import logging
+import signal
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from types import FrameType
+
+import schedule
 
 from src.core.job import Job, JobStatus
 from src.core.logic_engine import LogicEngine
@@ -8,86 +13,136 @@ from src.core.model.Village import Village, SourceType, VillageIdentity
 from src.driver_adapter.driver import Driver
 from src.scan_adapter.scanner import scan_village, scan_village_list
 
+logger = logging.getLogger(__name__)
+
 
 def shortest_building_queue(villages: list[Village]) -> int:
     return min([v.building_queue_duration() for v in villages])
 
-# this class should be just an interface
-# the implementation should be in driver_adapter
+
 class Bot:
-    PLANNING_INTERVAL = 3600  # seconds (60 minutes)
-    SCHEDULER_TICK = 1  # seconds
+    """Game bot with scheduled planning and job execution."""
+    
+    PLANNING_INTERVAL: int = 3600  # seconds (60 minutes)
+    JOB_CHECK_INTERVAL: int = 1  # seconds
 
-    def __init__(self, driver: Driver):
-        self.driver = driver
-        self.logic_engine = LogicEngine()
+    def __init__(self, driver: Driver) -> None:
+        self.driver: Driver = driver
+        self.logic_engine: LogicEngine = LogicEngine()
         self.jobs: list[Job] = []
-        self.next_planning_time: datetime = datetime.now()
+        self._running: bool = False
+        
+        self._setup_signal_handlers()
 
-    def run(self):
-        print("running bot...")
+    def _setup_signal_handlers(self) -> None:
+        """Setup graceful shutdown handlers for SIGINT and SIGTERM."""
+        signal.signal(signal.SIGINT, self._shutdown_handler)
+        signal.signal(signal.SIGTERM, self._shutdown_handler)
 
-        while True:
-            self._scheduler_tick()
-            time.sleep(self.SCHEDULER_TICK)
+    def _shutdown_handler(self, signum: int, frame: FrameType | None) -> None:
+        """Handle shutdown signals gracefully."""
+        logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+        self._running = False
 
-    def _scheduler_tick(self):
-        # Check if it's time for planning
-        if datetime.now() >= self.next_planning_time:
-            self._run_planning()
-            self.next_planning_time = datetime.now() + timedelta(seconds=self.PLANNING_INTERVAL)
+    def run(self) -> None:
+        """Start the bot's main loop with scheduled tasks."""
+        logger.info("Starting bot...")
+        self._running = True
+        
+        # Schedule planning task
+        schedule.every(self.PLANNING_INTERVAL).seconds.do(self._run_planning)
+        
+        # Schedule job execution check
+        schedule.every(self.JOB_CHECK_INTERVAL).seconds.do(self._execute_pending_jobs)
+        
+        # Run initial planning immediately
+        self._run_planning()
+        
+        logger.info(f"Scheduler configured: planning every {self.PLANNING_INTERVAL}s, "
+                    f"job check every {self.JOB_CHECK_INTERVAL}s")
+        
+        while self._running:
+            schedule.run_pending()
+            time.sleep(0.1)  # Small sleep to prevent CPU spinning
+        
+        self._cleanup()
 
-        # Execute ready jobs
+    def _cleanup(self) -> None:
+        """Cleanup resources on shutdown."""
+        logger.info("Cleaning up...")
+        schedule.clear()
+        pending_count = len([j for j in self.jobs if j.status == JobStatus.PENDING])
+        logger.info(f"Shutdown complete. {pending_count} pending jobs remaining.")
+
+    def _execute_pending_jobs(self) -> None:
+        """Execute all jobs that are ready and cleanup completed ones."""
         for job in self.jobs:
             if job.should_execute():
                 try:
+                    logger.debug(f"Executing job scheduled for {job.scheduled_time}")
                     job.execute()
+                    logger.info("Job executed successfully")
                 except Exception as e:
-                    print(f"Job failed: {e}")
+                    logger.error(f"Job execution failed: {e}", exc_info=True)
 
         # Cleanup completed/expired/terminated jobs
+        before_count = len(self.jobs)
         self.jobs = [j for j in self.jobs if j.status == JobStatus.PENDING]
+        cleaned = before_count - len(self.jobs)
+        if cleaned > 0:
+            logger.debug(f"Cleaned up {cleaned} completed jobs")
 
-    def _run_planning(self):
-        print("Running planning...")
-        new_jobs = self.planning()
-        self.jobs.extend(new_jobs)
-        print(f"Added {len(new_jobs)} new jobs. Total pending jobs: {len(self.jobs)}")
+    def _run_planning(self) -> None:
+        """Run the planning phase and add new jobs to the queue."""
+        logger.info("Running planning phase...")
+        try:
+            new_jobs = self.planning()
+            self.jobs.extend(new_jobs)
+            logger.info(f"Planning complete: added {len(new_jobs)} new jobs. "
+                       f"Total pending: {len(self.jobs)}")
+        except Exception as e:
+            logger.error(f"Planning failed: {e}", exc_info=True)
 
 
     def planning(self) -> list[Job]:
+        """Create a plan for all villages and return new jobs."""
         villages = [self.scan_village(v) for v in self.village_list()]
         return self.logic_engine.create_plan_for_village(villages)
 
     def village_list(self) -> list[VillageIdentity]:
+        """Get the list of all villages."""
         html: str = self.driver.get_html("dorf1")
         village_list = scan_village_list(html)
         return village_list
 
     def build(self, village_name: str, id: int, gid: int) -> None:
-        print("building in village:", village_name, "id:", id, "pit type:",
-              next((st for st in SourceType if st.value == gid), None).name)
+        """Build/upgrade a building in a village."""
+        source_type = next((st for st in SourceType if st.value == gid), None)
+        logger.info(f"Building in village: {village_name}, id: {id}, "
+                    f"type: {source_type.name if source_type else 'unknown'}")
 
         # I don't like this code
         self.driver.page.goto(f"{self.driver.config.server_url}/build.php?id={id}&gid={gid}")
         self.driver.page.wait_for_selector("#contract ")
 
-        # Contract should be check by scanner and building should be queued only if enough resources
+        # Contract should be checked by scanner and building should be queued only if enough resources
 
         upgrade_button = self.driver.page.locator("button.textButtonV1.green.build").first
         upgrade_button.click()
-        print("Clicked upgrade button")
+        logger.info("Clicked upgrade button")
 
     def wait_for_next_task(self, seconds: int) -> None:
-        print(f"Wait {seconds} seconds for next task...")
+        """Wait for a specified number of seconds before next task."""
+        logger.info(f"Waiting {seconds} seconds for next task...")
         self._count_down(seconds)
 
     def _count_down(self, seconds: int) -> int:
+        """Countdown timer with periodic page refresh."""
         if seconds == 0:
-            sys.stdout.write('\rWaiting for next task: Finished')
+            sys.stdout.write('\rWaiting for next task: Finished\n')
             sys.stdout.flush()
             return 0
-        elif seconds%60 == 0:
+        elif seconds % 60 == 0:
             self.driver.refresh()
 
         sys.stdout.write(f'\rWaiting for next task: {seconds} seconds remaining')
@@ -96,6 +151,7 @@ class Bot:
         return self._count_down(seconds - 1)
 
     def scan_village(self, village_identity: VillageIdentity) -> Village:
-        print("Scanning village:", village_identity.name)
+        """Scan a village and return its current state."""
+        logger.debug(f"Scanning village: {village_identity.name}")
         dorf1, dorf2 = self.driver.get_village_inner_html(village_identity.id)
         return scan_village(village_identity, dorf1, dorf2)
