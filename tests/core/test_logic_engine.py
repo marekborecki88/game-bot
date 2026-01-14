@@ -1,5 +1,5 @@
-from src.core.logic_engine import LogicEngine
-from src.core.model.Village import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob
+from src.core.planner.logic_engine import LogicEngine
+from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe
 
 
 def make_village(**overrides) -> Village:
@@ -7,6 +7,7 @@ def make_village(**overrides) -> Village:
     defaults = {
         "id": 999,
         "name": "Test Village",
+        "tribe": Tribe.ROMANS,
         "lumber": 1000,
         "clay": 1000,
         "iron": 1000,

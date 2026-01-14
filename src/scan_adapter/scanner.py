@@ -2,7 +2,8 @@ import json
 import re
 
 from bs4 import BeautifulSoup, Tag
-from src.core.model.Village import BuildingType, Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity
+from src.core.model.model import BuildingType, Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity, \
+    Account, Tribe
 
 HTML_PARSER = 'html.parser'
 
@@ -218,10 +219,38 @@ def scan_village_center(html: str) -> list[Building]:
     return [building for slot in building_slots if (building := _scan_building(slot))]
 
 
+def identity_tribe(dorf2: str) -> Tribe:
+    soup = BeautifulSoup(dorf2, HTML_PARSER)
+    building_slot = soup.select_one(".buildingSlot")
+    if not building_slot:
+        raise ValueError("No building slot found in dorf2.html to identify tribe")
+
+    classes = building_slot.get('class', [])
+    if isinstance(classes, str):
+        classes = classes.split()
+
+    tribe_map = {
+        "roman": Tribe.ROMANS,
+        "teuton": Tribe.TEUTONS,
+        "gaul": Tribe.GAULS,
+        "huns": Tribe.HUNS,
+        "spartan": Tribe.SPARTANS,
+        "nors": Tribe.NORS,
+        "egyptian": Tribe.EGYPTIANS,
+    }
+
+    for cls in classes:
+        if cls in tribe_map:
+            return tribe_map[cls]
+
+    raise ValueError(f"Could not identify tribe from classes: {classes}")
+
+
 def scan_village(identity: VillageIdentity, dorf1, dorf2) -> Village:
     return Village(
         id=identity.id,
         name=(scan_village_name(dorf1)),
+        tribe=(identity_tribe(dorf2)),
         source_pits=(scan_village_source(dorf1)),
         buildings=(scan_village_center(dorf2)),
         building_queue=(scan_building_queue(dorf1)),
@@ -263,3 +292,34 @@ def scan_village_list(html: str) -> list[VillageIdentity]:
     village_entries = soup.select('.villageList .listEntry.village')
     return [_parse_village_entry(entry) for entry in village_entries]
 
+def scan_account_info(html: str) -> Account:
+    soup = BeautifulSoup(html, HTML_PARSER)
+
+    # Extract server speed from title
+    server_speed = 1.0
+    title_text = soup.title.string if soup.title else ""
+    match = re.search(r'x(\d+)', title_text)
+    if match:
+        server_speed = float(match.group(1))
+
+    infobox = soup.select_one("#sidebarBoxInfobox")
+    if not infobox:
+        raise ValueError("Infobox not found in HTML")
+
+    beginners_expires = 0
+
+    for li in infobox.select("ul li"):
+        text = li.get_text()
+        timer = li.select_one(".timer")
+        if not timer:
+            continue
+
+        timer_value = int(timer.get("value", "0"))
+
+        if "beginner's protection" in text:
+            beginners_expires = timer_value
+
+    return Account(
+        server_speed=server_speed,
+        when_beginners_protection_expires=beginners_expires
+    )

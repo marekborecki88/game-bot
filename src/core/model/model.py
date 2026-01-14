@@ -37,11 +37,17 @@ def scan_contract(page: Page) -> BuildingContract:
         crop_consumption=crop_consumption
     )
 
+@dataclass
+class Account:
+    server_speed: float
+    when_beginners_protection_expires: int = 0
+
 
 @dataclass
 class Village:
     id: int
     name: str
+    tribe: Tribe
     lumber: int
     clay: int
     iron: int
@@ -137,6 +143,14 @@ class SourcePit:
     type: SourceType
     level: int
 
+class Tribe(Enum):
+    ROMANS = 1
+    TEUTONS = 2
+    GAULS = 3
+    HUNS = 4
+    SPARTANS = 5
+    NORS = 6
+    EGYPTIANS = 7
 
 class SourceType(Enum):
     # (gid, max_level)

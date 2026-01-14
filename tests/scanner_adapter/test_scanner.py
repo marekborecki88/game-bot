@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.core.model.Village import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob
+from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, Tribe
 from src.scan_adapter.scanner import (
     scan_village_name,
     scan_stock_bar,
@@ -11,6 +11,8 @@ from src.scan_adapter.scanner import (
     scan_village_center, scan_village_list,
     scan_production,
     scan_village,
+    scan_account_info,
+    identity_tribe,
 )
 
 
@@ -164,3 +166,22 @@ def test_scan_building_queue(dorf1_html):
         BuildingJob(building_id=0, target_level=3, time_remaining=628)
     ]
     assert result == expected
+
+
+def test_scan_account_info(dorf1_html):
+    # When
+    result = scan_account_info(dorf1_html)
+
+    # Then
+    assert result.server_speed == pytest.approx(5.0)
+    assert result.when_beginners_protection_expires == 42778
+
+
+def test_identity_tribe(dorf2_html):
+    # When
+    result = identity_tribe(dorf2_html)
+
+    # Then
+    assert result == Tribe.ROMANS
+
+
