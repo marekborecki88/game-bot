@@ -50,6 +50,14 @@ class Village:
     granary_capacity: int
     building_queue: list[BuildingJob]
 
+    # Hardcoded hourly production per resource
+    LUMBER_HOURLY_PRODUCTION: int = 2000
+    CLAY_HOURLY_PRODUCTION: int = 2000
+    IRON_HOURLY_PRODUCTION: int = 2000
+    CROP_HOURLY_PRODUCTION: int = 2000
+
+    MAX_SOURCE_PIT_LEVEL: int = 10
+
     def build(self, page: Page, config: Config, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)
         if not source_pit:
@@ -90,6 +98,31 @@ class Village:
             return 0
         return max(self.building_queue, key=lambda job: job.time_remaining).time_remaining
 
+    def lumber_24h_ratio(self) -> float:
+        return self.warehouse_capacity / (self.LUMBER_HOURLY_PRODUCTION * 24)
+
+    def clay_24h_ratio(self) -> float:
+        return self.warehouse_capacity / (self.CLAY_HOURLY_PRODUCTION * 24)
+
+    def iron_24h_ratio(self) -> float:
+        return self.warehouse_capacity / (self.IRON_HOURLY_PRODUCTION * 24)
+
+    def crop_24h_ratio(self) -> float:
+        return self.granary_capacity / (self.CROP_HOURLY_PRODUCTION * 24)
+
+    def warehouse_min_ratio(self) -> float:
+        """Lowest ratio among warehouse resources - the bottleneck."""
+        return min(self.lumber_24h_ratio(), self.clay_24h_ratio(), self.iron_24h_ratio())
+
+    def granary_min_ratio(self) -> float:
+        return self.crop_24h_ratio()
+
+    def get_building(self, building_type: BuildingType) -> Building | None:
+        return next((b for b in self.buildings if b.type == building_type), None)
+
+    def upgradable_source_pits(self) -> list[SourcePit]:
+        return [p for p in self.source_pits if p.level < self.MAX_SOURCE_PIT_LEVEL]
+
 
 @dataclass
 class Building:
@@ -106,58 +139,75 @@ class SourcePit:
 
 
 class SourceType(Enum):
-    LUMBER = 1
-    CLAY = 2
-    IRON = 3
-    CROP = 4
+    # (gid, max_level)
+    LUMBER = (1, 10)
+    CLAY = (2, 10)
+    IRON = (3, 10)
+    CROP = (4, 10)
+
+    def __init__(self, gid: int, max_level: int):
+        self.gid = gid
+        self.max_level = max_level
 
 
 class BuildingType(Enum):
+    # (gid, max_level)
     # Resources
-    WOODCUTTER = 1
-    CLAY_PIT = 2
-    IRON_MINE = 3
-    CROPLAND = 4
-    SAWMILL = 5
-    BRICKYARD = 6
-    IRON_FOUNDRY = 7
-    GRAIN_MILL = 8
-    BAKERY = 9
+    WOODCUTTER = (1, 10)
+    CLAY_PIT = (2, 10)
+    IRON_MINE = (3, 10)
+    CROPLAND = (4, 10)
+    SAWMILL = (5, 5)
+    BRICKYARD = (6, 5)
+    IRON_FOUNDRY = (7, 5)
+    GRAIN_MILL = (8, 5)
+    BAKERY = (9, 5)
 
     # Infrastructure
-    WAREHOUSE = 10
-    GRANARY = 11
-    MAIN_BUILDING = 15
-    MARKETPLACE = 17
-    EMBASSY = 18
-    CRANNY = 23
-    TOWN_HALL = 24
-    RESIDENCE = 25
-    PALACE = 26
-    TREASURY = 27
-    TRADE_OFFICE = 28
-    STONEMASONS_LODGE = 34
-    BREWERY = 35
-    GREAT_WAREHOUSE = 38
-    GREAT_GRANARY = 39
-    WONDER_OF_THE_WORLD = 40
-    HORSE_DRINKING_TROUGH = 41
-    COMMAND_CENTER = 44
-    WATERWORKS = 45
+    WAREHOUSE = (10, 20)
+    GRANARY = (11, 20)
+    MAIN_BUILDING = (15, 20)
+    MARKETPLACE = (17, 20)
+    EMBASSY = (18, 20)
+    CRANNY = (23, 10)
+    TOWN_HALL = (24, 20)
+    RESIDENCE = (25, 20)
+    PALACE = (26, 20)
+    TREASURY = (27, 20)
+    TRADE_OFFICE = (28, 20)
+    STONEMASONS_LODGE = (34, 20)
+    BREWERY = (35, 20)
+    GREAT_WAREHOUSE = (38, 20)
+    GREAT_GRANARY = (39, 20)
+    WONDER_OF_THE_WORLD = (40, 100)
+    HORSE_DRINKING_TROUGH = (41, 20)
+    COMMAND_CENTER = (44, 20)
+    WATERWORKS = (45, 20)
 
     # Military
-    SMITHY = 13
-    TOURNAMENT_SQUARE = 14
-    RALLY_POINT = 16
-    BARRACKS = 19
-    STABLE = 20
-    WORKSHOP = 21
-    ACADEMY = 22
-    GREAT_BARRACKS = 29
-    GREAT_STABLE = 30
-    CITY_WALL = 31
-    EARTH_WALL = 32
-    PALISADE = 33
+    SMITHY = (13, 20)
+    TOURNAMENT_SQUARE = (14, 20)
+    RALLY_POINT = (16, 20)
+    BARRACKS = (19, 20)
+    STABLE = (20, 20)
+    WORKSHOP = (21, 20)
+    ACADEMY = (22, 20)
+    GREAT_BARRACKS = (29, 20)
+    GREAT_STABLE = (30, 20)
+    CITY_WALL = (31, 20)
+    EARTH_WALL = (32, 20)
+    PALISADE = (33, 20)
+    TRAPPER = (36, 20)
+    HEROS_MANSION = (37, 20)
+    STONE_WALL = (42, 20)
+    MAKESHIFT_WALL = (43, 20)
+    HOSPITAL = (46, 20)
+    DEFENSIVE_WALL = (47, 20)
+    ASCLEPEION = (48, 20)
+
+    def __init__(self, gid: int, max_level: int):
+        self.gid = gid
+        self.max_level = max_level
     TRAPPER = 36
     HEROS_MANSION = 37
     STONE_WALL = 42
