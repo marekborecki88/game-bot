@@ -149,15 +149,53 @@ class TestLogicEngine:
         assert payload["building_gid"] == SourceType.LUMBER.gid
 
     def test_skip_village_when_all_source_pits_at_max_level(self):
-        # Given: village with sufficient storage
-        #        all source pits at max level (10)
-        # When: create_plan_for_village is called
+        # Given: village with sufficient storage and all source pits at max level (10)
+        village = make_village(
+            name="MaxedPitsTest",
+            source_pits=[
+                SourcePit(id=1, type=SourceType.LUMBER, level=10),
+                SourcePit(id=2, type=SourceType.CLAY, level=10),
+                SourcePit(id=3, type=SourceType.IRON, level=10),
+                SourcePit(id=4, type=SourceType.CROP, level=10),
+            ],
+            warehouse_capacity=50000,
+            granary_capacity=50000,
+            building_queue=[],
+        )
+        engine = LogicEngine()
+
+        # When
+        jobs = engine.create_plan_for_village([village])
+
         # Then: no job is created
-        pass
+        assert jobs == []
 
     def test_skip_storage_upgrade_when_at_max_level(self):
-        # Given: village with insufficient warehouse capacity
-        #        warehouse already at max level (20)
-        # When: create_plan_for_village is called
-        # Then: fallback to source pit upgrade or skip
-        pass
+        # Given: village with both warehouse and granary at max level (20),
+        # but even that is not enough for 24h production (bardzo wysoka produkcja),
+        # a wszystkie source_pits są na max level
+        village = make_village(
+            name="MaxedStorageTest",
+            buildings=[
+                Building(id=10, level=20, type=BuildingType.WAREHOUSE),
+                Building(id=11, level=20, type=BuildingType.GRANARY),
+            ],
+            warehouse_capacity=80000,
+            granary_capacity=80000,
+            lumber_hourly_production=10000,
+            clay_hourly_production=10000,
+            iron_hourly_production=10000,
+            crop_hourly_production=10000,
+            source_pits=[
+                SourcePit(id=1, type=SourceType.LUMBER, level=10),
+                SourcePit(id=2, type=SourceType.CLAY, level=10),
+                SourcePit(id=3, type=SourceType.IRON, level=10),
+                SourcePit(id=4, type=SourceType.CROP, level=10),
+            ],
+            building_queue=[],
+        )
+        engine = LogicEngine()
+        # When
+        jobs = engine.create_plan_for_village([village])
+        # Then: no job is created (storage i source_pits maxed)
+        assert jobs == []
