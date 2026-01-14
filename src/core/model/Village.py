@@ -49,14 +49,11 @@ class Village:
     warehouse_capacity: int
     granary_capacity: int
     building_queue: list[BuildingJob]
-
-    # Hardcoded hourly production per resource
-    LUMBER_HOURLY_PRODUCTION: int = 2000
-    CLAY_HOURLY_PRODUCTION: int = 2000
-    IRON_HOURLY_PRODUCTION: int = 2000
-    CROP_HOURLY_PRODUCTION: int = 2000
-
-    MAX_SOURCE_PIT_LEVEL: int = 10
+    lumber_hourly_production: int = 2000
+    clay_hourly_production: int = 2000
+    iron_hourly_production: int = 2000
+    crop_hourly_production: int = 2000
+    max_source_pit_level: int = 10
 
     def build(self, page: Page, config: Config, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)
@@ -99,16 +96,16 @@ class Village:
         return max(self.building_queue, key=lambda job: job.time_remaining).time_remaining
 
     def lumber_24h_ratio(self) -> float:
-        return self.warehouse_capacity / (self.LUMBER_HOURLY_PRODUCTION * 24)
+        return self.warehouse_capacity / (self.lumber_hourly_production * 24)
 
     def clay_24h_ratio(self) -> float:
-        return self.warehouse_capacity / (self.CLAY_HOURLY_PRODUCTION * 24)
+        return self.warehouse_capacity / (self.clay_hourly_production * 24)
 
     def iron_24h_ratio(self) -> float:
-        return self.warehouse_capacity / (self.IRON_HOURLY_PRODUCTION * 24)
+        return self.warehouse_capacity / (self.iron_hourly_production * 24)
 
     def crop_24h_ratio(self) -> float:
-        return self.granary_capacity / (self.CROP_HOURLY_PRODUCTION * 24)
+        return self.granary_capacity / (self.crop_hourly_production * 24)
 
     def warehouse_min_ratio(self) -> float:
         """Lowest ratio among warehouse resources - the bottleneck."""
@@ -121,7 +118,7 @@ class Village:
         return next((b for b in self.buildings if b.type == building_type), None)
 
     def upgradable_source_pits(self) -> list[SourcePit]:
-        return [p for p in self.source_pits if p.level < self.MAX_SOURCE_PIT_LEVEL]
+        return [p for p in self.source_pits if p.level < self.max_source_pit_level]
 
 
 @dataclass
