@@ -9,6 +9,8 @@ from src.scan_adapter.scanner import (
     scan_building_queue,
     scan_village_source,
     scan_village_center, scan_village_list,
+    scan_production,
+    scan_village,
 )
 
 
@@ -110,6 +112,46 @@ def test_scan_stock_bar(dorf1_html):
         "granary_capacity": 14400,
     }
     assert result == expected
+
+
+def test_scan_production(dorf1_html):
+    # When
+    result = scan_production(dorf1_html)
+
+    # Then
+    expected = {
+        "lumber_hourly_production": 920,
+        "clay_hourly_production": 1040,
+        "iron_hourly_production": 690,
+        "crop_hourly_production": 1504,
+    }
+    assert result == expected
+
+
+def test_scan_village(dorf1_html, dorf2_html):
+    # Given
+    identity = VillageIdentity(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
+
+    # When
+    result = scan_village(identity, dorf1_html, dorf2_html)
+
+    # Then
+    assert result.id == 50287
+    assert result.name == "New village"
+    assert result.lumber == 5636
+    assert result.clay == 5475
+    assert result.iron == 5844
+    assert result.crop == 14284
+    assert result.free_crop == 1503
+    assert result.warehouse_capacity == 6300
+    assert result.granary_capacity == 14400
+    assert result.lumber_hourly_production == 920
+    assert result.clay_hourly_production == 1040
+    assert result.iron_hourly_production == 690
+    assert result.crop_hourly_production == 1504
+    assert len(result.source_pits) == 18
+    assert len(result.buildings) == 4
+    assert len(result.building_queue) == 2
 
 
 def test_scan_building_queue(dorf1_html):

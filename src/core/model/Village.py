@@ -79,7 +79,7 @@ class Village:
     def building_queue_is_empty(self):
         return len(self.building_queue) == 0
 
-    def lowest_source(self):
+    def lowest_source(self) -> SourceType:
         source_dict = {
             SourceType.LUMBER: self.lumber,
             SourceType.CLAY: self.clay,
