@@ -10,7 +10,7 @@ from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village, scan_village_list
+from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info
 
 logger = logging.getLogger(__name__)
 
