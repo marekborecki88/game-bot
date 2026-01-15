@@ -302,22 +302,19 @@ def scan_account_info(html: str) -> Account:
     if match:
         server_speed = float(match.group(1))
 
-    infobox = soup.select_one("#sidebarBoxInfobox")
-    if not infobox:
-        raise ValueError("Infobox not found in HTML")
-
     beginners_expires = 0
 
-    for li in infobox.select("ul li"):
-        text = li.get_text()
-        timer = li.select_one(".timer")
-        if not timer:
-            continue
+    infobox = soup.select_one("#sidebarBoxInfobox")
+    if infobox:
 
-        timer_value = int(timer.get("value", "0"))
+        for li in infobox.select("ul li"):
+            text = li.get_text()
+            timer = li.select_one(".timer")
+            if timer:
+                timer_value = int(timer.get("value", "0"))
 
-        if "beginner's protection" in text:
-            beginners_expires = timer_value
+                if "beginner's protection" in text:
+                    beginners_expires = timer_value
 
     return Account(
         server_speed=server_speed,
