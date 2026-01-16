@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta
 
 from src.core.job import Job
-from src.core.model.model import Village, BuildingType, SourceType
+from src.core.model.model import Village, BuildingType, SourceType, GameState
 
 
 class LogicEngine:
-    def create_plan_for_village(self, villages: list[Village]) -> list[Job]:
-        global_lowest = self.find_lowest_resource_type_in_all(villages)
-        return [job for v in villages if (job := self._plan_village(v, global_lowest)) is not None]
+    def create_plan_for_village(self, game_state: GameState, interval_in_seconds: int) -> list[Job]:
+        global_lowest = self.find_lowest_resource_type_in_all(game_state.villages)
+        return [job for v in game_state.villages if (job := self._plan_village(v, global_lowest)) is not None]
 
     def _plan_village(self, village: Village, global_lowest: SourceType | None) -> Job | None:
         if not village.building_queue_is_empty():
