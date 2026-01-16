@@ -1,5 +1,7 @@
+import pytest
+
 from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe
+from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account
 
 
 def make_village(**overrides) -> Village:
@@ -23,9 +25,18 @@ def make_village(**overrides) -> Village:
     return Village(**defaults)
 
 
+interval_seconds = 3600
+
+
+@pytest.fixture
+def account_info() -> Account:
+    """Fixture to provide an Account with sensible defaults."""
+    return Account(server_speed=1.0, when_beginners_protection_expires=0)
+
+
 class TestLogicEngine:
 
-    def test_skip_village_with_non_empty_building_queue(self):
+    def test_skip_village_with_non_empty_building_queue(self, account_info: Account):
         # Given: village with building in queue
         village = make_village(
             name="Test Village",
@@ -34,15 +45,16 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[BuildingJob(building_id=1, target_level=2, time_remaining=3600)],
         )
+        game_state = GameState(account=account_info, villages=[village])
         engine = LogicEngine()
 
         # When: create_plan_for_village is called
-        jobs = engine.create_plan_for_village([village])
+        jobs = engine.create_plan_for_village(game_state, interval_seconds)
 
         # Then: no job is created for this village
         assert jobs == []
 
-    def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(self):
+    def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(self, account_info: Account):
         # Given: village with warehouse capacity < 24h lumber production (2000 * 24 = 48000)
         village = make_village(
             name="WarehouseTest",
@@ -51,11 +63,11 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[],
         )
-
+        game_state = GameState(account=account_info, villages=[village])
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village([village])
+        jobs = engine.create_plan_for_village(game_state, interval_seconds)
 
         # Then: should schedule exactly one job to upgrade the warehouse
         assert len(jobs) == 1
@@ -68,7 +80,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 10
         assert payload["building_gid"] == BuildingType.WAREHOUSE.gid
 
-    def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(self):
+    def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(self, account_info: Account):
         # Given: village with granary capacity < 24h crop production (2000 * 24 = 48000)
         village = make_village(
             name="GranaryTest",
@@ -77,11 +89,11 @@ class TestLogicEngine:
             granary_capacity=1000,  # << 48000
             building_queue=[],
         )
-
+        game_state = GameState(account=account_info, villages=[village])
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village([village])
+        jobs = engine.create_plan_for_village(game_state, interval_seconds)
 
         # Then: should schedule exactly one job to upgrade the granary
         assert len(jobs) == 1
@@ -92,7 +104,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 11
         assert payload["building_gid"] == BuildingType.GRANARY.gid
 
-    def test_prioritize_storage_with_lower_ratio(self):
+    def test_prioritize_storage_with_lower_ratio(self, account_info: Account):
         # Given: village where both warehouse and granary are insufficient
         #        warehouse ratio = 0.5 (24000 / 48000), granary ratio = 0.3 (14400 / 48000)
         village = make_village(
@@ -105,11 +117,11 @@ class TestLogicEngine:
             granary_capacity=14400,    # ratio = 14400 / 48000 = 0.3 (lower = more urgent)
             building_queue=[],
         )
-
+        game_state = GameState(account=account_info, villages=[village])
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village([village])
+        jobs = engine.create_plan_for_village(game_state, interval_seconds)
 
         # Then: job to upgrade granary is created (lower ratio = more urgent)
         assert len(jobs) == 1
@@ -118,7 +130,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 11
         assert payload["building_gid"] == BuildingType.GRANARY.gid
 
-    def test_upgrade_source_pit_when_storage_is_sufficient(self):
+    def test_upgrade_source_pit_when_storage_is_sufficient(self, account_info: Account):
         # Given: village with sufficient warehouse and granary capacity
         #        lumber stock is lowest among resources
         village = make_village(
@@ -136,11 +148,11 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[],
         )
-
+        game_state = GameState(account=account_info, villages=[village])
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village([village])
+        jobs = engine.create_plan_for_village(game_state, interval_seconds)
 
         # Then: job to upgrade lumber pit with lowest level is created
         assert len(jobs) == 1
@@ -149,7 +161,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 2  # pit id with lowest level lumber
         assert payload["building_gid"] == SourceType.LUMBER.gid
 
-    def test_skip_village_when_all_source_pits_at_max_level(self):
+    def test_skip_village_when_all_source_pits_at_max_level(self, account_info: Account):
         # Given: village with sufficient storage and all source pits at max level (10)
         village = make_village(
             name="MaxedPitsTest",
@@ -163,15 +175,16 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[],
         )
+        game_state = GameState(account=account_info, villages=[village])
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village([village])
+        jobs = engine.create_plan_for_village(game_state, interval_seconds)
 
         # Then: no job is created
         assert jobs == []
 
-    def test_skip_storage_upgrade_when_at_max_level(self):
+    def test_skip_storage_upgrade_when_at_max_level(self, account_info: Account):
         # Given: village with both warehouse and granary at max level (20),
         # but even that is not enough for 24h production (bardzo wysoka produkcja),
         # a wszystkie source_pits są na max level
@@ -195,8 +208,11 @@ class TestLogicEngine:
             ],
             building_queue=[],
         )
+        game_state = GameState(account=account_info, villages=[village])
         engine = LogicEngine()
+
         # When
-        jobs = engine.create_plan_for_village([village])
+        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+
         # Then: no job is created (storage i source_pits maxed)
         assert jobs == []

@@ -243,3 +243,8 @@ class VillageIdentity:
     name: str
     coordinate_x: int
     coordinate_y: int
+
+@dataclass
+class GameState:
+    account: Account
+    villages: list[Village]
