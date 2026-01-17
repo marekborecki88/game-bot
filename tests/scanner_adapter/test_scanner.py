@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, Tribe
+from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, Tribe, HeroInfo, Village
 from src.scan_adapter.scanner import (
     scan_village_name,
     scan_stock_bar,
@@ -145,22 +145,26 @@ def test_scan_village(dorf1_html, dorf2_html):
     result = scan_village(identity, dorf1_html, dorf2_html)
 
     # Then
-    assert result.id == 50287
-    assert result.name == "New village"
-    assert result.lumber == 5636
-    assert result.clay == 5475
-    assert result.iron == 5844
-    assert result.crop == 14284
-    assert result.free_crop == 1503
-    assert result.warehouse_capacity == 6300
-    assert result.granary_capacity == 14400
-    assert result.lumber_hourly_production == 920
-    assert result.clay_hourly_production == 1040
-    assert result.iron_hourly_production == 690
-    assert result.crop_hourly_production == 1504
-    assert len(result.source_pits) == 18
-    assert len(result.buildings) == 4
-    assert len(result.building_queue) == 2
+    expected = Village(
+        id=50287,
+        name="New village",
+        tribe=result.tribe,
+        lumber=5636,
+        clay=5475,
+        iron=5844,
+        crop=14284,
+        free_crop=1503,
+        warehouse_capacity=6300,
+        granary_capacity=14400,
+        lumber_hourly_production=920,
+        clay_hourly_production=1040,
+        iron_hourly_production=690,
+        crop_hourly_production=1504,
+        source_pits=result.source_pits,
+        buildings=result.buildings,
+        building_queue=result.building_queue
+    )
+    assert result == expected
 
 
 def test_scan_building_queue(dorf1_html):
@@ -180,8 +184,11 @@ def test_scan_account_info(dorf1_html):
     result = scan_account_info(dorf1_html)
 
     # Then
-    assert result.server_speed == pytest.approx(5.0)
-    assert result.when_beginners_protection_expires == 42778
+    expected = Account(
+        server_speed=5.0,
+        when_beginners_protection_expires=42778
+    )
+    assert result == expected
 
 
 def test_identity_tribe(dorf2_html):
@@ -196,7 +203,10 @@ def test_scan_hero_info(hero_attributes_html):
     # When
     result = scan_hero_info(hero_attributes_html)
 
-    # Then - all properties must exist and be parsed correctly
-    assert result.health == 90
-    assert result.experience == 16594
-    assert result.adventures == 83
+    # Then
+    expected = HeroInfo(
+        health=90,
+        experience=16594,
+        adventures=83
+    )
+    assert result == expected
