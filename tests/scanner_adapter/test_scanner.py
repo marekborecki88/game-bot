@@ -197,7 +197,6 @@ def test_scan_hero_info(hero_attributes_html):
     result = scan_hero_info(hero_attributes_html)
 
     # Then - all properties must exist and be parsed correctly
-    assert isinstance(result, dict)
-    assert "health" in result and isinstance(result["health"], int) and result["health"] == 90
-    assert "experience" in result and isinstance(result["experience"], int) and result["experience"] == 16594
-    assert "adventures" in result and isinstance(result["adventures"], int) and result["adventures"] == 83
+    assert result.health == 90
+    assert result.experience == 16594
+    assert result.adventures == 83

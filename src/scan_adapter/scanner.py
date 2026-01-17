@@ -3,7 +3,7 @@ import re
 
 from bs4 import BeautifulSoup, Tag
 from src.core.model.model import BuildingType, Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity, \
-    Account, Tribe
+    Account, Tribe, HeroInfo
 
 HTML_PARSER = 'html.parser'
 
@@ -321,9 +321,12 @@ def scan_account_info(html: str) -> Account:
         when_beginners_protection_expires=beginners_expires
     )
 
-def scan_hero_info(html: str) -> dict:
+def scan_hero_info(html: str) -> HeroInfo:
     soup = BeautifulSoup(html, HTML_PARSER)
-    hero_info = {}
+
+    health = 0
+    experience = 0
+    adventures = 0
 
     # Parse health and experience from div.stats structure
     stats_container = soup.select_one(".stats")
@@ -335,18 +338,18 @@ def scan_hero_info(html: str) -> dict:
             # Remove UNICODE bidirectional markers
             health_text = "".join(c for c in health_text if c.isdigit())
             try:
-                hero_info["health"] = int(health_text) if health_text else 0
+                health = int(health_text) if health_text else 0
             except ValueError:
-                hero_info["health"] = 0
+                health = 0
 
         # Experience: second value element
         if len(value_elements) >= 2:
             exp_text = value_elements[1].get_text().strip().replace(',', '')
             exp_text = "".join(c for c in exp_text if c.isdigit() or c == '-')
             try:
-                hero_info["experience"] = int(exp_text) if exp_text else 0
+                experience = int(exp_text) if exp_text else 0
             except ValueError:
-                hero_info["experience"] = 0
+                experience = 0
 
     # Adventures: parse from adventure button (a.adventure div.content)
     adventure_button = soup.select_one("a.adventure")
@@ -355,8 +358,12 @@ def scan_hero_info(html: str) -> dict:
         if content_div:
             adv_text = content_div.get_text().strip()
             try:
-                hero_info["adventures"] = int(adv_text) if adv_text else 0
+                adventures = int(adv_text) if adv_text else 0
             except ValueError:
-                hero_info["adventures"] = 0
+                adventures = 0
 
-    return hero_info
+    return HeroInfo(
+        health=health,
+        experience=experience,
+        adventures=adventures
+    )

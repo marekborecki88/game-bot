@@ -44,6 +44,13 @@ class Account:
 
 
 @dataclass
+class HeroInfo:
+    health: int
+    experience: int
+    adventures: int
+
+
+@dataclass
 class Village:
     id: int
     name: str
