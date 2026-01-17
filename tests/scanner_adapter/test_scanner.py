@@ -13,6 +13,7 @@ from src.scan_adapter.scanner import (
     scan_village,
     scan_account_info,
     identity_tribe,
+    scan_hero_info,
 )
 
 
@@ -27,6 +28,12 @@ def dorf1_html():
 def dorf2_html():
     test_dir = Path(__file__).parent
     html_file = test_dir / "dorf2.html"
+    return html_file.read_text(encoding='utf-8')
+
+@pytest.fixture
+def hero_attributes_html():
+    test_dir = Path(__file__).parent
+    html_file = test_dir / "hero_attributes.html"
     return html_file.read_text(encoding='utf-8')
 
 
@@ -185,3 +192,12 @@ def test_identity_tribe(dorf2_html):
     assert result == Tribe.ROMANS
 
 
+def test_scan_hero_info(hero_attributes_html):
+    # When
+    result = scan_hero_info(hero_attributes_html)
+
+    # Then - all properties must exist and be parsed correctly
+    assert isinstance(result, dict)
+    assert "health" in result and isinstance(result["health"], int) and result["health"] == 90
+    assert "experience" in result and isinstance(result["experience"], int) and result["experience"] == 16594
+    assert "adventures" in result and isinstance(result["adventures"], int) and result["adventures"] == 83

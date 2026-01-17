@@ -320,3 +320,43 @@ def scan_account_info(html: str) -> Account:
         server_speed=server_speed,
         when_beginners_protection_expires=beginners_expires
     )
+
+def scan_hero_info(html: str) -> dict:
+    soup = BeautifulSoup(html, HTML_PARSER)
+    hero_info = {}
+
+    # Parse health and experience from div.stats structure
+    stats_container = soup.select_one(".stats")
+    if stats_container:
+        # Health: first value element after first name (Health)
+        value_elements = stats_container.select(".value")
+        if len(value_elements) >= 1:
+            health_text = value_elements[0].get_text().strip().replace('%', '').replace(',', '')
+            # Remove UNICODE bidirectional markers
+            health_text = "".join(c for c in health_text if c.isdigit())
+            try:
+                hero_info["health"] = int(health_text) if health_text else 0
+            except ValueError:
+                hero_info["health"] = 0
+
+        # Experience: second value element
+        if len(value_elements) >= 2:
+            exp_text = value_elements[1].get_text().strip().replace(',', '')
+            exp_text = "".join(c for c in exp_text if c.isdigit() or c == '-')
+            try:
+                hero_info["experience"] = int(exp_text) if exp_text else 0
+            except ValueError:
+                hero_info["experience"] = 0
+
+    # Adventures: parse from adventure button (a.adventure div.content)
+    adventure_button = soup.select_one("a.adventure")
+    if adventure_button:
+        content_div = adventure_button.select_one("div.content")
+        if content_div:
+            adv_text = content_div.get_text().strip()
+            try:
+                hero_info["adventures"] = int(adv_text) if adv_text else 0
+            except ValueError:
+                hero_info["adventures"] = 0
+
+    return hero_info
