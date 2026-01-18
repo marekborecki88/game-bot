@@ -8,14 +8,14 @@ from src.core.model.model import BuildingType, Village, SourcePit, SourceType, B
 HTML_PARSER = 'html.parser'
 
 
-def _parse_resource_value(text: str) -> int:
-    """Parse resource value from text, removing UNICODE markers and formatting."""
+def _parse_number_value(text: str) -> int:
     cleaned = "".join(c for c in text if c.isdigit())
     return int(cleaned) if cleaned else 0
 
 
-def clean_inner_text(html) -> str:
-    return html.inner_text().strip()
+def clean_inner_text(element) -> str:
+    """Extract and clean text content from HTML element."""
+    return element.get_text().strip()
 
 
 def _extract_by_regex(pattern: str, text: str) -> str:
@@ -66,21 +66,21 @@ def scan_stock_bar(html: str) -> dict:
         raise ValueError("Stock bar not found in HTML")
 
     # Parse warehouse capacity
-    warehouse_capacity = _parse_resource_value(
+    warehouse_capacity = _parse_number_value(
         stock_bar.select_one(".warehouse .capacity .value").get_text()
     )
 
     # Parse granary capacity
-    granary_capacity = _parse_resource_value(
+    granary_capacity = _parse_number_value(
         stock_bar.select_one(".granary .capacity .value").get_text()
     )
 
     # Parse resources
-    lumber = _parse_resource_value(stock_bar.select_one("#l1").get_text())
-    clay = _parse_resource_value(stock_bar.select_one("#l2").get_text())
-    iron = _parse_resource_value(stock_bar.select_one("#l3").get_text())
-    crop = _parse_resource_value(stock_bar.select_one("#l4").get_text())
-    free_crop = _parse_resource_value(stock_bar.select_one("#stockBarFreeCrop").get_text())
+    lumber = _parse_number_value(stock_bar.select_one("#l1").get_text())
+    clay = _parse_number_value(stock_bar.select_one("#l2").get_text())
+    iron = _parse_number_value(stock_bar.select_one("#l3").get_text())
+    crop = _parse_number_value(stock_bar.select_one("#l4").get_text())
+    free_crop = _parse_number_value(stock_bar.select_one("#stockBarFreeCrop").get_text())
 
     return {
         "lumber": lumber,
@@ -324,43 +324,19 @@ def scan_account_info(html: str) -> Account:
 def scan_hero_info(html: str) -> HeroInfo:
     soup = BeautifulSoup(html, HTML_PARSER)
 
-    health = 0
-    experience = 0
-    adventures = 0
+    value_elements = (_get_item_or_raise_error(soup, ".stats", "Hero stats container not found")
+                       .select(".value"))
 
-    # Parse health and experience from div.stats structure
-    stats_container = soup.select_one(".stats")
-    if stats_container:
-        # Health: first value element after first name (Health)
-        value_elements = stats_container.select(".value")
-        if len(value_elements) >= 1:
-            health_text = value_elements[0].get_text().strip().replace('%', '').replace(',', '')
-            # Remove UNICODE bidirectional markers
-            health_text = "".join(c for c in health_text if c.isdigit())
-            try:
-                health = int(health_text) if health_text else 0
-            except ValueError:
-                health = 0
+    if len(value_elements) < 2:
+        raise ValueError("Not enough stats values found for hero info")
 
-        # Experience: second value element
-        if len(value_elements) >= 2:
-            exp_text = value_elements[1].get_text().strip().replace(',', '')
-            exp_text = "".join(c for c in exp_text if c.isdigit() or c == '-')
-            try:
-                experience = int(exp_text) if exp_text else 0
-            except ValueError:
-                experience = 0
+    health = _parse_number_value(clean_inner_text(value_elements[0]).replace('%', ''))
+    experience = _parse_number_value(clean_inner_text(value_elements[1]))
 
-    # Adventures: parse from adventure button (a.adventure div.content)
-    adventure_button = soup.select_one("a.adventure")
-    if adventure_button:
-        content_div = adventure_button.select_one("div.content")
-        if content_div:
-            adv_text = content_div.get_text().strip()
-            try:
-                adventures = int(adv_text) if adv_text else 0
-            except ValueError:
-                adventures = 0
+
+    adventure_button = _get_item_or_raise_error(soup, "a.adventure", "Adventure button not found")
+    adventures = _parse_number_value(_extract_text(adventure_button, "div.content"))
+
 
     return HeroInfo(
         health=health,
