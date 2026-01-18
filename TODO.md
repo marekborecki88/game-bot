@@ -9,9 +9,8 @@
 
 # MINOR TODOs
 1. Introduce Interfaces to revert dependencies
-2. add hero scanning
-3. add sending hero to adventure
-4. add posibility to use resources from hero's inventory
+2. add sending hero to adventure
+3. add posibility to use resources from hero's inventory
 
 ISSUES:
 
