@@ -48,7 +48,7 @@ def hero_info() -> HeroInfo:
 class TestLogicEngine:
 
     def test_skip_village_with_non_empty_building_queue(self, account_info: Account, hero_info: HeroInfo):
-        # Given: village with building in queue
+        # Given
         village = make_village(
             name="Test Village",
             buildings=[Building(id=19, level=1, type=BuildingType.WAREHOUSE)],
@@ -59,18 +59,19 @@ class TestLogicEngine:
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
-        # When: create_plan_for_village is called
-        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+        # When
+        result = engine.create_plan_for_village(game_state, interval_seconds)
 
-        # Then: no job is created for this village
-        assert jobs == []
+        # Then
+        expected = []
+        assert result == expected
 
     def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(self, account_info: Account, hero_info: HeroInfo):
-        # Given: village with warehouse capacity < 24h lumber production (2000 * 24 = 48000)
+        # Given
         village = make_village(
             name="WarehouseTest",
             buildings=[Building(id=10, level=1, type=BuildingType.WAREHOUSE)],
-            warehouse_capacity=1000,  # << 48000
+            warehouse_capacity=1000,
             granary_capacity=50000,
             building_queue=[],
         )
@@ -78,81 +79,94 @@ class TestLogicEngine:
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village(game_state, interval_seconds)
 
-        # Then: should schedule exactly one job to upgrade the warehouse
-        assert len(jobs) == 1
-        job = jobs[0]
-
-        # Task payload should target the warehouse gid and the correct building id
-        payload = job.task()
-        assert payload["action"] == "build"
-        assert payload["village_name"] == "WarehouseTest"
-        assert payload["building_id"] == 10
-        assert payload["building_gid"] == BuildingType.WAREHOUSE.gid
+        # Then
+        assert len(result) == 1
+        payload = result[0].task()
+        expected = {
+            "action": "build",
+            "village_name": "WarehouseTest",
+            "village_id": 999,
+            "building_id": 10,
+            "building_gid": BuildingType.WAREHOUSE.gid,
+            "target_name": BuildingType.WAREHOUSE.name,
+            "target_level": 2
+        }
+        assert payload == expected
 
     def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(self, account_info: Account, hero_info: HeroInfo):
-        # Given: village with granary capacity < 24h crop production (2000 * 24 = 48000)
+        # Given
         village = make_village(
             name="GranaryTest",
             buildings=[Building(id=11, level=1, type=BuildingType.GRANARY)],
             warehouse_capacity=50000,
-            granary_capacity=1000,  # << 48000
+            granary_capacity=1000,
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village(game_state, interval_seconds)
 
-        # Then: should schedule exactly one job to upgrade the granary
-        assert len(jobs) == 1
-        job = jobs[0]
-        payload = job.task()
-        assert payload["action"] == "build"
-        assert payload["village_name"] == "GranaryTest"
-        assert payload["building_id"] == 11
-        assert payload["building_gid"] == BuildingType.GRANARY.gid
+        # Then
+        assert len(result) == 1
+        payload = result[0].task()
+        expected = {
+            "action": "build",
+            "village_name": "GranaryTest",
+            "village_id": 999,
+            "building_id": 11,
+            "building_gid": BuildingType.GRANARY.gid,
+            "target_name": BuildingType.GRANARY.name,
+            "target_level": 2
+        }
+        assert payload == expected
 
     def test_prioritize_storage_with_lower_ratio(self, account_info: Account, hero_info: HeroInfo):
-        # Given: village where both warehouse and granary are insufficient
-        #        warehouse ratio = 0.5 (24000 / 48000), granary ratio = 0.3 (14400 / 48000)
+        # Given
         village = make_village(
             name="PriorityTest",
             buildings=[
                 Building(id=10, level=1, type=BuildingType.WAREHOUSE),
                 Building(id=11, level=1, type=BuildingType.GRANARY),
             ],
-            warehouse_capacity=24000,  # ratio = 24000 / 48000 = 0.5
-            granary_capacity=14400,    # ratio = 14400 / 48000 = 0.3 (lower = more urgent)
+            warehouse_capacity=24000,
+            granary_capacity=14400,
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village(game_state, interval_seconds)
 
-        # Then: job to upgrade granary is created (lower ratio = more urgent)
-        assert len(jobs) == 1
-        payload = jobs[0].task()
-        assert payload["action"] == "build"
-        assert payload["building_id"] == 11
-        assert payload["building_gid"] == BuildingType.GRANARY.gid
+        # Then
+        assert len(result) == 1
+        payload = result[0].task()
+        expected = {
+            "action": "build",
+            "village_name": "PriorityTest",
+            "village_id": 999,
+            "building_id": 11,
+            "building_gid": BuildingType.GRANARY.gid,
+            "target_name": BuildingType.GRANARY.name,
+            "target_level": 2
+        }
+        assert payload == expected
 
     def test_upgrade_source_pit_when_storage_is_sufficient(self, account_info: Account, hero_info: HeroInfo):
-        # Given: village with sufficient warehouse and granary capacity
-        #        lumber stock is lowest among resources
+        # Given
         village = make_village(
             name="SourcePitTest",
-            lumber=100,   # lowest
+            lumber=100,
             clay=500,
             iron=500,
             crop=500,
             source_pits=[
                 SourcePit(id=1, type=SourceType.LUMBER, level=3),
-                SourcePit(id=2, type=SourceType.LUMBER, level=1),  # lowest level lumber
+                SourcePit(id=2, type=SourceType.LUMBER, level=1),
                 SourcePit(id=3, type=SourceType.CLAY, level=2),
             ],
             warehouse_capacity=50000,
@@ -163,17 +177,24 @@ class TestLogicEngine:
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village(game_state, interval_seconds)
 
-        # Then: job to upgrade lumber pit with lowest level is created
-        assert len(jobs) == 1
-        payload = jobs[0].task()
-        assert payload["action"] == "build"
-        assert payload["building_id"] == 2  # pit id with lowest level lumber
-        assert payload["building_gid"] == SourceType.LUMBER.gid
+        # Then
+        assert len(result) == 1
+        payload = result[0].task()
+        expected = {
+            "action": "build",
+            "village_name": "SourcePitTest",
+            "village_id": 999,
+            "building_id": 2,
+            "building_gid": SourceType.LUMBER.gid,
+            "target_name": SourceType.LUMBER.name,
+            "target_level": 2
+        }
+        assert payload == expected
 
     def test_skip_village_when_all_source_pits_at_max_level(self, account_info: Account, hero_info: HeroInfo):
-        # Given: village with sufficient storage and all source pits at max level (10)
+        # Given
         village = make_village(
             name="MaxedPitsTest",
             source_pits=[
@@ -190,15 +211,14 @@ class TestLogicEngine:
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village(game_state, interval_seconds)
 
-        # Then: no job is created
-        assert jobs == []
+        # Then
+        expected = []
+        assert result == expected
 
     def test_skip_storage_upgrade_when_at_max_level(self, account_info: Account, hero_info: HeroInfo):
-        # Given: village with both warehouse and granary at max level (20),
-        # but even that is not enough for 24h production (bardzo wysoka produkcja),
-        # a wszystkie source_pits są na max level
+        # Given
         village = make_village(
             name="MaxedStorageTest",
             buildings=[
@@ -223,13 +243,14 @@ class TestLogicEngine:
         engine = LogicEngine()
 
         # When
-        jobs = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village(game_state, interval_seconds)
 
-        # Then: no job is created (storage i source_pits maxed)
-        assert jobs == []
+        # Then
+        expected = []
+        assert result == expected
 
     def test_plan_hero_adventure_when_hero_available(self, account_info: Account):
-        # Given: hero_info with is_available=True
+        # Given
         hero_info = HeroInfo(
             health=90,
             experience=1000,
@@ -238,19 +259,22 @@ class TestLogicEngine:
         )
         engine = LogicEngine()
 
-        # When: plan_hero_adventure is called
+        # When
         job = engine.plan_hero_adventure(hero_info)
 
-        # Then: an adventure job is created for the hero
+        # Then
         assert job is not None
-        payload = job.task()
-        assert payload["action"] == "hero_adventure"
-        assert payload["health"] == 90
-        assert payload["experience"] == 1000
-        assert payload["adventures"] == 83
+        result = job.task()
+        expected = {
+            "action": "hero_adventure",
+            "health": 90,
+            "experience": 1000,
+            "adventures": 83
+        }
+        assert result == expected
 
     def test_skip_hero_adventure_when_hero_unavailable(self, account_info: Account):
-        # Given: hero_info with is_available=False
+        # Given
         hero_info = HeroInfo(
             health=50,
             experience=500,
@@ -259,9 +283,10 @@ class TestLogicEngine:
         )
         engine = LogicEngine()
 
-        # When: plan_hero_adventure is called
-        job = engine.plan_hero_adventure(hero_info)
+        # When
+        result = engine.plan_hero_adventure(hero_info)
 
-        # Then: no job is created
-        assert job is None
+        # Then
+        expected = None
+        assert result == expected
 
