@@ -48,6 +48,7 @@ class HeroInfo:
     health: int
     experience: int
     adventures: int
+    is_available: bool
 
 
 @dataclass

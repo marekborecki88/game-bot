@@ -207,6 +207,7 @@ def test_scan_hero_info(hero_attributes_html):
     expected = HeroInfo(
         health=90,
         experience=16594,
-        adventures=83
+        adventures=83,
+        is_available=True
     )
     assert result == expected

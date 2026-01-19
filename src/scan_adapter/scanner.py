@@ -321,6 +321,22 @@ def scan_account_info(html: str) -> Account:
         when_beginners_protection_expires=beginners_expires
     )
 
+def _is_hero_available(html: str) -> bool:
+    """Check if hero is available for adventures."""
+    soup = BeautifulSoup(html, HTML_PARSER)
+    hero_state = soup.select_one(".heroState")
+
+    if not hero_state:
+        # If no heroState element found, assume hero is available
+        return True
+
+    state_text = clean_inner_text(hero_state)
+
+    # Hero is available only if they are "currently in village"
+    # Any other status (on the way, traveling, etc) means unavailable
+    return "currently in village" in state_text
+
+
 def scan_hero_info(html: str) -> HeroInfo:
     soup = BeautifulSoup(html, HTML_PARSER)
 
@@ -333,13 +349,14 @@ def scan_hero_info(html: str) -> HeroInfo:
     health = _parse_number_value(clean_inner_text(value_elements[0]).replace('%', ''))
     experience = _parse_number_value(clean_inner_text(value_elements[1]))
 
-
     adventure_button = _get_item_or_raise_error(soup, "a.adventure", "Adventure button not found")
     adventures = _parse_number_value(_extract_text(adventure_button, "div.content"))
 
+    is_available = _is_hero_available(html)
 
     return HeroInfo(
         health=health,
         experience=experience,
-        adventures=adventures
+        adventures=adventures,
+        is_available=is_available
     )
