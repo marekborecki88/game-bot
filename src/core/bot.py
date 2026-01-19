@@ -138,7 +138,9 @@ class Bot:
         """Create a plan for all villages and return new jobs."""
         game_state = self.create_game_state()
         interval_seconds = 3600  # 60 minutes
-        return self.logic_engine.create_plan_for_village(game_state, interval_seconds)
+        jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
+
+        return jobs
 
     def account_info(self):
         html: str = self.driver.get_html("dorf1")

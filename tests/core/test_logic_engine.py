@@ -1,7 +1,7 @@
 import pytest
 
 from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account
+from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo
 
 
 def make_village(**overrides) -> Village:
@@ -34,9 +34,20 @@ def account_info() -> Account:
     return Account(server_speed=1.0, when_beginners_protection_expires=0)
 
 
+@pytest.fixture
+def hero_info() -> HeroInfo:
+    """Fixture to provide a HeroInfo with sensible defaults."""
+    return HeroInfo(
+        health=100,
+        experience=0,
+        adventures=0,
+        is_available=True
+    )
+
+
 class TestLogicEngine:
 
-    def test_skip_village_with_non_empty_building_queue(self, account_info: Account):
+    def test_skip_village_with_non_empty_building_queue(self, account_info: Account, hero_info: HeroInfo):
         # Given: village with building in queue
         village = make_village(
             name="Test Village",
@@ -45,7 +56,7 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[BuildingJob(building_id=1, target_level=2, time_remaining=3600)],
         )
-        game_state = GameState(account=account_info, villages=[village])
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When: create_plan_for_village is called
@@ -54,7 +65,7 @@ class TestLogicEngine:
         # Then: no job is created for this village
         assert jobs == []
 
-    def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(self, account_info: Account):
+    def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(self, account_info: Account, hero_info: HeroInfo):
         # Given: village with warehouse capacity < 24h lumber production (2000 * 24 = 48000)
         village = make_village(
             name="WarehouseTest",
@@ -63,7 +74,7 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[],
         )
-        game_state = GameState(account=account_info, villages=[village])
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
@@ -80,7 +91,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 10
         assert payload["building_gid"] == BuildingType.WAREHOUSE.gid
 
-    def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(self, account_info: Account):
+    def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(self, account_info: Account, hero_info: HeroInfo):
         # Given: village with granary capacity < 24h crop production (2000 * 24 = 48000)
         village = make_village(
             name="GranaryTest",
@@ -89,7 +100,7 @@ class TestLogicEngine:
             granary_capacity=1000,  # << 48000
             building_queue=[],
         )
-        game_state = GameState(account=account_info, villages=[village])
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
@@ -104,7 +115,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 11
         assert payload["building_gid"] == BuildingType.GRANARY.gid
 
-    def test_prioritize_storage_with_lower_ratio(self, account_info: Account):
+    def test_prioritize_storage_with_lower_ratio(self, account_info: Account, hero_info: HeroInfo):
         # Given: village where both warehouse and granary are insufficient
         #        warehouse ratio = 0.5 (24000 / 48000), granary ratio = 0.3 (14400 / 48000)
         village = make_village(
@@ -117,7 +128,7 @@ class TestLogicEngine:
             granary_capacity=14400,    # ratio = 14400 / 48000 = 0.3 (lower = more urgent)
             building_queue=[],
         )
-        game_state = GameState(account=account_info, villages=[village])
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
@@ -130,7 +141,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 11
         assert payload["building_gid"] == BuildingType.GRANARY.gid
 
-    def test_upgrade_source_pit_when_storage_is_sufficient(self, account_info: Account):
+    def test_upgrade_source_pit_when_storage_is_sufficient(self, account_info: Account, hero_info: HeroInfo):
         # Given: village with sufficient warehouse and granary capacity
         #        lumber stock is lowest among resources
         village = make_village(
@@ -148,7 +159,7 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[],
         )
-        game_state = GameState(account=account_info, villages=[village])
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
@@ -161,7 +172,7 @@ class TestLogicEngine:
         assert payload["building_id"] == 2  # pit id with lowest level lumber
         assert payload["building_gid"] == SourceType.LUMBER.gid
 
-    def test_skip_village_when_all_source_pits_at_max_level(self, account_info: Account):
+    def test_skip_village_when_all_source_pits_at_max_level(self, account_info: Account, hero_info: HeroInfo):
         # Given: village with sufficient storage and all source pits at max level (10)
         village = make_village(
             name="MaxedPitsTest",
@@ -175,7 +186,7 @@ class TestLogicEngine:
             granary_capacity=50000,
             building_queue=[],
         )
-        game_state = GameState(account=account_info, villages=[village])
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
@@ -184,7 +195,7 @@ class TestLogicEngine:
         # Then: no job is created
         assert jobs == []
 
-    def test_skip_storage_upgrade_when_at_max_level(self, account_info: Account):
+    def test_skip_storage_upgrade_when_at_max_level(self, account_info: Account, hero_info: HeroInfo):
         # Given: village with both warehouse and granary at max level (20),
         # but even that is not enough for 24h production (bardzo wysoka produkcja),
         # a wszystkie source_pits są na max level
@@ -208,7 +219,7 @@ class TestLogicEngine:
             ],
             building_queue=[],
         )
-        game_state = GameState(account=account_info, villages=[village])
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
         engine = LogicEngine()
 
         # When
@@ -216,3 +227,41 @@ class TestLogicEngine:
 
         # Then: no job is created (storage i source_pits maxed)
         assert jobs == []
+
+    def test_plan_hero_adventure_when_hero_available(self, account_info: Account):
+        # Given: hero_info with is_available=True
+        hero_info = HeroInfo(
+            health=90,
+            experience=1000,
+            adventures=83,
+            is_available=True
+        )
+        engine = LogicEngine()
+
+        # When: plan_hero_adventure is called
+        job = engine.plan_hero_adventure(hero_info)
+
+        # Then: an adventure job is created for the hero
+        assert job is not None
+        payload = job.task()
+        assert payload["action"] == "hero_adventure"
+        assert payload["health"] == 90
+        assert payload["experience"] == 1000
+        assert payload["adventures"] == 83
+
+    def test_skip_hero_adventure_when_hero_unavailable(self, account_info: Account):
+        # Given: hero_info with is_available=False
+        hero_info = HeroInfo(
+            health=50,
+            experience=500,
+            adventures=10,
+            is_available=False
+        )
+        engine = LogicEngine()
+
+        # When: plan_hero_adventure is called
+        job = engine.plan_hero_adventure(hero_info)
+
+        # Then: no job is created
+        assert job is None
+

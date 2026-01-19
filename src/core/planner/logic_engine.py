@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from src.core.job import Job
-from src.core.model.model import Village, BuildingType, SourceType, GameState
+from src.core.model.model import Village, BuildingType, SourceType, GameState, HeroInfo
 
 
 class LogicEngine:
@@ -57,6 +57,27 @@ class LogicEngine:
                 "building_gid": building_gid,
                 "target_name": target_name,
                 "target_level": target_level
+            },
+            scheduled_time=now,
+            expires_at=now + timedelta(hours=1)
+        )
+
+    def plan_hero_adventure(self, hero_info: HeroInfo) -> Job | None:
+        """Plan a hero adventure if the hero is available.
+
+        If the hero is available (not on the way, not traveling), schedule an adventure.
+        Otherwise, return None.
+        """
+        if not hero_info.is_available:
+            return None
+
+        now = datetime.now()
+        return Job(
+            task=lambda: {
+                "action": "hero_adventure",
+                "health": hero_info.health,
+                "experience": hero_info.experience,
+                "adventures": hero_info.adventures
             },
             scheduled_time=now,
             expires_at=now + timedelta(hours=1)

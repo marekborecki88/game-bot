@@ -256,3 +256,4 @@ class VillageIdentity:
 class GameState:
     account: Account
     villages: list[Village]
+    hero_info: HeroInfo
