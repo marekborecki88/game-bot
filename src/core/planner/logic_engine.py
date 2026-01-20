@@ -6,7 +6,7 @@ from src.core.model.model import Village, BuildingType, SourceType, GameState, H
 
 class LogicEngine:
     def create_plan_for_village(self, game_state: GameState, interval_in_seconds: int) -> list[Job]:
-        global_lowest = self.find_lowest_resource_type_in_all(game_state.villages)
+        global_lowest = self.find_lowest_resource_type_in_all(game_state)
         return [job for v in game_state.villages if (job := self._plan_village(v, global_lowest)) is not None]
 
     def _plan_village(self, village: Village, global_lowest: SourceType | None) -> Job | None:
@@ -84,28 +84,30 @@ class LogicEngine:
         )
 
 
-    def find_lowest_resource_type_in_all(self, villages: list[Village]) -> SourceType | None:
-        # If resource levels are globally unbalanced, we prioritize developing that
-        # specific resource everywhere, even if a particular village has a local surplus.
+    def find_lowest_resource_type_in_all(self, game_state: GameState) -> SourceType | None:
+        # Sum resources from villages and hero inventory
         totals = {
             SourceType.LUMBER: 0,
             SourceType.CLAY: 0,
             SourceType.IRON: 0,
             SourceType.CROP: 0,
         }
-
-        for v in villages:
+        for v in game_state.villages:
             totals[SourceType.LUMBER] += v.lumber
             totals[SourceType.CLAY] += v.clay
             totals[SourceType.IRON] += v.iron
             totals[SourceType.CROP] += v.crop
+        # Add resources from hero inventory
+        inv = getattr(game_state.hero_info, 'inventory', {}) or {}
+        totals[SourceType.LUMBER] += inv.get('lumber', 0)
+        totals[SourceType.CLAY] += inv.get('clay', 0)
+        totals[SourceType.IRON] += inv.get('iron', 0)
+        totals[SourceType.CROP] += inv.get('crop', 0)
 
         min_val = min(totals.values())
         max_val = max(totals.values())
-
         if max_val != 0:
             diff = (max_val - min_val) / max_val
             if diff < 0.1:
                 return None
-
         return min(totals, key=totals.get)
