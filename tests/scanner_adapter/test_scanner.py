@@ -37,6 +37,13 @@ def hero_attributes_html():
     return html_file.read_text(encoding='utf-8')
 
 
+@pytest.fixture
+def inventory_html():
+    test_dir = Path(__file__).parent
+    html_file = test_dir / "inventory.html"
+    return html_file.read_text(encoding='utf-8')
+
+
 def test_scan_village_list(dorf1_html):
 
     # When
@@ -199,15 +206,21 @@ def test_identity_tribe(dorf2_html):
     assert result == Tribe.ROMANS
 
 
-def test_scan_hero_info(hero_attributes_html):
+def test_scan_hero_info(hero_attributes_html, inventory_html):
     # When
-    result = scan_hero_info(hero_attributes_html)
+    result = scan_hero_info(hero_attributes_html, inventory_html)
 
     # Then
     expected = HeroInfo(
         health=90,
         experience=16594,
         adventures=83,
-        is_available=True
+        is_available=True,
+        inventory={
+            "lumber": 616,
+            "clay": 34210,
+            "iron": 31376,
+            "crop": 174257
+        }
     )
     assert result == expected

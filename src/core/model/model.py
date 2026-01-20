@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from enum import Enum
 from playwright.sync_api import Page
@@ -49,6 +49,7 @@ class HeroInfo:
     experience: int
     adventures: int
     is_available: bool
+    inventory: dict = field(default_factory=dict)
 
 
 @dataclass

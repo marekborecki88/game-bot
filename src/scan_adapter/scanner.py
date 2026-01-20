@@ -337,26 +337,47 @@ def _is_hero_available(html: str) -> bool:
     return "currently in village" in state_text
 
 
-def scan_hero_info(html: str) -> HeroInfo:
-    soup = BeautifulSoup(html, HTML_PARSER)
+def _parse_hero_inventory(inventory_html: str) -> dict:
+    """Parse hero inventory (resources) from inventory HTML. Returns a dict or empty dict if not found."""
+    if not inventory_html:
+        return {}
+    inv_soup = BeautifulSoup(inventory_html, HTML_PARSER)
+    hero_items = inv_soup.select_one(".heroItems")
+    inventory = {}
+    if hero_items:
+        resource_map = {
+            "item145": "lumber",
+            "item146": "clay",
+            "item147": "iron",
+            "item148": "crop"
+        }
+        for item_class, resource in resource_map.items():
+            item_div = hero_items.select_one(f".item.{item_class}")
+            if item_div:
+                parent = item_div.find_parent("div", class_="heroItem")
+                if parent:
+                    count_div = parent.select_one(".count")
+                    if count_div:
+                        inventory[resource] = _parse_number_value(count_div.get_text())
+    return inventory
 
+def scan_hero_info(hero_html: str, inventory_html: str = None) -> HeroInfo:
+    soup = BeautifulSoup(hero_html, HTML_PARSER)
     value_elements = (_get_item_or_raise_error(soup, ".stats", "Hero stats container not found")
                        .select(".value"))
-
     if len(value_elements) < 2:
         raise ValueError("Not enough stats values found for hero info")
-
     health = _parse_number_value(clean_inner_text(value_elements[0]).replace('%', ''))
     experience = _parse_number_value(clean_inner_text(value_elements[1]))
-
     adventure_button = _get_item_or_raise_error(soup, "a.adventure", "Adventure button not found")
     adventures = _parse_number_value(_extract_text(adventure_button, "div.content"))
-
-    is_available = _is_hero_available(html)
+    is_available = _is_hero_available(hero_html)
+    inventory = _parse_hero_inventory(inventory_html)
 
     return HeroInfo(
         health=health,
         experience=experience,
         adventures=adventures,
-        is_available=is_available
+        is_available=is_available,
+        inventory=inventory
     )
