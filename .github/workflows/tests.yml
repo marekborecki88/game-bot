@@ -1,0 +1,46 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install pytest
+
+          # Project uses pyproject.toml (Poetry). Prefer Poetry when pyproject.toml exists.
+          if [ -f pyproject.toml ]; then
+            echo "pyproject.toml detected — installing with Poetry"
+            python -m pip install --upgrade poetry
+            # Disable Poetry creating virtualenvs in CI and install into the runner environment
+            export POETRY_VIRTUALENVS_CREATE=false
+            poetry config virtualenvs.create false || true
+            poetry install --no-interaction --no-ansi
+
+          else
+            echo "No pyproject.toml found; only pytest was installed"
+          fi
+
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          pytest
+
