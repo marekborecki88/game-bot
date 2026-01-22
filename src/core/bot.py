@@ -209,4 +209,4 @@ class Bot:
         account_info = self.fetch_account_info()
         villages = [self.fetch_village_info(v) for v in self.village_list()]
         hero_info = self.fetch_hero_info()
-        return GameState(account=account_info, villages=villages)
+        return GameState(hero_info=hero_info, account=account_info, villages=villages)
