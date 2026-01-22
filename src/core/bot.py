@@ -10,7 +10,8 @@ from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity, GameState
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info
+from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info
+from tests.core.test_logic_engine import hero_info
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ class Bot:
 
         return jobs
 
-    def account_info(self):
+    def fetch_account_info(self):
         html: str = self.driver.get_html("dorf1")
         return scan_account_info(html)
 
@@ -192,8 +193,20 @@ class Bot:
         dorf1, dorf2 = self.driver.get_village_inner_html(village_identity.id)
         return scan_village(village_identity, dorf1, dorf2)
 
-    def create_game_state(self):
-        account_info = self.account_info()
-        villages = [self.fetch_village_info(v) for v in self.village_list()]
-        return GameState(account=account_info, villages=villages)
 
+    def fetch_hero_info(self):
+        """Scan hero attributes and inventory and return HeroInfo."""
+        logger.debug("Scanning hero info")
+
+        # Fetch attributes and inventory pages separately, in sequence
+        hero_attrs_html = self.driver.get_hero_attributes_html()
+        hero_inventory_html = self.driver.get_hero_inventory_html()
+
+        return scan_hero_info(hero_attrs_html, hero_inventory_html)
+
+
+    def create_game_state(self):
+        account_info = self.fetch_account_info()
+        villages = [self.fetch_village_info(v) for v in self.village_list()]
+        hero_info = self.fetch_hero_info()
+        return GameState(account=account_info, villages=villages)

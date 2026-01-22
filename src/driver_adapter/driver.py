@@ -54,3 +54,16 @@ class Driver:
         dorf2: str = self.get_html("dorf2")
 
         return dorf1, dorf2
+
+    def get_hero_attributes_html(self) -> str:
+        """Navigate to hero attributes page and return its HTML."""
+        self.page.goto(f"{self.config.server_url}/hero/attributes")
+        self.page.wait_for_load_state('networkidle')
+        return self.page.content()
+
+    def get_hero_inventory_html(self) -> str:
+        """Navigate to hero inventory page and return its HTML."""
+        self.page.goto(f"{self.config.server_url}/hero/inventory")
+        self.page.wait_for_load_state('networkidle')
+        return self.page.content()
+
