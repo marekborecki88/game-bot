@@ -113,7 +113,8 @@ class Bot:
 
             self.driver.navigate_to_village(village_id)
 
-            if action == "upgrade":
+            #TODO: this part is unacceptable
+            if action == "build":
                 self.build(village_name, building_id, building_gid)
 
             job.status = JobStatus.COMPLETED
@@ -159,7 +160,8 @@ class Bot:
                     f"type: {source_type.name if source_type else 'unknown'}")
 
         # I don't like this code
-        self.driver.page.goto(f"{self.driver.config.server_url}/build.php?id={id}&gid={gid}")
+        url = f"{self.driver.config.server_url}/build.php?id={id}&gid={gid}"
+        self.driver.page.goto(url)
         self.driver.page.wait_for_selector("#contract ")
 
         # Contract should be checked by scanner and building should be queued only if enough resources
