@@ -23,7 +23,7 @@ def shortest_building_queue(villages: list[Village]) -> int:
 class Bot:
     """Game bot with scheduled planning and job execution."""
     
-    PLANNING_INTERVAL: int = 3600  # seconds (60 minutes)
+    PLANNING_INTERVAL: int = 300  # seconds (fallback)
     JOB_CHECK_INTERVAL: int = 1  # seconds
 
     def __init__(self, driver: Driver) -> None:
@@ -31,7 +31,9 @@ class Bot:
         self.logic_engine: LogicEngine = LogicEngine()
         self.jobs: list[Job] = []
         self._running: bool = False
-        
+        # handle to the scheduled planning job (so we can cancel/reschedule dynamically)
+        self._planning_job = None
+
         self._setup_signal_handlers()
 
     def _setup_signal_handlers(self) -> None:
@@ -50,18 +52,15 @@ class Bot:
         logger.info("Starting bot...")
         self._running = True
         
-        # Schedule planning task
-        schedule.every(self.PLANNING_INTERVAL).seconds.do(self._run_planning)
-        
+        # NOTE: planning is now scheduled dynamically by `_run_planning` itself
         # Schedule job execution check
         schedule.every(self.JOB_CHECK_INTERVAL).seconds.do(self._execute_pending_jobs)
         
-        # Run initial planning immediately
+        # Run initial planning immediately; it will schedule the next run based on queues
         self._run_planning()
         
-        logger.info(f"Scheduler configured: planning every {self.PLANNING_INTERVAL}s, "
-                    f"job check every {self.JOB_CHECK_INTERVAL}s")
-        
+        logger.info(f"Scheduler configured: dynamic planning, job check every {self.JOB_CHECK_INTERVAL}s")
+
         while self._running:
             schedule.run_pending()
             time.sleep(0.1)  # Small sleep to prevent CPU spinning
@@ -71,6 +70,12 @@ class Bot:
     def _cleanup(self) -> None:
         """Cleanup resources on shutdown."""
         logger.info("Cleaning up...")
+        # cancel any planner job we registered
+        if self._planning_job is not None:
+            try:
+                schedule.cancel_job(self._planning_job)
+            except Exception:
+                pass
         schedule.clear()
         pending_count = len([j for j in self.jobs if j.status == JobStatus.PENDING])
         logger.info(f"Shutdown complete. {pending_count} pending jobs remaining.")
@@ -125,15 +130,59 @@ class Bot:
             raise e
 
     def _run_planning(self) -> None:
-        """Run the planning phase and add new jobs to the queue."""
+        """Run the planning phase, add new jobs and schedule the next planning run dynamically.
+
+        The next planning run will be scheduled for when the shortest building queue finishes
+        across all villages. If there are no villages or the computed delay is invalid, a
+        fallback interval (PLANNING_INTERVAL) will be used.
+        """
         logger.info("Running planning phase...")
         try:
-            new_jobs = self.planning()
+            # Build fresh game state so we can both plan and compute next planning time
+            game_state = self.create_game_state()
+            interval_seconds = 3600  # planning horizon (1 hour)
+            new_jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
             self.jobs.extend(new_jobs)
-            logger.info(f"Planning complete: added {len(new_jobs)} new jobs. "
-                       f"Total pending: {len(self.jobs)}")
+            logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
+
+            # compute when the building queues will finish
+            try:
+                if game_state.villages:
+                    next_delay = int(shortest_building_queue(game_state.villages))
+                else:
+                    next_delay = self.PLANNING_INTERVAL
+            except Exception:
+                # in case something unexpected happens, fall back to default
+                next_delay = self.PLANNING_INTERVAL
+
+            # enforce sensible minimum delay to avoid tight recursion
+            if next_delay <= 0:
+                next_delay = 1
+
+            self._schedule_planning_in(next_delay)
+
         except Exception as e:
             logger.error(f"Planning failed: {e}", exc_info=True)
+
+
+    def _schedule_planning_in(self, seconds: int) -> None:
+        """Schedule the next planning run after `seconds` seconds.
+
+        Cancels any previously scheduled planning job to ensure only one planner job exists.
+        """
+        # cancel previous planning job if present
+        if self._planning_job is not None:
+            try:
+                schedule.cancel_job(self._planning_job)
+            except Exception:
+                pass
+
+        # schedule the next planner job
+        try:
+            self._planning_job = schedule.every(seconds).seconds.do(self._run_planning)
+            logger.info(f"Next planning scheduled in {seconds} seconds")
+        except Exception as e:
+            logger.error(f"Failed to schedule next planning run: {e}")
 
 
     def planning(self) -> list[Job]:
