@@ -381,3 +381,36 @@ def scan_hero_info(hero_html: str, inventory_html: str = None) -> HeroInfo:
         is_available=is_available,
         inventory=inventory
     )
+
+def is_reward_available(html: str) -> bool:
+    """Check whether the quest/questmaster has a claimable reward visible on the page.
+
+    We consider the quest master reward available if there is a button with id
+    'questmasterButton' and it contains a class 'claimable' or a child element
+    with class 'newQuestSpeechBubble' (or 'bigSpeechBubble newQuestSpeechBubble').
+    """
+    soup = BeautifulSoup(html, HTML_PARSER)
+
+    # First, look for the questmaster button by ID
+    btn = soup.select_one('#questmasterButton')
+    if not btn:
+        return False
+
+    class_attr = btn.get('class', [])
+    # normalize class list to string check
+    if isinstance(class_attr, list):
+        classes = ' '.join(class_attr)
+    else:
+        classes = str(class_attr)
+
+    # If the button explicitly has 'claimable' class, it's available
+    if 'claimable' in classes.split():
+        return True
+
+    # Alternatively, presence of a visible new quest speech bubble indicates availability
+    bubble = btn.select_one('.newQuestSpeechBubble') or btn.select_one('.bigSpeechBubble.newQuestSpeechBubble')
+    if bubble is not None:
+        return True
+
+    return False
+

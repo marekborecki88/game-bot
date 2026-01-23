@@ -15,33 +15,27 @@ from src.scan_adapter.scanner import (
     identity_tribe,
     scan_hero_info,
 )
+from tests.scanner_adapter.html_utils import HtmlUtils
 
 
 @pytest.fixture
 def dorf1_html():
-    test_dir = Path(__file__).parent
-    html_file = test_dir / "dorf1.html"
-    return html_file.read_text(encoding='utf-8')
+    return HtmlUtils.load("dorf1.html")
 
 
 @pytest.fixture
 def dorf2_html():
-    test_dir = Path(__file__).parent
-    html_file = test_dir / "dorf2.html"
-    return html_file.read_text(encoding='utf-8')
+    return HtmlUtils.load("dorf2.html")
+
 
 @pytest.fixture
 def hero_attributes_html():
-    test_dir = Path(__file__).parent
-    html_file = test_dir / "hero_attributes.html"
-    return html_file.read_text(encoding='utf-8')
+    return HtmlUtils.load("hero_attributes.html")
 
 
 @pytest.fixture
 def inventory_html():
-    test_dir = Path(__file__).parent
-    html_file = test_dir / "inventory.html"
-    return html_file.read_text(encoding='utf-8')
+    return HtmlUtils.load("inventory.html")
 
 
 def test_scan_village_list(dorf1_html):
