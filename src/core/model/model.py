@@ -68,11 +68,13 @@ class Village:
     warehouse_capacity: int
     granary_capacity: int
     building_queue: list[BuildingJob]
-    lumber_hourly_production: int = 2000
-    clay_hourly_production: int = 2000
-    iron_hourly_production: int = 2000
-    crop_hourly_production: int = 2000
-    max_source_pit_level: int = 10
+    lumber_hourly_production: int = 0
+    clay_hourly_production: int = 0
+    iron_hourly_production: int = 0
+    crop_hourly_production: int = 0
+    free_crop_hourly_production: int = 0
+    is_upgraded_to_city: bool = False
+    is_permanent_capital: bool = False
 
     def build(self, page: Page, config: Config, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)
@@ -137,7 +139,24 @@ class Village:
         return next((b for b in self.buildings if b.type == building_type), None)
 
     def upgradable_source_pits(self) -> list[SourcePit]:
-        return [p for p in self.source_pits if p.level < self.max_source_pit_level]
+        return [p for p in self.source_pits if p.level < self.max_source_pit_level()]
+
+    def needs_more_free_crop(self) -> bool:
+
+        crop_ratio = self.free_crop / self.crop
+        return crop_ratio < 0.1 and self.any_crop_is_upgradable()
+
+    def max_source_pit_level(self):
+        if self.is_permanent_capital:
+            return 20
+        if self.is_upgraded_to_city:
+            return 12
+        return 10
+
+    #TODO: better would be return particular id to upgrade
+    def any_crop_is_upgradable(self):
+        self_source_pits = [p for p in self.source_pits if p.type == SourceType.CROP and p.level < self.max_source_pit_level()]
+        return len(self_source_pits) > 0
 
 
 @dataclass

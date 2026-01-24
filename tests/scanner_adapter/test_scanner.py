@@ -136,6 +136,7 @@ def test_scan_production(dorf1_html):
         "clay_hourly_production": 1040,
         "iron_hourly_production": 690,
         "crop_hourly_production": 1504,
+        "free_crop_hourly_production": 1503
     }
     assert result == expected
 

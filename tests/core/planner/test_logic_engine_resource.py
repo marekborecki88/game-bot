@@ -33,7 +33,7 @@ def base_village():
 def test_lowest_resource_type_basic(empty_hero, base_village):
     gs = GameState(account=None, villages=[base_village], hero_info=empty_hero)
     engine = LogicEngine()
-    assert engine.find_lowest_resource_type_in_all(gs) == SourceType.LUMBER
+    assert engine.determine_next_resoure_to_develop(gs) == SourceType.LUMBER
 
 def test_lowest_resource_type_with_hero_inventory(base_village):
     hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={
@@ -45,7 +45,7 @@ def test_lowest_resource_type_with_hero_inventory(base_village):
     gs = GameState(account=None, villages=[base_village], hero_info=hero)
     engine = LogicEngine()
     # Now lumber is 100+500=600, so clay is lowest
-    assert engine.find_lowest_resource_type_in_all(gs) == SourceType.CLAY
+    assert engine.determine_next_resoure_to_develop(gs) == SourceType.CLAY
 
 def test_lowest_resource_type_balanced(empty_hero):
     v1 = Village(
@@ -66,7 +66,7 @@ def test_lowest_resource_type_balanced(empty_hero):
     gs = GameState(account=None, villages=[v1], hero_info=empty_hero)
     engine = LogicEngine()
     # All resources equal, should return None
-    assert engine.find_lowest_resource_type_in_all(gs) is None
+    assert engine.determine_next_resoure_to_develop(gs) is None
 
 def test_lowest_resource_type_with_multiple_villages(empty_hero):
     v1 = Village(
@@ -102,7 +102,7 @@ def test_lowest_resource_type_with_multiple_villages(empty_hero):
     gs = GameState(account=None, villages=[v1, v2], hero_info=empty_hero)
     engine = LogicEngine()
     # lumber: 150, clay: 250, iron: 350, crop: 450
-    assert engine.find_lowest_resource_type_in_all(gs) == SourceType.LUMBER
+    assert engine.determine_next_resoure_to_develop(gs) == SourceType.LUMBER
 
 def test_lowest_resource_type_with_hero_inventory_only():
     hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={
@@ -113,5 +113,5 @@ def test_lowest_resource_type_with_hero_inventory_only():
     })
     gs = GameState(account=None, villages=[], hero_info=hero)
     engine = LogicEngine()
-    assert engine.find_lowest_resource_type_in_all(gs) == SourceType.CLAY
+    assert engine.determine_next_resoure_to_develop(gs) == SourceType.CLAY
 

@@ -104,6 +104,7 @@ def scan_production(html: str) -> dict:
         "clay_hourly_production": prod_data.get("l2", 0),
         "iron_hourly_production": prod_data.get("l3", 0),
         "crop_hourly_production": prod_data.get("l4", 0),
+        "free_crop_hourly_production": prod_data.get("l5", 0),
     }
 
 

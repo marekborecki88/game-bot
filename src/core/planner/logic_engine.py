@@ -6,12 +6,15 @@ from src.core.model.model import Village, BuildingType, SourceType, GameState, H
 
 class LogicEngine:
     def create_plan_for_village(self, game_state: GameState, interval_in_seconds: int) -> list[Job]:
-        global_lowest = self.find_lowest_resource_type_in_all(game_state)
+        global_lowest = self.determine_next_resoure_to_develop(game_state)
         return [job for v in game_state.villages if (job := self._plan_village(v, global_lowest)) is not None]
 
     def _plan_village(self, village: Village, global_lowest: SourceType | None) -> Job | None:
         if not village.building_queue_is_empty():
             return None
+
+        if village.needs_more_free_crop():
+            return self._plan_source_pit_upgrade(village, SourceType.CROP)
 
         return self._plan_storage_upgrade(village) or self._plan_source_pit_upgrade(village, global_lowest)
 
@@ -98,7 +101,8 @@ class LogicEngine:
 
         return jobs
 
-    def find_lowest_resource_type_in_all(self, game_state: GameState) -> SourceType | None:
+    def determine_next_resoure_to_develop(self, game_state: GameState) -> SourceType | None:
+
         # Sum resources from villages and hero inventory
         totals = {
             SourceType.LUMBER: 0,
