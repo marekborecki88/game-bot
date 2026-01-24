@@ -77,3 +77,72 @@ class Driver:
         """Navigate to hero inventory page and return its HTML."""
         self._navigate("/hero/inventory")
         return self.page.content()
+
+    def claim_quest_rewards(self, page_html: str) -> int:
+        """If the quest master reward is available on the provided page HTML,
+        click the quest master button and then click all elements that allow
+        collecting rewards (buttons/links labeled 'Collect' or 'collect').
+
+        Returns the number of collect clicks attempted.
+        The method is tolerant and will swallow exceptions to avoid breaking
+        scanning flow if the UI doesn't match exactly.
+        """
+        try:
+            # Import scanner helper locally to avoid top-level coupling during tests
+            from src.scan_adapter.scanner import is_reward_available
+        except Exception:
+            return 0
+
+        try:
+            if not is_reward_available(page_html):
+                return 0
+        except Exception:
+            # If detection fails, be conservative and do nothing
+            return 0
+
+        clicks = 0
+        try:
+            # Try clicking the questmaster button if present on the current page
+            try:
+                qm = self.page.locator("#questmasterButton").first
+                if qm.count() and qm.is_visible():
+                    qm.click()
+                    logger.info("Clicked questmaster button")
+                    # wait for tasks page to load
+                    try:
+                        self.page.wait_for_load_state('networkidle', timeout=3000)
+                    except Exception:
+                        pass
+            except Exception:
+                logger.debug("Questmaster button not clickable or not present")
+
+            # Now attempt to click all elements that contain text 'Collect' (case variants)
+            selectors = [
+                "button:has-text('Collect')",
+                "button:has-text('collect')",
+                "a:has-text('Collect')",
+                "a:has-text('collect')",
+                "text=Collect",
+                "text=collect",
+            ]
+
+            for sel in selectors:
+                try:
+                    loc = self.page.locator(sel)
+                    count = loc.count()
+                    for i in range(count):
+                        el = loc.nth(i)
+                        try:
+                            if el.is_visible():
+                                el.click()
+                                clicks += 1
+                        except Exception:
+                            # ignore click failures for individual elements
+                            continue
+                except Exception:
+                    continue
+
+        except Exception as e:
+            logger.debug(f"claim_quest_rewards_if_available failed: {e}")
+
+        return clicks

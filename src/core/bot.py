@@ -242,6 +242,21 @@ class Bot:
         """Scan a village and return its current state."""
         logger.debug(f"Scanning village: {village_identity.name}")
         dorf1, dorf2 = self.driver.get_village_inner_html(village_identity.id)
+
+        # Ensure we're on the village page (dorf1) before attempting UI interactions
+        try:
+            self.driver.navigate_to_village(village_identity.id)
+        except Exception:
+            logger.debug("Failed to navigate back to village before claiming quest rewards")
+
+        # If quest master reward available on the page HTML, attempt to click questmaster and collect rewards
+        try:
+            clicks = self.driver.claim_quest_rewards(dorf1)
+            if clicks:
+                logger.info(f"Collected {clicks} quest reward(s) in village {village_identity.name}")
+        except Exception as e:
+            logger.debug(f"Claiming quest rewards failed: {e}")
+
         return scan_village(village_identity, dorf1, dorf2)
 
 
