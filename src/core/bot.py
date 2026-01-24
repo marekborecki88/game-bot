@@ -116,14 +116,35 @@ class Bot:
             target_name = payload.get("target_name")
             target_level = payload.get("target_level")
 
-            self.driver.navigate_to_village(village_id)
+            # If the job targets a specific village, navigate there first
+            if village_id is not None:
+                try:
+                    self.driver.navigate_to_village(village_id)
+                except Exception:
+                    logger.debug(f"Failed to navigate to village id {village_id}")
 
             #TODO: this part is unacceptable
             if action == "build":
                 self.build(village_name, building_id, building_gid)
+            elif action == "hero_adventure":
+                # Attempt to start a hero adventure via driver. This method is tolerant and
+                # returns False if no adventure button exists (e.g., UI differs or already on adventure).
+                started = False
+                try:
+                    started = self.driver.start_hero_adventure()
+                except Exception as e:
+                    logger.error(f"Error while starting hero adventure: {e}")
+
+                if not started:
+                    # If we couldn't start an adventure, mark the job as expired/failed
+                    job.status = JobStatus.EXPIRED
+                    return f"Hero adventure not started (no button found or driver failed)"
 
             job.status = JobStatus.COMPLETED
 
+            # Return a concise summary depending on action
+            if action == "hero_adventure":
+                return f"Hero adventure started (health={payload.get('health')}, experience={payload.get('experience')}, adventures={payload.get('adventures')})"
             return f"In the village {village_name} with id {village_id} was done {action} of {target_name} to level {target_level}"
         except Exception as e:
             job.status = JobStatus.TERMINATED
@@ -142,6 +163,10 @@ class Bot:
             game_state = self.create_game_state()
             interval_seconds = 3600  # planning horizon (1 hour)
             new_jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
+            # Also plan hero adventure (if applicable)
+            hero_job = self.logic_engine.plan_hero_adventure(game_state.hero_info) if getattr(game_state, 'hero_info', None) else None
+            if hero_job is not None:
+                new_jobs.append(hero_job)
             self.jobs.extend(new_jobs)
             logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
 
@@ -190,6 +215,10 @@ class Bot:
         game_state = self.create_game_state()
         interval_seconds = 3600  # 60 minutes
         jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
+        # include hero adventure if available
+        hero_job = self.logic_engine.plan_hero_adventure(game_state.hero_info) if getattr(game_state, 'hero_info', None) else None
+        if hero_job is not None:
+            jobs.append(hero_job)
 
         return jobs
 
