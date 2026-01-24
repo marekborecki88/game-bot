@@ -88,9 +88,9 @@ class Driver:
 
         # Open hero attributes where the green explore button typically lives
         try:
-            self._navigate("/hero/attributes")
+            self._navigate("/hero/adventures")
         except Exception:
-            logger.debug("Failed to navigate to /hero/attributes")
+            logger.debug("Failed to navigate to /hero/adventures")
             return False
 
         # Use single exact selector for Explore button (no list or loop)
