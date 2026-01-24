@@ -164,6 +164,7 @@ def test_scan_village(dorf1_html, dorf2_html):
         clay_hourly_production=1040,
         iron_hourly_production=690,
         crop_hourly_production=1504,
+        free_crop_hourly_production=1503,
         source_pits=result.source_pits,
         buildings=result.buildings,
         building_queue=result.building_queue
