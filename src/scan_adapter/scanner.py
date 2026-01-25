@@ -367,20 +367,35 @@ def scan_hero_info(hero_html: str, inventory_html: str = None) -> HeroInfo:
                        .select(".value"))
     if len(value_elements) < 2:
         raise ValueError("Not enough stats values found for hero info")
+
     health = _parse_number_value(clean_inner_text(value_elements[0]).replace('%', ''))
     experience = _parse_number_value(clean_inner_text(value_elements[1]))
     adventure_button = _get_item_or_raise_error(soup, "a.adventure", "Adventure button not found")
-    adventures = _parse_number_value(_extract_text(adventure_button, "div.content"))
+    adventures = _parse_adventure_number(adventure_button)
     is_available = _is_hero_available(hero_html)
     inventory = _parse_hero_inventory(inventory_html)
+    points_available = _parse_available_attribute_points(soup)
 
     return HeroInfo(
         health=health,
         experience=experience,
         adventures=adventures,
         is_available=is_available,
+        points_available=points_available,
         inventory=inventory
     )
+
+def _parse_adventure_number(adventure_button: Tag) -> int:
+    contant = adventure_button.select_one('div.content')
+    if contant is None:
+        return 0
+    return _parse_number_value(contant)
+
+def _parse_available_attribute_points(soup: BeautifulSoup) -> int:
+    points_elem = soup.select_one(".pointsAvailable")
+    if not points_elem:
+        return 0
+    return _parse_number_value(points_elem.get_text())
 
 def is_reward_available(html: str) -> bool:
     """Check whether the quest/questmaster has a claimable reward visible on the page.

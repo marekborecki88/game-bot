@@ -139,6 +139,12 @@ class Bot:
                     # If we couldn't start an adventure, mark the job as expired/failed
                     job.status = JobStatus.EXPIRED
                     return f"Hero adventure not started (no button found or driver failed)"
+            elif action == "allocate_attributes":
+                try:
+                    points = int(payload.get('points') or 0)
+                    self.driver.allocate_hero_attributes(points_to_allocate=points)
+                except Exception as e:
+                    logger.error(f"Error while allocating hero attributes: {e}")
 
             job.status = JobStatus.COMPLETED
 
@@ -164,9 +170,9 @@ class Bot:
             interval_seconds = 3600  # planning horizon (1 hour)
             new_jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
             # Also plan hero adventure (if applicable)
-            hero_job = self.logic_engine.plan_hero_adventure(game_state.hero_info) if getattr(game_state, 'hero_info', None) else None
+            hero_job = self.logic_engine.create_plan_for_hero(game_state.hero_info)
             if hero_job is not None:
-                new_jobs.append(hero_job)
+                new_jobs.extend(hero_job)
             self.jobs.extend(new_jobs)
             logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
 
@@ -216,9 +222,8 @@ class Bot:
         interval_seconds = 3600  # 60 minutes
         jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
         # include hero adventure if available
-        hero_job = self.logic_engine.plan_hero_adventure(game_state.hero_info) if getattr(game_state, 'hero_info', None) else None
-        if hero_job is not None:
-            jobs.append(hero_job)
+        hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info) if getattr(game_state, 'hero_info', None) else []
+        jobs.extend(hero_jobs)
 
         return jobs
 

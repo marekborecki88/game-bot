@@ -49,6 +49,7 @@ class HeroInfo:
     experience: int
     adventures: int
     is_available: bool
+    points_available: int = 0
     inventory: dict = field(default_factory=dict)
 
 
@@ -258,3 +259,14 @@ class GameState:
     account: Account
     villages: list[Village]
     hero_info: HeroInfo
+
+
+class AttributePointType(Enum):
+    POWER = "power"
+    OFF_BONUS = "offBonus"
+    DEF_BONUS = "defBonus"
+    PRODUCTION_POINTS = "productionPoints"
+
+# default attribute type to allocate when not specified
+DEFAULT_ATTRIBUTE_POINT_TYPE = AttributePointType.PRODUCTION_POINTS
+

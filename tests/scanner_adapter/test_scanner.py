@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 
 from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, Tribe, HeroInfo, Village
 from src.scan_adapter.scanner import (
@@ -14,6 +15,7 @@ from src.scan_adapter.scanner import (
     scan_account_info,
     identity_tribe,
     scan_hero_info,
+    _parse_adventure_number
 )
 from tests.scanner_adapter.html_utils import HtmlUtils
 
@@ -218,3 +220,51 @@ def test_scan_hero_info(hero_attributes_html, inventory_html):
         }
     )
     assert result == expected
+
+
+def test_scan_hero_info_with_attribute_points(inventory_html):
+    # Given
+    html = HtmlUtils.load("hero_attributes_with_points.html")
+    # When
+    result = scan_hero_info(html, inventory_html)
+
+    # Then
+    assert result.points_available == 4
+
+
+def test_scan_hero_info_without_attribute_points(hero_attributes_html, inventory_html):
+    # Ensure existing fixture doesn't report attribute points
+    result = scan_hero_info(hero_attributes_html, inventory_html)
+    assert result.points_available == 0
+
+def test_scan_hero_without_adventures():
+    # Given
+    html = """
+           <a id="button6977c92fb7cdd" class="layoutButton buttonFramed withIcon round adventure green    "
+              href="/hero/adventures">
+               <svg viewBox="0 0 19.75 20" class="adventure"></svg>
+           </a>
+    """
+    tag = BeautifulSoup(html, "html.parser")
+
+    # When
+    result = _parse_adventure_number(tag)
+
+    # Then
+    assert result == 0
+
+def test_scan_hero_with_adventures():
+    # Given
+    html = """
+           <a id="button6977c92fb7cdd" class="layoutButton buttonFramed withIcon round adventure green    "
+              href="/hero/adventures">
+               <div class="content">5</div>
+           </a>
+    """
+    tag = BeautifulSoup(html, "html.parser")
+
+    # When
+    result = _parse_adventure_number(tag)
+
+    # Then
+    assert result == 5

@@ -260,11 +260,11 @@ class TestLogicEngine:
         engine = LogicEngine()
 
         # When
-        job = engine.plan_hero_adventure(hero_info)
+        jobs = engine.create_plan_for_hero(hero_info)
 
         # Then
-        assert job is not None
-        result = job.task()
+        assert len(jobs) == 1
+        result = jobs[0].task()
         expected = {
             "action": "hero_adventure",
             "health": 90,
@@ -284,9 +284,24 @@ class TestLogicEngine:
         engine = LogicEngine()
 
         # When
-        result = engine.plan_hero_adventure(hero_info)
+        jobs = engine.create_plan_for_hero(hero_info)
 
         # Then
-        expected = None
-        assert result == expected
+        assert jobs == []
 
+    def test_allocate_attributes_job_when_points_available(self, account_info: Account):
+        # Given
+        hero_info = HeroInfo(
+            health=80,
+            experience=5000,
+            adventures=10,
+            is_available=False,
+            points_available=4
+        )
+        engine = LogicEngine()
+
+        # When
+        jobs = engine.create_plan_for_hero(hero_info)
+
+        # Then: should create an allocate_attributes job even if adventure not planned
+        assert any(j.task().get("action") == "allocate_attributes" for j in jobs)

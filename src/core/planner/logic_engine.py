@@ -62,27 +62,41 @@ class LogicEngine:
             expires_at=now + timedelta(hours=1)
         )
 
-    def plan_hero_adventure(self, hero_info: HeroInfo) -> Job | None:
-        """Plan a hero adventure if the hero is available.
+    def create_plan_for_hero(self, hero_info: HeroInfo) -> list[Job]:
+        """Create a plan for the hero, which may include an adventure and attribute allocation.
 
         If the hero is available (not on the way, not traveling), schedule an adventure.
-        Otherwise, return None.
+        If the hero has attribute points available, schedule an allocation job.
+
+        Returns a list of Jobs (possibly empty).
         """
-        if not hero_info.is_available:
-            return None
+        jobs: list[Job] = []
 
         now = datetime.now()
-        return Job(
-            task=lambda: {
-                "action": "hero_adventure",
-                "health": hero_info.health,
-                "experience": hero_info.experience,
-                "adventures": hero_info.adventures
-            },
-            scheduled_time=now,
-            expires_at=now + timedelta(hours=1)
-        )
 
+        # Adventure job (only if hero is available)
+        if hero_info.is_available:
+            jobs.append(Job(
+                task=(lambda h=hero_info: {
+                    "action": "hero_adventure",
+                    "health": h.health,
+                    "experience": h.experience,
+                    "adventures": h.adventures
+                }),
+                scheduled_time=now,
+                expires_at=now + timedelta(hours=1)
+            ))
+
+        # Attribute allocation job (if attribute points available)
+        points = hero_info.points_available
+        if points > 0:
+            jobs.append(Job(
+                task=(lambda p=points: {"action": "allocate_attributes", "points": points}),
+                scheduled_time=now,
+                expires_at=now + timedelta(hours=1)
+            ))
+
+        return jobs
 
     def find_lowest_resource_type_in_all(self, game_state: GameState) -> SourceType | None:
         # Sum resources from villages and hero inventory
@@ -98,7 +112,7 @@ class LogicEngine:
             totals[SourceType.IRON] += v.iron
             totals[SourceType.CROP] += v.crop
         # Add resources from hero inventory
-        inv = getattr(game_state.hero_info, 'inventory', {}) or {}
+        inv = getattr(game_state.hero_info, 'inventory', {})
         totals[SourceType.LUMBER] += inv.get('lumber', 0)
         totals[SourceType.CLAY] += inv.get('clay', 0)
         totals[SourceType.IRON] += inv.get('iron', 0)

@@ -4,6 +4,7 @@ import random
 from playwright.sync_api import Playwright
 
 from src.config import Config
+from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -224,3 +225,23 @@ class Driver:
             logger.debug(f"claim_quest_rewards_if_available failed: {e}")
 
         return clicks
+
+    def allocate_hero_attributes(self, points_to_allocate: int) -> None:
+        target = DEFAULT_ATTRIBUTE_POINT_TYPE
+
+        self._navigate('/hero/attributes')
+        self.page.wait_for_selector('div.heroAttributes', timeout=3000)
+
+        target = DEFAULT_ATTRIBUTE_POINT_TYPE
+
+        buttons_selector = "button.textButtonV2.buttonFramed.plus.rectangle.withIcon.green, [role=\"button\"].textButtonV2.buttonFramed.plus.rectangle.withIcon.green"
+        buttons = self.page.locator(buttons_selector)
+        button = buttons.nth(target - 1)
+
+        for _ in range(points_to_allocate):
+            button.click()
+
+        save_btn = self.page.locator('#savePoints').first
+        if save_btn.count() and save_btn.is_visible():
+            save_btn.click()
+        return newValue
