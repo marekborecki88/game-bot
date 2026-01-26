@@ -36,14 +36,27 @@ class Driver:
     def stop(self):
         self.browser.close()
 
-    def get_html(self, dorf: str):
-        self.page.goto(f"{self.config.server_url}/{dorf}.php")
+    def _navigate(self, path: str) -> None:
+        """Internal helper: navigate to a path on the configured server and wait for load.
+
+        `path` may start with '/' (recommended) or be a relative path without leading slash.
+        """
+        if not path.startswith("/"):
+            path = "/" + path
+        url = f"{self.config.server_url}{path}"
+
+        # Log where we're navigating to for easier tracing
+        logger.debug(f"Navigating to: {url}")
+
+        self.page.goto(url)
         self.page.wait_for_load_state('networkidle')
+
+    def get_html(self, dorf: str):
+        self._navigate(f"/{dorf}.php")
         return self.page.content()
 
     def navigate_to_village(self, id):
-        self.page.goto(f"{self.config.server_url}/dorf1.php?newdid={id}")
-        self.page.wait_for_load_state('networkidle')
+        self._navigate(f"/dorf1.php?newdid={id}")
 
     def refresh(self):
         self.page.reload()
@@ -54,3 +67,13 @@ class Driver:
         dorf2: str = self.get_html("dorf2")
 
         return dorf1, dorf2
+
+    def get_hero_attributes_html(self) -> str:
+        """Navigate to hero attributes page and return its HTML."""
+        self._navigate("/hero/attributes")
+        return self.page.content()
+
+    def get_hero_inventory_html(self) -> str:
+        """Navigate to hero inventory page and return its HTML."""
+        self._navigate("/hero/inventory")
+        return self.page.content()
