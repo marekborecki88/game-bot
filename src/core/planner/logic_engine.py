@@ -91,27 +91,25 @@ class LogicEngine:
 
         now = datetime.now()
 
-        # Adventure job (only if hero is available)
-        # if hero_info.is_available:
-        #     jobs.append(Job(
-        #         task=(lambda h=hero_info: {
-        #             "action": "hero_adventure",
-        #             "health": h.health,
-        #             "experience": h.experience,
-        #             "adventures": h.adventures
-        #         }),
-        #         scheduled_time=now,
-        #         expires_at=now + timedelta(hours=1)
-        #     ))
+        if hero_info.is_available:
+            jobs.append(Job(
+                task=(lambda h=hero_info: {
+                    "action": "hero_adventure",
+                    "health": h.health,
+                    "experience": h.experience,
+                    "adventures": h.adventures
+                }),
+                scheduled_time=now,
+                expires_at=now + timedelta(hours=1)
+            ))
 
-        # Attribute allocation job (if attribute points available)
-        # points = hero_info.points_available
-        # if points > 0:
-        #     jobs.append(Job(
-        #         task=(lambda p=points: {"action": "allocate_attributes", "points": points}),
-        #         scheduled_time=now,
-        #         expires_at=now + timedelta(hours=1)
-        #     ))
+        points = hero_info.points_available
+        if points > 0:
+            jobs.append(Job(
+                task=(lambda p=points: {"action": "allocate_attributes", "points": points}),
+                scheduled_time=now,
+                expires_at=now + timedelta(hours=1)
+            ))
 
         # If hero-level daily quest indicator is present, schedule collect_daily_quests (no navigation required)
         if hero_info.has_daily_quest_indicator:

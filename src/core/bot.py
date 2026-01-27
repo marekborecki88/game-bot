@@ -193,11 +193,10 @@ class Bot:
             # Build fresh game state so we can both plan and compute next planning time
             game_state = self.create_game_state()
             interval_seconds = 3600  # planning horizon (1 hour)
-            # new_jobs.extend(self.logic_engine.create_plan_for_village(game_state, interval_seconds))
+            new_jobs.extend(self.logic_engine.create_plan_for_village(game_state, interval_seconds))
             # Also plan hero adventure (if applicable)
-            hero_job = self.logic_engine.create_plan_for_hero(game_state.hero_info)
-            if hero_job is not None:
-                new_jobs.extend(hero_job)
+            hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
+            new_jobs.extend(hero_jobs)
             self.jobs.extend(new_jobs)
             logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
 
@@ -247,7 +246,6 @@ class Bot:
         game_state = self.create_game_state()
         interval_seconds = 3600  # 60 minutes
         jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
-        # include hero adventure if available
         hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
         jobs.extend(hero_jobs)
 
