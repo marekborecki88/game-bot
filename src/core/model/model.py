@@ -50,9 +50,23 @@ class HeroInfo:
     adventures: int
     is_available: bool
     points_available: int = 0
-    inventory: dict = field(default_factory=dict)
+    inventory: dict[str, int] = field(default_factory=dict)
     # Whether the daily quests UI shows a new-quest indicator (!) — belongs to UI/hero context
     has_daily_quest_indicator: bool = False
+
+    def hero_inventory_resource(self) -> dict[SourceType, int]:
+        """Return hero inventory as a mapping from SourceType to int.
+
+        The project's scanned inventory uses string keys ('lumber','clay','iron','crop').
+        This helper normalizes those values and returns a dict using SourceType keys.
+        """
+        # Operate directly on self.inventory (values are expected to be ints)
+        return {
+            SourceType.LUMBER: self.inventory.get('lumber', 0),
+            SourceType.CLAY: self.inventory.get('clay', 0),
+            SourceType.IRON: self.inventory.get('iron', 0),
+            SourceType.CROP: self.inventory.get('crop', 0),
+        }
 
 
 @dataclass
