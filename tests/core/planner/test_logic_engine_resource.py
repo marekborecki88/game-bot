@@ -13,7 +13,7 @@ class DummyBuilding:
 
 @pytest.fixture
 def account_info():
-    return Account(server_speed="1.0", when_beginners_protection_expires=0)
+    return Account(server_speed=1.0, when_beginners_protection_expires=0)
 
 
 @pytest.fixture
@@ -128,3 +128,5 @@ def test_lowest_resource_type_with_hero_inventory_only(account_info):
     game_state = GameState(account=account_info, villages=[], hero_info=hero)
     engine = LogicEngine(game_state=game_state)
     assert engine.determine_next_resoure_to_develop(game_state) == SourceType.CLAY
+
+
