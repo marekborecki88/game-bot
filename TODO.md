@@ -18,4 +18,6 @@ ISSUES:
        2026-01-14 15:07:29,069 INFO     src.core.bot - Building in village: GOMORA, id: 21, type: unknown
 2. remove dict from job execution
        use dedicated type, add abstraction to reflect different type of jobs like building, sending troops, sending merchants, etc.
-3. ____
+3. for some reason logic_engine decide to send hero to adventure even when there is no adventure available
+   logs like "Hero adventure not started (no button found or driver failed)"
+4. ____
