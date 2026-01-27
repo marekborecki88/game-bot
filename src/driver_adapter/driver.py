@@ -242,3 +242,85 @@ class Driver:
         save_btn = self.page.locator('#savePoints').first
         if save_btn.count() and save_btn.is_visible():
             save_btn.click()
+
+    def claim_daily_quests(self) -> bool:
+        """If the daily quests anchor shows an indicator, click it to open dialog and click Collect rewards.
+        Returns True if any relevant click occurred, False otherwise. Tolerant to UI differences.
+        """
+        #TODO: this work during debugging, but fails in regular runs; needs investigation
+        try:
+            # Ensure the navigation anchor is present; caller typically already on village page
+            try:
+                self.page.wait_for_selector('#navigation a.dailyQuests', timeout=1000)
+            except Exception:
+                pass
+
+            locator = self.page.locator('#navigation a.dailyQuests').first
+            clicked_any = False
+            if locator.count() and locator.is_visible():
+                try:
+                    locator.click()
+                    logger.info('Clicked dailyQuests anchor')
+                    clicked_any = True
+                except Exception:
+                    logger.debug('dailyQuests anchor found but click failed')
+
+            # After anchor click, the Collect rewards control may appear. Try multiple selectors.
+            collect_rewards_selectors = [
+                'button.collectRewards',
+                "button.textButtonV2.buttonFramed.collectRewards",
+                "button:has-text('Collect rewards')",
+                "text=Collect rewards",
+            ]
+
+            clicked_rewards = False
+            for sel in collect_rewards_selectors:
+                try:
+                    loc = self.page.locator(sel).first
+                    if loc and loc.count() and loc.is_visible():
+                        try:
+                            loc.click()
+                            logger.info(f"Clicked collect rewards button using selector: {sel}")
+                            clicked_rewards = True
+                            # don't return immediately, there may be a final Collect button to click
+                            break
+                        except Exception:
+                            logger.debug(f"Collect rewards button found but click failed for selector: {sel}")
+                except Exception:
+                    continue
+
+            # After clicking 'Collect rewards' there is often a final 'Collect' button
+            final_collect_selectors = [
+                "button.collect",
+                "button.collectable",
+                "button:has-text('Collect')",
+                "button.textButtonV2.buttonFramed.collect",
+                "button.textButtonV2.buttonFramed.collect.collectable",
+            ]
+
+            clicked_final = False
+            for sel in final_collect_selectors:
+                try:
+                    locs = self.page.locator(sel)
+                    count = locs.count()
+                    for i in range(count):
+                        el = locs.nth(i)
+                        try:
+                            if el.is_visible():
+                                el.click()
+                                clicked_final = True
+                                logger.info(f"Clicked final collect button using selector: {sel}")
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+
+            # If we clicked any final collect button, consider this a success
+            if clicked_final:
+                return True
+
+            # Otherwise, if we clicked the anchor or intermediate collect rewards button, report success
+            return clicked_any or clicked_rewards
+        except Exception as e:
+            logger.debug(f'claim_daily_quests failed: {e}')
+            return False

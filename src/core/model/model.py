@@ -51,6 +51,8 @@ class HeroInfo:
     is_available: bool
     points_available: int = 0
     inventory: dict = field(default_factory=dict)
+    # Whether the daily quests UI shows a new-quest indicator (!) — belongs to UI/hero context
+    has_daily_quest_indicator: bool = False
 
 
 @dataclass
@@ -75,6 +77,7 @@ class Village:
     free_crop_hourly_production: int = 0
     is_upgraded_to_city: bool = False
     is_permanent_capital: bool = False
+    has_quest_master_reward: bool = False
 
     def build(self, page: Page, config: Config, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)

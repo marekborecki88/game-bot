@@ -377,13 +377,18 @@ def scan_hero_info(hero_html: str, inventory_html: str = None) -> HeroInfo:
     inventory = _parse_hero_inventory(inventory_html)
     points_available = _parse_available_attribute_points(soup)
 
+    # detect daily quest indicator from the header/navigation if present
+    nav_tag = soup.select_one('#navigation')
+    daily_indicator = is_daily_quest_indicator(nav_tag) if nav_tag else False
+
     return HeroInfo(
         health=health,
         experience=experience,
         adventures=adventures,
         is_available=is_available,
         points_available=points_available,
-        inventory=inventory
+        inventory=inventory,
+        has_daily_quest_indicator=daily_indicator
     )
 
 def _parse_adventure_number(adventure_button: Tag) -> int:
@@ -474,3 +479,29 @@ def scan_new_building_contract(html: Tag) -> BuildingContract:
         crop=crop,
         crop_consumption=crop_consumption
     )
+
+def _class_list_to_str(class_attr) -> str:
+    """Normalize class attribute (string or list) to space-joined string."""
+    if isinstance(class_attr, list):
+        return ' '.join(class_attr)
+    return str(class_attr or '')
+
+
+#TODO: add configuration option to enable/disable this scan and to set threshold values for minumum reward points
+def is_daily_quest_indicator(nav_tag: Tag) -> bool:
+    """Return True if provided Tag contains <a.dailyQuests> with a child div.indicator whose text is exactly '!'.
+
+    Expect a BeautifulSoup Tag (e.g., soup or subtag). Keep implementation minimal and explicit.
+    """
+    if not isinstance(nav_tag, Tag):
+        return False
+
+    anchor = nav_tag.select_one('a.dailyQuests')
+    if not anchor:
+        return False
+
+    indicator = anchor.select_one('div.indicator')
+    if not indicator:
+        return False
+
+    return indicator.get_text().strip() == '!'

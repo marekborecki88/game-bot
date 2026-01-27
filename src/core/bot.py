@@ -10,7 +10,7 @@ from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity, GameState
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, scan_new_building_contract
+from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, scan_new_building_contract, is_reward_available
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +148,25 @@ class Bot:
                     self.driver.allocate_hero_attributes(points_to_allocate=points)
                 except Exception as e:
                     logger.error(f"Error while allocating hero attributes: {e}")
+            elif action == "collect_daily_quests":
+                try:
+                    clicked = self.driver.claim_daily_quests()
+                    if not clicked:
+                        job.status = JobStatus.EXPIRED
+                        return "Daily quests not collected (element not found or click failed)"
+                except Exception as e:
+                    logger.error(f"Error while collecting daily quests: {e}")
+            elif action == "collect_questmaster_rewards":
+                try:
+                    # get latest page html for detection and then call claim_quest_rewards
+                    page_html = self.driver.get_html("dorf1")
+                    clicks = self.driver.claim_quest_rewards(page_html)
+                    if clicks == 0:
+                        job.status = JobStatus.EXPIRED
+                        return "No questmaster rewards collected"
+                except Exception as e:
+                    logger.error(f"Error while collecting questmaster rewards: {e}")
+
 
             job.status = JobStatus.COMPLETED
 
@@ -167,11 +186,14 @@ class Bot:
         fallback interval (PLANNING_INTERVAL) will be used.
         """
         logger.info("Running planning phase...")
+
+        new_jobs = []
+
         try:
             # Build fresh game state so we can both plan and compute next planning time
             game_state = self.create_game_state()
             interval_seconds = 3600  # planning horizon (1 hour)
-            new_jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
+            # new_jobs.extend(self.logic_engine.create_plan_for_village(game_state, interval_seconds))
             # Also plan hero adventure (if applicable)
             hero_job = self.logic_engine.create_plan_for_hero(game_state.hero_info)
             if hero_job is not None:
@@ -179,6 +201,7 @@ class Bot:
             self.jobs.extend(new_jobs)
             logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
 
+            #TODO: extract calculation of next planning time into separate method
             # compute when the building queues will finish
             try:
                 if game_state.villages:
@@ -225,7 +248,7 @@ class Bot:
         interval_seconds = 3600  # 60 minutes
         jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
         # include hero adventure if available
-        hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info) if getattr(game_state, 'hero_info', None) else []
+        hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
         jobs.extend(hero_jobs)
 
         return jobs
@@ -280,21 +303,18 @@ class Bot:
         logger.debug(f"Scanning village: {village_identity.name}")
         dorf1, dorf2 = self.driver.get_village_inner_html(village_identity.id)
 
-        # Ensure we're on the village page (dorf1) before attempting UI interactions
-        try:
-            self.driver.navigate_to_village(village_identity.id)
-        except Exception:
-            logger.debug("Failed to navigate back to village before claiming quest rewards")
+        # Ensure we're on the village page (dorf1)
+        self.driver.navigate_to_village(village_identity.id)
 
-        # If quest master reward available on the page HTML, attempt to click questmaster and collect rewards
-        try:
-            clicks = self.driver.claim_quest_rewards(dorf1)
-            if clicks:
-                logger.info(f"Collected {clicks} quest reward(s) in village {village_identity.name}")
-        except Exception as e:
-            logger.debug(f"Claiming quest rewards failed: {e}")
+        # Detect questmaster reward and set flag directly (allow exceptions to surface)
+        reward_available = is_reward_available(dorf1)
 
-        return scan_village(village_identity, dorf1, dorf2)
+        village = scan_village(village_identity, dorf1, dorf2)
+
+        # Set detection flag directly on the typed dataclass
+        village.has_quest_master_reward = reward_available
+
+        return village
 
 
     def fetch_hero_info(self):

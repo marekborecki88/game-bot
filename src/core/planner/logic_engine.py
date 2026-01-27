@@ -7,7 +7,16 @@ from src.core.model.model import Village, BuildingType, SourceType, GameState, H
 class LogicEngine:
     def create_plan_for_village(self, game_state: GameState, interval_in_seconds: int) -> list[Job]:
         global_lowest = self.determine_next_resoure_to_develop(game_state)
-        return [job for v in game_state.villages if (job := self._plan_village(v, global_lowest)) is not None]
+        jobs = [job for v in game_state.villages if (job := self._plan_village(v, global_lowest)) is not None]
+
+        # For questmaster rewards schedule per-village collecting jobs
+        for village in game_state.villages:
+            if village.has_quest_master_reward:
+                qm_job = self._create_collect_questmaster_job(village)
+                if qm_job:
+                    jobs.append(qm_job)
+
+        return jobs
 
     def _plan_village(self, village: Village, global_lowest: SourceType | None) -> Job | None:
         if not village.building_queue_is_empty():
@@ -83,26 +92,30 @@ class LogicEngine:
         now = datetime.now()
 
         # Adventure job (only if hero is available)
-        if hero_info.is_available:
-            jobs.append(Job(
-                task=(lambda h=hero_info: {
-                    "action": "hero_adventure",
-                    "health": h.health,
-                    "experience": h.experience,
-                    "adventures": h.adventures
-                }),
-                scheduled_time=now,
-                expires_at=now + timedelta(hours=1)
-            ))
+        # if hero_info.is_available:
+        #     jobs.append(Job(
+        #         task=(lambda h=hero_info: {
+        #             "action": "hero_adventure",
+        #             "health": h.health,
+        #             "experience": h.experience,
+        #             "adventures": h.adventures
+        #         }),
+        #         scheduled_time=now,
+        #         expires_at=now + timedelta(hours=1)
+        #     ))
 
         # Attribute allocation job (if attribute points available)
-        points = hero_info.points_available
-        if points > 0:
-            jobs.append(Job(
-                task=(lambda p=points: {"action": "allocate_attributes", "points": points}),
-                scheduled_time=now,
-                expires_at=now + timedelta(hours=1)
-            ))
+        # points = hero_info.points_available
+        # if points > 0:
+        #     jobs.append(Job(
+        #         task=(lambda p=points: {"action": "allocate_attributes", "points": points}),
+        #         scheduled_time=now,
+        #         expires_at=now + timedelta(hours=1)
+        #     ))
+
+        # If hero-level daily quest indicator is present, schedule collect_daily_quests (no navigation required)
+        if hero_info.has_daily_quest_indicator:
+            jobs.append(self._create_collect_daily_quests_job())
 
         return jobs
 
@@ -121,7 +134,7 @@ class LogicEngine:
             totals[SourceType.IRON] += v.iron
             totals[SourceType.CROP] += v.crop
         # Add resources from hero inventory
-        inv = getattr(game_state.hero_info, 'inventory', {})
+        inv = game_state.hero_info.inventory
         totals[SourceType.LUMBER] += inv.get('lumber', 0)
         totals[SourceType.CLAY] += inv.get('clay', 0)
         totals[SourceType.IRON] += inv.get('iron', 0)
@@ -153,3 +166,25 @@ class LogicEngine:
                     expires_at=now + timedelta(hours=1)
                 )
         return None
+
+    def _create_collect_daily_quests_job(self) -> Job:
+        now = datetime.now()
+        return Job(
+            task=lambda: {
+                "action": "collect_daily_quests",
+            },
+            scheduled_time=now,
+            expires_at=now + timedelta(hours=1)
+        )
+
+    def _create_collect_questmaster_job(self, village: Village) -> Job:
+        now = datetime.now()
+        return Job(
+            task=lambda v=village: {
+                "action": "collect_questmaster_rewards",
+                "village_name": v.name,
+                "village_id": v.id,
+            },
+            scheduled_time=now,
+            expires_at=now + timedelta(hours=1)
+        )
