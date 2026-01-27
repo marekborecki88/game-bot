@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourcePit, SourceType, Tribe, GameState, Account, HeroInfo
-
+from src.core.tasks import BuildTask
 
 
 def make_village(**overrides) -> Village:
@@ -64,10 +64,18 @@ def test_create_build_job_schedules_future_when_insufficient_resources(account_i
     # And village queue freeze flag should be set
     assert getattr(village, 'is_queue_building_freeze', False) is True
 
-    payload = job.task()
-    assert payload.get("action") == "build"
-    assert payload.get("village_id") == village.id
-    assert payload.get("target_level") == 2
+    expected = BuildTask(
+        success_message="build scheduled",
+        failure_message="build failed",
+        village_name=village.name,
+        village_id=village.id,
+        building_id=2,
+        building_gid=1,
+        target_name=SourceType.LUMBER.name,
+        target_level=2,
+    )
+
+    assert expected == job.task
 
 
 def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info, hero_info):
@@ -97,7 +105,19 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info,
     # No freeze should be set because there was no delay
     assert getattr(village, 'is_queue_building_freeze', False) is False
 
-    payload = job.task()
-    assert payload.get("action") == "build"
-    assert payload.get("village_id") == village.id
-    assert payload.get("target_level") == 2
+    # action is stored in job.metadata, not on the task
+    assert job.metadata is not None
+    assert job.metadata.get('action') == 'build'
+
+    expected = BuildTask(
+        success_message="build scheduled",
+        failure_message="build failed",
+        village_name=village.name,
+        village_id=village.id,
+        building_id=3,
+        building_gid=1,
+        target_name=SourceType.LUMBER.name,
+        target_level=2,
+    )
+
+    assert expected == job.task
