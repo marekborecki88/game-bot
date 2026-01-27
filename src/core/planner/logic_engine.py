@@ -1,16 +1,38 @@
-from datetime import datetime, timedelta
-
 from src.core.job import Job
+from src.core.tasks import (
+    BuildTask, BuildNewTask, HeroAdventureTask, AllocateAttributesTask,
+    CollectDailyQuestsTask, CollectQuestmasterTask
+)
 from src.core.model.model import Village, BuildingType, SourceType, GameState, HeroInfo
+from src.core.calculator.calculator import TravianCalculator
+from datetime import datetime, timedelta
+import math
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LogicEngine:
-    def create_plan_for_village(self, game_state: GameState, interval_in_seconds: int) -> list[Job]:
-        global_lowest = self.determine_next_resoure_to_develop(game_state)
-        jobs = [job for v in game_state.villages if (job := self._plan_village(v, global_lowest)) is not None]
+    #TODO: if game_state is not provided at construction, it must be passed to planning methods
+    def __init__(self, game_state: GameState | None = None):
+        # game_state may be provided at construction or passed later to planning methods
+        self.game_state: GameState | None = game_state
+        speed = game_state.account.server_speed if game_state else 1.0
+        self.calculator = TravianCalculator(speed=speed)
+
+
+    def create_plan_for_village(self, game_state: GameState | None = None) -> list[Job]:
+        # Accept a fresh game_state (preferred) and store it for subsequent calculations
+        if game_state:
+            self.game_state = game_state
+        if not self.game_state:
+            return []
+
+        global_lowest = self.determine_next_resoure_to_develop(self.game_state)
+        jobs = [job for v in self.game_state.villages if (job := self._plan_village(v, global_lowest)) is not None]
 
         # For questmaster rewards schedule per-village collecting jobs
-        for village in game_state.villages:
+        for village in self.game_state.villages:
             if village.has_quest_master_reward:
                 qm_job = self._create_collect_questmaster_job(village)
                 if qm_job:
@@ -64,19 +86,114 @@ class LogicEngine:
         return self._create_build_job(village, pit.id, pit.type.gid, pit.type.name, pit.level + 1)
 
     def _create_build_job(self, village: Village, building_id: int, building_gid: int, target_name: str, target_level: int) -> Job:
+        """Create a build job. If resources are insufficient, compute delay based on hourly production
+        (village + hero inventory) and schedule job in the future. Also set village.is_queue_building_freeze
+        when scheduling a future job to prevent duplicate planning.
+        """
         now = datetime.now()
+
+        building_cost = self.calculator.get_building_details(building_gid, target_level)
+        if building_cost is None:
+            # Fallback to immediate job if we cannot calculate cost
+            scheduled = now
+            expires = now + timedelta(hours=1)
+            return Job(
+                task=BuildTask(
+                    success_message="build scheduled",
+                    failure_message="build failed",
+                    village_name=village.name,
+                    village_id=village.id,
+                    building_id=building_id,
+                    building_gid=building_gid,
+                    target_name=target_name,
+                    target_level=target_level,
+                ),
+                scheduled_time=scheduled,
+                expires_at=expires,
+                metadata={"action": "build", "village_id": village.id}
+            )
+
+        # Available resources = village resources + hero inventory
+        inv = (self.game_state.hero_info.inventory if self.game_state and self.game_state.hero_info else {})
+        avail = {
+            'lumber': village.lumber + inv.get('lumber', 0),
+            'clay': village.clay + inv.get('clay', 0),
+            'iron': village.iron + inv.get('iron', 0),
+            'crop': village.crop + inv.get('crop', 0),
+        }
+
+        req = {'lumber': building_cost.lumber, 'clay': building_cost.clay, 'iron': building_cost.iron, 'crop': building_cost.crop}
+
+        # Compute shortage in seconds per resource (ceil hours -> seconds)
+        shortages = {}
+        max_delay_seconds = 0
+        for key in ('lumber', 'clay', 'iron', 'crop'):
+            short = max(0, req[key] - avail.get(key, 0))
+            shortages[key] = short
+            if short > 0:
+                # hourly production mapping
+                prod = 0
+                if key == 'lumber':
+                    prod = village.lumber_hourly_production
+                elif key == 'clay':
+                    prod = village.clay_hourly_production
+                elif key == 'iron':
+                    prod = village.iron_hourly_production
+                elif key == 'crop':
+                    prod = village.free_crop_hourly_production
+
+                if prod > 0:
+                    hours = math.ceil(short / prod)
+                    delay = hours * 3600
+                else:
+                    # If production is zero, we cannot compute a reasonable delay; fallback to immediate
+                    delay = 0
+
+                if delay > max_delay_seconds:
+                    max_delay_seconds = delay
+
+        if max_delay_seconds > 0:
+            scheduled = now + timedelta(seconds=max_delay_seconds)
+            # set an expiry reasonably after scheduled time
+            expires = scheduled + timedelta(hours=1)
+
+            # Mark village queue frozen to avoid duplicate scheduling
+            village.is_queue_building_freeze = True
+            logger.info(f"Scheduled delayed build for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue")
+
+            return Job(
+                task=BuildTask(
+                    success_message="build scheduled",
+                    failure_message="build failed",
+                    village_name=village.name,
+                    village_id=village.id,
+                    building_id=building_id,
+                    building_gid=building_gid,
+                    target_name=target_name,
+                    target_level=target_level,
+                ),
+                scheduled_time=scheduled,
+                expires_at=expires,
+                metadata={"action": "build", "village_id": village.id}
+            )
+
+        # No shortages -> immediate job
+        scheduled = now
+        expires = now + timedelta(hours=1)
         return Job(
-            task=lambda: {
-                "action": "build",
-                "village_name": village.name,
-                "village_id": village.id,
-                "building_id": building_id,
-                "building_gid": building_gid,
-                "target_name": target_name,
-                "target_level": target_level
-            },
-            scheduled_time=now,
-            expires_at=now + timedelta(hours=1)
+            task=BuildTask(
+                success_message="build scheduled",
+                failure_message="build failed",
+                village_name=village.name,
+                village_id=village.id,
+                building_id=building_id,
+                building_gid=building_gid,
+                target_name=target_name,
+                target_level=target_level,
+            ),
+            scheduled_time=scheduled,
+            expires_at=expires,
+            metadata={"action": "build", "village_id": village.id}
         )
 
     def create_plan_for_hero(self, hero_info: HeroInfo) -> list[Job]:
@@ -93,12 +210,11 @@ class LogicEngine:
 
         if hero_info.is_available:
             jobs.append(Job(
-                task=(lambda h=hero_info: {
-                    "action": "hero_adventure",
-                    "health": h.health,
-                    "experience": h.experience,
-                    "adventures": h.adventures
-                }),
+                task=HeroAdventureTask(
+                    success_message="hero adventure scheduled",
+                    failure_message="hero adventure failed",
+                    hero_info=hero_info,
+                ),
                 scheduled_time=now,
                 expires_at=now + timedelta(hours=1)
             ))
@@ -106,7 +222,11 @@ class LogicEngine:
         points = hero_info.points_available
         if points > 0:
             jobs.append(Job(
-                task=(lambda p=points: {"action": "allocate_attributes", "points": points}),
+                task=AllocateAttributesTask(
+                    success_message="attribute allocation scheduled",
+                    failure_message="attribute allocation failed",
+                    points=points,
+                ),
                 scheduled_time=now,
                 expires_at=now + timedelta(hours=1)
             ))
@@ -151,26 +271,28 @@ class LogicEngine:
             if not any(b for b in village.buildings if b.id == id):
                 now = datetime.now()
                 return Job(
-                    task=lambda: {
-                        "action": "build_new",
-                        "village_name": village.name,
-                        "village_id": village.id,
-                        "building_id": id,
-                        "building_gid": gid,
-                        "target_name": name,
-                        "target_level": 1
-                    },
+                    task=BuildNewTask(
+                        village_name=village.name,
+                        village_id=village.id,
+                        building_id=id,
+                        building_gid=gid,
+                        target_name=name,
+                        success_message="new building scheduled",
+                        failure_message="new building failed",
+                    ),
                     scheduled_time=now,
-                    expires_at=now + timedelta(hours=1)
+                    expires_at=now + timedelta(hours=1),
+                    metadata={"action": "build_new", "village_id": village.id}
                 )
         return None
 
     def _create_collect_daily_quests_job(self) -> Job:
         now = datetime.now()
         return Job(
-            task=lambda: {
-                "action": "collect_daily_quests",
-            },
+            task=CollectDailyQuestsTask(
+                success_message="collect daily scheduled",
+                failure_message="collect daily failed",
+            ),
             scheduled_time=now,
             expires_at=now + timedelta(hours=1)
         )
@@ -178,11 +300,20 @@ class LogicEngine:
     def _create_collect_questmaster_job(self, village: Village) -> Job:
         now = datetime.now()
         return Job(
-            task=lambda v=village: {
-                "action": "collect_questmaster_rewards",
-                "village_name": v.name,
-                "village_id": v.id,
-            },
+            task=CollectQuestmasterTask(
+                success_message="collect qm scheduled",
+                failure_message="collect qm failed",
+                village=village,
+            ),
             scheduled_time=now,
             expires_at=now + timedelta(hours=1)
         )
+
+    #TODO: need refactor
+    def unfreeze_village_queue(self, village_id: int) -> None:
+        if not self.game_state:
+            return
+        for v in self.game_state.villages:
+            if v.id == village_id:
+                v.is_queue_building_freeze = False
+                return

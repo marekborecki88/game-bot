@@ -1,8 +1,10 @@
+from functools import singledispatchmethod
 import logging
 import signal
 import sys
 import time
 from types import FrameType
+from dataclasses import is_dataclass
 
 import schedule
 
@@ -11,6 +13,7 @@ from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity, GameState
 from src.driver_adapter.driver import Driver
 from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, scan_new_building_contract, is_reward_available
+from src.core.tasks import BuildTask, BuildNewTask, HeroAdventureTask, AllocateAttributesTask, CollectDailyQuestsTask, CollectQuestmasterTask
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,9 @@ class Bot:
 
     def __init__(self, driver: Driver) -> None:
         self.driver: Driver = driver
-        self.logic_engine: LogicEngine = LogicEngine()
+        # Do not perform expensive scans during construction. The LogicEngine may receive
+        # a fresh GameState at planning time via create_plan_for_village(game_state).
+        self.logic_engine: LogicEngine = LogicEngine(game_state=None)
         self.jobs: list[Job] = []
         self._running: bool = False
         # handle to the scheduled planning job (so we can cancel/reschedule dynamically)
@@ -46,7 +51,6 @@ class Bot:
         self._running = False
 
     def run(self) -> None:
-        self.driver.login()
         """Start the bot's main loop with scheduled tasks."""
         logger.info("Starting bot...")
         self._running = True
@@ -90,162 +94,216 @@ class Bot:
                 except Exception as e:
                     logger.error(f"Job execution failed: {e}", exc_info=True)
 
+        # Mark expired jobs so they are included in cleanup
+        for j in self.jobs:
+            try:
+                if j.is_expired() and j.status == JobStatus.PENDING:
+                    j.status = JobStatus.EXPIRED
+            except Exception:
+                pass
+
         # Cleanup completed/expired/terminated jobs
         before_count = len(self.jobs)
-        self.jobs = [j for j in self.jobs if j.status == JobStatus.PENDING]
+        # Identify jobs that will be removed so we can perform cleanup actions (e.g., unfreeze villages)
+        remaining = [j for j in self.jobs if j.status == JobStatus.PENDING]
+        removed = [j for j in self.jobs if j.status != JobStatus.PENDING]
+
+        # For any removed build-related jobs, attempt to unfreeze the respective village
+        for j in removed:
+            try:
+                if j.metadata and j.metadata.get('action') in ("build", "build_new") and j.metadata.get('village_id'):
+                    try:
+                        self.logic_engine.unfreeze_village_queue(j.metadata.get('village_id'))
+                        logger.debug(f"Unfroze village queue for village id {j.metadata.get('village_id')} during cleanup")
+                    except Exception:
+                        logger.debug(f"Failed to unfreeze village queue for id {j.metadata.get('village_id')} during cleanup")
+            except Exception:
+                pass
+
+        self.jobs = remaining
         cleaned = before_count - len(self.jobs)
         if cleaned > 0:
             logger.debug(f"Cleaned up {cleaned} completed jobs")
 
     def _execute_job(self, job: Job) -> str:
-        """Execute a job and return a summary message."""
+        """Execute a job and return a summary message.
+
+        This method performs common bookkeeping (expiration check, status toggles,
+        exception handling and final cleanup) and delegates the task-specific
+        execution to the singledispatch `_handle_task` method which contains
+        overloads for each Task subtype and a callable fallback.
+        """
         if job.is_expired():
             job.status = JobStatus.EXPIRED
             return f"Job expired (scheduled for {job.scheduled_time})"
 
         job.status = JobStatus.RUNNING
         try:
-            payload = job.task()
+            summary = self._handle_task(job.task, job)
+            # If handler succeeded, ensure job status is COMPLETED unless handler set it.
+            if job.status == JobStatus.RUNNING:
+                job.status = JobStatus.COMPLETED
+            return summary
+        except Exception as e:
+            # Ensure terminated on unexpected exceptions
+            job.status = JobStatus.TERMINATED
+            raise
+        finally:
+            # Ensure that if we scheduled a future build and froze the queue, we unfreeze it now
+            try:
+                vid = None
+                if isinstance(job.task, BuildTask) or isinstance(job.task, BuildNewTask):
+                    vid = job.task.village_id
+                elif hasattr(job.task, 'village'):
+                    vid = getattr(job.task, 'village', None).id if getattr(job.task, 'village', None) else None
 
+                if vid:
+                    try:
+                        self.logic_engine.unfreeze_village_queue(vid)
+                    except Exception:
+                        logger.debug(f"Failed to unfreeze village queue for id {vid}")
+            except Exception:
+                # Swallow any errors in cleanup to avoid masking job errors
+                pass
+
+
+    # Task-specific handlers using singledispatchmethod
+    @singledispatchmethod
+    def _handle_task(self, task, job: Job) -> str:
+        """Fallback handler for unsupported task types.
+
+        If `task` is a callable (legacy), run the fallback behaviour otherwise
+        raise a RuntimeError to indicate unsupported Task type.
+        """
+        # Unknown task type — fallback to old behaviour if task is callable
+        if callable(task):
+            payload = task()
             action = payload.get("action")
             village_name = payload.get("village_name")
             village_id = payload.get("village_id")
-            building_id = payload.get("building_id")
-            building_gid = payload.get("building_gid")
-            target_name = payload.get("target_name")
-            target_level = payload.get("target_level")
 
-            # If the job targets a specific village, navigate there first
             if village_id is not None:
                 try:
                     self.driver.navigate_to_village(village_id)
                 except Exception:
                     logger.debug(f"Failed to navigate to village id {village_id}")
 
-            #TODO: this part is unacceptable
+            # minimal fallback actions
             if action == "build":
-                self.build(village_name, building_id, building_gid)
-            elif action == "build_new":
-                # "build_new" uses the same UI flow as an upgrade: navigate to the slot and place the building
-                logger.info(f"Placing new building {target_name} (gid={building_gid}) in village {village_name} at slot {building_id}")
-                self.build_new(village_id, village_name, building_id, building_gid)
-            elif action == "hero_adventure":
-                # Attempt to start a hero adventure via driver. This method is tolerant and
-                # returns False if no adventure button exists (e.g., UI differs or already on adventure).
-                started = False
-                try:
-                    started = self.driver.start_hero_adventure()
-                except Exception as e:
-                    logger.error(f"Error while starting hero adventure: {e}")
-
-                if not started:
-                    # If we couldn't start an adventure, mark the job as expired/failed
-                    job.status = JobStatus.EXPIRED
-                    return "Hero adventure not started (no button found or driver failed)"
-            elif action == "allocate_attributes":
-                try:
-                    points = int(payload.get('points') or 0)
-                    self.driver.allocate_hero_attributes(points_to_allocate=points)
-                except Exception as e:
-                    logger.error(f"Error while allocating hero attributes: {e}")
-            elif action == "collect_daily_quests":
-                try:
-                    clicked = self.driver.claim_daily_quests()
-                    if not clicked:
-                        job.status = JobStatus.EXPIRED
-                        return "Daily quests not collected (element not found or click failed)"
-                except Exception as e:
-                    logger.error(f"Error while collecting daily quests: {e}")
-            elif action == "collect_questmaster_rewards":
-                try:
-                    # get latest page html for detection and then call claim_quest_rewards
-                    page_html = self.driver.get_html("dorf1")
-                    clicks = self.driver.claim_quest_rewards(page_html)
-                    if clicks == 0:
-                        job.status = JobStatus.EXPIRED
-                        return "No questmaster rewards collected"
-                except Exception as e:
-                    logger.error(f"Error while collecting questmaster rewards: {e}")
-
-
+                self.build(village_name, payload.get('building_id'), payload.get('building_gid'))
             job.status = JobStatus.COMPLETED
+            return f"Fallback executed action {action}"
 
-            # Return a concise summary depending on action
-            if action == "hero_adventure":
-                return f"Hero adventure started (health={payload.get('health')}, experience={payload.get('experience')}, adventures={payload.get('adventures')})"
-            return f"In the village {village_name} with id {village_id} was done {action} of {target_name} to level {target_level}"
+        raise RuntimeError("Unsupported Task type and not callable")
+
+
+    @_handle_task.register
+    def _(self, task: BuildTask, job: Job) -> str:  # type: ignore[override]
+        village_name = task.village_name
+        village_id = task.village_id
+        building_id = task.building_id
+        building_gid = task.building_gid
+        target_name = task.target_name
+        target_level = task.target_level
+
+        try:
+            self.driver.navigate_to_village(village_id)
+        except Exception:
+            logger.debug(f"Failed to navigate to village id {village_id}")
+
+        self.build(village_name, building_id, building_gid)
+        job.status = JobStatus.COMPLETED
+        return f"In the village {village_name} with id {village_id} was done build of {target_name} to level {target_level}"
+
+
+    @_handle_task.register
+    def _(self, task: BuildNewTask, job: Job) -> str:  # type: ignore[override]
+        village_name = task.village_name
+        village_id = task.village_id
+        building_id = task.building_id
+        building_gid = task.building_gid
+        target_name = task.target_name
+
+        try:
+            self.driver.navigate_to_village(village_id)
+        except Exception:
+            logger.debug(f"Failed to navigate to village id {village_id}")
+
+        logger.info(f"Placing new building {target_name} (gid={building_gid}) in village {village_name} at slot {building_id}")
+        self.build_new(village_id, village_name, building_id, building_gid)
+        job.status = JobStatus.COMPLETED
+        return f"Placed new building {target_name} in village {village_name} (id={village_id})"
+
+
+    @_handle_task.register
+    def _(self, task: HeroAdventureTask, job: Job) -> str:  # type: ignore[override]
+        started = False
+        try:
+            started = self.driver.start_hero_adventure()
         except Exception as e:
+            logger.error(f"Error while starting hero adventure: {e}")
+
+        if not started:
+            job.status = JobStatus.EXPIRED
+            return "Hero adventure not started (no button found or driver failed)"
+
+        job.status = JobStatus.COMPLETED
+        h = task.hero_info
+        return f"Hero adventure started (health={h.health}, experience={h.experience}, adventures={h.adventures})"
+
+
+    @_handle_task.register
+    def _(self, task: AllocateAttributesTask, job: Job) -> str:  # type: ignore[override]
+        try:
+            points = int(task.points or 0)
+            self.driver.allocate_hero_attributes(points_to_allocate=points)
+        except Exception as e:
+            logger.error(f"Error while allocating hero attributes: {e}")
             job.status = JobStatus.TERMINATED
-            raise e
+            raise
 
-    def _run_planning(self) -> None:
-        """Run the planning phase, add new jobs and schedule the next planning run dynamically.
+        job.status = JobStatus.COMPLETED
+        return f"Allocated {task.points} hero attribute points"
 
-        The next planning run will be scheduled for when the shortest building queue finishes
-        across all villages. If there are no villages or the computed delay is invalid, a
-        fallback interval (PLANNING_INTERVAL) will be used.
-        """
-        logger.info("Running planning phase...")
 
-        new_jobs = []
-
+    @_handle_task.register
+    def _(self, task: CollectDailyQuestsTask, job: Job) -> str:  # type: ignore[override]
         try:
-            # Build fresh game state so we can both plan and compute next planning time
-            game_state = self.create_game_state()
-            interval_seconds = 3600  # planning horizon (1 hour)
-            new_jobs.extend(self.logic_engine.create_plan_for_village(game_state, interval_seconds))
-            # Also plan hero adventure (if applicable)
-            hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
-            new_jobs.extend(hero_jobs)
-            self.jobs.extend(new_jobs)
-            logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
-
-            #TODO: extract calculation of next planning time into separate method
-            # compute when the building queues will finish
-            try:
-                if game_state.villages:
-                    next_delay = int(shortest_building_queue(game_state.villages))
-                else:
-                    next_delay = self.PLANNING_INTERVAL
-            except Exception:
-                # in case something unexpected happens, fall back to default
-                next_delay = self.PLANNING_INTERVAL
-
-            # enforce sensible minimum delay to avoid tight recursion
-            if next_delay <= 0:
-                next_delay = 1
-
-            self._schedule_planning_in(next_delay)
-
+            clicked = self.driver.claim_daily_quests()
+            if not clicked:
+                job.status = JobStatus.EXPIRED
+                return "Daily quests not collected (element not found or click failed)"
         except Exception as e:
-            logger.error(f"Planning failed: {e}", exc_info=True)
+            logger.error(f"Error while collecting daily quests: {e}")
+            job.status = JobStatus.TERMINATED
+            raise
+
+        job.status = JobStatus.COMPLETED
+        return "Collected daily quests"
 
 
-    def _schedule_planning_in(self, seconds: int) -> None:
-        """Schedule the next planning run after `seconds` seconds.
-
-        Cancels any previously scheduled planning job to ensure only one planner job exists.
-        """
-        # cancel previous planning job if present
-        if self._planning_job is not None:
-            try:
-                schedule.cancel_job(self._planning_job)
-            except Exception:
-                pass
-
-        # schedule the next planner job
+    @_handle_task.register
+    def _(self, task: CollectQuestmasterTask, job: Job) -> str:  # type: ignore[override]
         try:
-            self._planning_job = schedule.every(seconds).seconds.do(self._run_planning)
-            logger.info(f"Next planning scheduled in {seconds} seconds")
+            # get latest page html for detection and then call claim_quest_rewards
+            page_html = self.driver.get_html("dorf1")
+            clicks = self.driver.claim_quest_rewards(page_html)
+            if clicks == 0:
+                job.status = JobStatus.EXPIRED
+                return "No questmaster rewards collected"
         except Exception as e:
-            logger.error(f"Failed to schedule next planning run: {e}")
+            logger.error(f"Error while collecting questmaster rewards: {e}")
+            job.status = JobStatus.TERMINATED
+            raise
 
+        job.status = JobStatus.COMPLETED
+        return "Collected questmaster rewards"
 
     def planning(self) -> list[Job]:
         """Create a plan for all villages and return new jobs."""
         game_state = self.create_game_state()
         interval_seconds = 3600  # 60 minutes
-        jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
+        jobs = self.logic_engine.create_plan_for_village(game_state)
         hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
         jobs.extend(hero_jobs)
 

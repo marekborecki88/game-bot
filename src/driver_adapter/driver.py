@@ -15,6 +15,7 @@ class Driver:
         self.config = config
         self.browser = self.playwright.chromium.launch(headless=self.config.headless)
         self.page = self.browser.new_page()
+        self.login()
 
     def login(self):
         logger.info("Logging in...")
