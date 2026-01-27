@@ -27,7 +27,8 @@ class Bot:
 
     def __init__(self, driver: Driver) -> None:
         self.driver: Driver = driver
-        self.logic_engine: LogicEngine = LogicEngine()
+        state = self.create_game_state()
+        self.logic_engine: LogicEngine = LogicEngine(game_state = state)
         self.jobs: list[Job] = []
         self._running: bool = False
         # handle to the scheduled planning job (so we can cancel/reschedule dynamically)
@@ -46,7 +47,6 @@ class Bot:
         self._running = False
 
     def run(self) -> None:
-        self.driver.login()
         """Start the bot's main loop with scheduled tasks."""
         logger.info("Starting bot...")
         self._running = True
@@ -104,6 +104,7 @@ class Bot:
             return f"Job expired (scheduled for {job.scheduled_time})"
 
         job.status = JobStatus.RUNNING
+        payload = None
         try:
             payload = job.task()
 
@@ -177,6 +178,17 @@ class Bot:
         except Exception as e:
             job.status = JobStatus.TERMINATED
             raise e
+        finally:
+            # Ensure that if we scheduled a future build and froze the queue, we unfreeze it now
+            try:
+                if payload and payload.get('village_id') and payload.get('action') in ("build", "build_new"):
+                    try:
+                        self.logic_engine.unfreeze_village_queue(payload.get('village_id'))
+                    except Exception:
+                        logger.debug(f"Failed to unfreeze village queue for id {payload.get('village_id')}")
+            except Exception:
+                # Swallow any errors in cleanup to avoid masking job errors
+                pass
 
     def _run_planning(self) -> None:
         """Run the planning phase, add new jobs and schedule the next planning run dynamically.
@@ -192,8 +204,7 @@ class Bot:
         try:
             # Build fresh game state so we can both plan and compute next planning time
             game_state = self.create_game_state()
-            interval_seconds = 3600  # planning horizon (1 hour)
-            new_jobs.extend(self.logic_engine.create_plan_for_village(game_state, interval_seconds))
+            new_jobs.extend(self.logic_engine.create_plan_for_village())
             # Also plan hero adventure (if applicable)
             hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
             new_jobs.extend(hero_jobs)
@@ -245,7 +256,7 @@ class Bot:
         """Create a plan for all villages and return new jobs."""
         game_state = self.create_game_state()
         interval_seconds = 3600  # 60 minutes
-        jobs = self.logic_engine.create_plan_for_village(game_state, interval_seconds)
+        jobs = self.logic_engine.create_plan_for_village()
         hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
         jobs.extend(hero_jobs)
 

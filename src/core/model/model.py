@@ -78,6 +78,9 @@ class Village:
     is_upgraded_to_city: bool = False
     is_permanent_capital: bool = False
     has_quest_master_reward: bool = False
+    # When True, planning should treat the building queue as occupied because
+    # we already scheduled a future building job that will consume the queue.
+    is_queue_building_freeze: bool = False
 
     def build(self, page: Page, config: Config, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)
@@ -98,7 +101,9 @@ class Village:
         logger.info("Clicked upgrade button")
 
     def building_queue_is_empty(self):
-        return len(self.building_queue) == 0
+        # Consider the explicit freeze flag as a non-empty queue to prevent
+        # planner from scheduling another action while a future build is planned.
+        return len(self.building_queue) == 0 and not self.is_queue_building_freeze
 
     def lowest_source(self) -> SourceType:
         source_dict = {

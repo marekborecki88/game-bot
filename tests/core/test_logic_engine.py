@@ -57,10 +57,10 @@ class TestLogicEngine:
             building_queue=[BuildingJob(building_id=1, target_level=2, time_remaining=3600)],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine()
+        engine = LogicEngine(game_state=game_state)
 
         # When
-        result = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village()
 
         # Then
         expected = []
@@ -80,10 +80,10 @@ class TestLogicEngine:
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
-        result = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village()
 
         # Then
         assert len(result) == 1
@@ -113,10 +113,10 @@ class TestLogicEngine:
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
-        result = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village()
 
         # Then
         assert len(result) == 1
@@ -149,10 +149,10 @@ class TestLogicEngine:
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
-        result = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village()
 
         # Then
         assert len(result) == 1
@@ -190,10 +190,10 @@ class TestLogicEngine:
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
-        result = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village()
 
         # Then
         assert len(result) == 1
@@ -228,10 +228,10 @@ class TestLogicEngine:
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
-        result = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village()
 
         # Then
         expected = []
@@ -260,10 +260,10 @@ class TestLogicEngine:
             building_queue=[],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
-        result = engine.create_plan_for_village(game_state, interval_seconds)
+        result = engine.create_plan_for_village()
 
         # Then
         expected = []
@@ -277,7 +277,7 @@ class TestLogicEngine:
             adventures=83,
             is_available=True
         )
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
@@ -301,7 +301,7 @@ class TestLogicEngine:
             adventures=10,
             is_available=False
         )
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
@@ -318,7 +318,7 @@ class TestLogicEngine:
             is_available=False,
             points_available=4
         )
-        engine = LogicEngine()
+        engine = LogicEngine(game_state = game_state)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
