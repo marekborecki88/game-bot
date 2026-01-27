@@ -2,6 +2,7 @@ import pytest
 
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo
+from src.core.tasks import BuildTask, HeroAdventureTask, AllocateAttributesTask
 
 
 def make_village(**overrides) -> Village:
@@ -57,7 +58,7 @@ class TestLogicEngine:
             building_queue=[BuildingJob(building_id=1, target_level=2, time_remaining=3600)],
         )
         game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-        engine = LogicEngine(game_state=game_state)
+        engine = LogicEngine(game_state = game_state)
 
         # When
         result = engine.create_plan_for_village()
@@ -87,17 +88,14 @@ class TestLogicEngine:
 
         # Then
         assert len(result) == 1
-        payload = result[0].task()
-        expected = {
-            "action": "build",
-            "village_name": "WarehouseTest",
-            "village_id": 999,
-            "building_id": 10,
-            "building_gid": BuildingType.WAREHOUSE.gid,
-            "target_name": BuildingType.WAREHOUSE.name,
-            "target_level": 2
-        }
-        assert payload == expected
+        task = result[0].task
+        assert isinstance(task, BuildTask)
+        assert task.village_name == "WarehouseTest"
+        assert task.village_id == 999
+        assert task.building_id == 10
+        assert task.building_gid == BuildingType.WAREHOUSE.gid
+        assert task.target_name == BuildingType.WAREHOUSE.name
+        assert task.target_level == 2
 
     def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(self, account_info: Account, hero_info: HeroInfo):
         # Given
@@ -120,17 +118,14 @@ class TestLogicEngine:
 
         # Then
         assert len(result) == 1
-        payload = result[0].task()
-        expected = {
-            "action": "build",
-            "village_name": "GranaryTest",
-            "village_id": 999,
-            "building_id": 11,
-            "building_gid": BuildingType.GRANARY.gid,
-            "target_name": BuildingType.GRANARY.name,
-            "target_level": 2
-        }
-        assert payload == expected
+        task = result[0].task
+        assert isinstance(task, BuildTask)
+        assert task.village_name == "GranaryTest"
+        assert task.village_id == 999
+        assert task.building_id == 11
+        assert task.building_gid == BuildingType.GRANARY.gid
+        assert task.target_name == BuildingType.GRANARY.name
+        assert task.target_level == 2
 
     def test_prioritize_storage_with_lower_ratio(self, account_info: Account, hero_info: HeroInfo):
         # Given
@@ -156,17 +151,14 @@ class TestLogicEngine:
 
         # Then
         assert len(result) == 1
-        payload = result[0].task()
-        expected = {
-            "action": "build",
-            "village_name": "PriorityTest",
-            "village_id": 999,
-            "building_id": 11,
-            "building_gid": BuildingType.GRANARY.gid,
-            "target_name": BuildingType.GRANARY.name,
-            "target_level": 2
-        }
-        assert payload == expected
+        task = result[0].task
+        assert isinstance(task, BuildTask)
+        assert task.village_name == "PriorityTest"
+        assert task.village_id == 999
+        assert task.building_id == 11
+        assert task.building_gid == BuildingType.GRANARY.gid
+        assert task.target_name == BuildingType.GRANARY.name
+        assert task.target_level == 2
 
     def test_upgrade_source_pit_when_storage_is_sufficient(self, account_info: Account, hero_info: HeroInfo):
         # Given
@@ -197,17 +189,14 @@ class TestLogicEngine:
 
         # Then
         assert len(result) == 1
-        payload = result[0].task()
-        expected = {
-            "action": "build",
-            "village_name": "SourcePitTest",
-            "village_id": 999,
-            "building_id": 2,
-            "building_gid": SourceType.LUMBER.gid,
-            "target_name": SourceType.LUMBER.name,
-            "target_level": 2
-        }
-        assert payload == expected
+        task = result[0].task
+        assert isinstance(task, BuildTask)
+        assert task.village_name == "SourcePitTest"
+        assert task.village_id == 999
+        assert task.building_id == 2
+        assert task.building_gid == SourceType.LUMBER.gid
+        assert task.target_name == SourceType.LUMBER.name
+        assert task.target_level == 2
 
     def test_skip_village_when_all_source_pits_at_max_level(self, account_info: Account, hero_info: HeroInfo):
         # Given
@@ -277,21 +266,19 @@ class TestLogicEngine:
             adventures=83,
             is_available=True
         )
-        engine = LogicEngine(game_state = game_state)
+        engine = LogicEngine(game_state = None)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
 
         # Then
         assert len(jobs) == 1
-        result = jobs[0].task()
-        expected = {
-            "action": "hero_adventure",
-            "health": 90,
-            "experience": 1000,
-            "adventures": 83
-        }
-        assert result == expected
+        task = jobs[0].task
+        assert isinstance(task, HeroAdventureTask)
+        h = task.hero_info
+        assert h.health == 90
+        assert h.experience == 1000
+        assert h.adventures == 83
 
     def test_skip_hero_adventure_when_hero_unavailable(self, account_info: Account):
         # Given
@@ -301,7 +288,7 @@ class TestLogicEngine:
             adventures=10,
             is_available=False
         )
-        engine = LogicEngine(game_state = game_state)
+        engine = LogicEngine(game_state = None)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
@@ -318,10 +305,10 @@ class TestLogicEngine:
             is_available=False,
             points_available=4
         )
-        engine = LogicEngine(game_state = game_state)
+        engine = LogicEngine(game_state = None)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
 
         # Then: should create an allocate_attributes job even if adventure not planned
-        assert any(j.task().get("action") == "allocate_attributes" for j in jobs)
+        assert any(isinstance(j.task, AllocateAttributesTask) and j.task.points == 4 for j in jobs)

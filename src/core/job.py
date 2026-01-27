@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Any
+from typing import Callable, Any, Optional, Dict
+
+from src.core.task import Task
 
 
 class JobStatus(Enum):
@@ -11,13 +13,16 @@ class JobStatus(Enum):
     TERMINATED = "terminated"
     EXPIRED = "expired"
 
-
+#TODO: need refactor, different kind of jobs should extend Job class
 @dataclass
 class Job:
-    task: Callable[[], Any]
+    # Enforce Task interface - no more unions. Use CallableTask to wrap legacy callables.
+    task: Task
     scheduled_time: datetime
     expires_at: datetime
     status: JobStatus = JobStatus.PENDING
+    # Optional metadata to carry auxiliary information (e.g. village_id) for executor/cleanup
+    metadata: Optional[Dict[str, Any]] = None
 
     def is_expired(self) -> bool:
         return datetime.now() > self.expires_at
