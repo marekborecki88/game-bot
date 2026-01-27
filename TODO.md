@@ -9,8 +9,8 @@
 
 # MINOR TODOs
 1. Introduce Interfaces to revert dependencies
-2. add sending hero to adventure
-3. add posibility to use resources from hero's inventory
+2. add possibility to use resources from hero's inventory
+3. add possibility to switch hero resource production bonus depend on current village needs
 
 ISSUES:
 
