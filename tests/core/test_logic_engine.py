@@ -277,7 +277,9 @@ class TestLogicEngine:
             adventures=83,
             is_available=True
         )
-        engine = LogicEngine(game_state = game_state)
+        # Provide a minimal GameState for the engine
+        game_state = GameState(account=account_info, villages=[], hero_info=hero_info)
+        engine = LogicEngine(game_state=game_state)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
@@ -301,7 +303,8 @@ class TestLogicEngine:
             adventures=10,
             is_available=False
         )
-        engine = LogicEngine(game_state = game_state)
+        gs = GameState(account=account_info, villages=[], hero_info=hero_info)
+        engine = LogicEngine(game_state=gs)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
@@ -318,10 +321,47 @@ class TestLogicEngine:
             is_available=False,
             points_available=4
         )
-        engine = LogicEngine(game_state = game_state)
+        gs = GameState(account=account_info, villages=[], hero_info=hero_info)
+        engine = LogicEngine(game_state=gs)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
 
         # Then: should create an allocate_attributes job even if adventure not planned
         assert any(j.task().get("action") == "allocate_attributes" for j in jobs)
+
+    def test_both_storage_demand_upgrade_but_granary_should_has_higher_priority(self, account_info: Account, hero_info: HeroInfo):
+        # Given
+        village = make_village(
+            name="BothStorageTest",
+            buildings=[
+                Building(id=10, level=4, type=BuildingType.WAREHOUSE),
+                Building(id=11, level=3, type=BuildingType.GRANARY),
+            ],
+            lumber_hourly_production=112,
+            clay_hourly_production=106,
+            iron_hourly_production=92,
+            crop_hourly_production=82,
+            warehouse_capacity=3100,
+            granary_capacity=2300,
+            building_queue=[],
+        )
+        game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
+        engine = LogicEngine(game_state = game_state)
+
+        # When
+        result = engine.create_plan_for_village()
+
+        # Then
+        assert len(result) == 1
+        payload = result[0].task()
+        expected = {
+            "action": "build",
+            "village_name": "BothStorageTest",
+            "village_id": 999,
+            "building_id": 11,
+            "building_gid": BuildingType.GRANARY.gid,
+            "target_name": BuildingType.GRANARY.name,
+            "target_level": 4
+        }
+        assert payload == expected
