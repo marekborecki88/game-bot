@@ -26,8 +26,13 @@ class LogicEngine:
         building_type, _ = min(storage_needs, key=lambda x: x[1])
         building = village.get_building(building_type)
 
+        if building is None:
+            return self._create_new_build_job(village, building_type.gid, building_type.name)
+
         if building and building.level < building_type.max_level:
             return self._create_build_job(village, building.id, building_type.gid, building_type.name, building.level + 1)
+
+        #TODO: build next storage building if possible
         return None
 
     def _find_insufficient_storage(self, village: Village) -> list[tuple[BuildingType, float]]:
@@ -129,3 +134,22 @@ class LogicEngine:
             if diff < 0.1:
                 return None
         return min(totals, key=totals.get)
+
+    def _create_new_build_job(self, village, gid, name) -> Job | None:
+        for id in range(19, 39):
+            if not any(b for b in village.buildings if b.id == id):
+                now = datetime.now()
+                return Job(
+                    task=lambda: {
+                        "action": "build_new",
+                        "village_name": village.name,
+                        "village_id": village.id,
+                        "building_id": id,
+                        "building_gid": gid,
+                        "target_name": name,
+                        "target_level": 1
+                    },
+                    scheduled_time=now,
+                    expires_at=now + timedelta(hours=1)
+                )
+        return None

@@ -3,7 +3,7 @@ import re
 
 from bs4 import BeautifulSoup, Tag
 from src.core.model.model import BuildingType, Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity, \
-    Account, Tribe, HeroInfo
+    Account, Tribe, HeroInfo, BuildingContract
 
 HTML_PARSER = 'html.parser'
 
@@ -390,7 +390,7 @@ def _parse_adventure_number(adventure_button: Tag) -> int:
     contant = adventure_button.select_one('div.content')
     if contant is None:
         return 0
-    return _parse_number_value(contant)
+    return _parse_number_value(contant.get_text())
 
 def _parse_available_attribute_points(soup: BeautifulSoup) -> int:
     points_elem = soup.select_one(".pointsAvailable")
@@ -430,3 +430,47 @@ def is_reward_available(html: str) -> bool:
 
     return False
 
+def scan_new_building_contract(html: Tag) -> BuildingContract:
+    """Scan the new building contract from the current page and return BuildingContract.
+
+    Accepts a BeautifulSoup Tag or raw HTML string. Expects the contract to contain
+    an element with class `resourceWrapper` containing five `.value` spans in order:
+    lumber, clay, iron, crop, cropConsumption.
+    """
+    # Accept either Tag or raw HTML
+    if isinstance(html, Tag):
+        soup = html
+    else:
+        soup = BeautifulSoup(html or "", HTML_PARSER)
+
+    # Resource wrapper may be nested under several containers; search broadly
+    resource_wrapper = soup.select_one('.inlineIconList.resourceWrapper') or soup.select_one('.resourceWrapper')
+    if not resource_wrapper:
+        # fallback: if provided element is a container like #contract_building10, search within it
+        resource_wrapper = soup.select_one('#contract .inlineIconList.resourceWrapper') or soup.select_one('#contract .resourceWrapper')
+
+    if not resource_wrapper:
+        raise ValueError("Resource wrapper not found in building contract HTML")
+
+    # Find all resource value elements (expected: 5 values: r1..r4 and cropConsumption)
+    value_elements = resource_wrapper.select('.inlineIcon.resource .value')
+    if not value_elements or len(value_elements) < 5:
+        # Sometimes the last value (crop consumption) is represented with different classes
+        value_elements = resource_wrapper.select('.value')
+
+    if not value_elements or len(value_elements) < 5:
+        raise ValueError("Not enough resource value elements found in contract")
+
+    lumber = _parse_number_value(value_elements[0].get_text())
+    clay = _parse_number_value(value_elements[1].get_text())
+    iron = _parse_number_value(value_elements[2].get_text())
+    crop = _parse_number_value(value_elements[3].get_text())
+    crop_consumption = _parse_number_value(value_elements[4].get_text())
+
+    return BuildingContract(
+        lumber=lumber,
+        clay=clay,
+        iron=iron,
+        crop=crop,
+        crop_consumption=crop_consumption
+    )

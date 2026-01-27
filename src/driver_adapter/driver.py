@@ -232,8 +232,6 @@ class Driver:
         self._navigate('/hero/attributes')
         self.page.wait_for_selector('div.heroAttributes', timeout=3000)
 
-        target = DEFAULT_ATTRIBUTE_POINT_TYPE
-
         buttons_selector = "button.textButtonV2.buttonFramed.plus.rectangle.withIcon.green, [role=\"button\"].textButtonV2.buttonFramed.plus.rectangle.withIcon.green"
         buttons = self.page.locator(buttons_selector)
         button = buttons.nth(target - 1)
@@ -244,4 +242,3 @@ class Driver:
         save_btn = self.page.locator('#savePoints').first
         if save_btn.count() and save_btn.is_visible():
             save_btn.click()
-        return newValue

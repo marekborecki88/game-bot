@@ -10,8 +10,7 @@ from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity, GameState
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info
-from tests.core.test_logic_engine import hero_info
+from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, scan_new_building_contract
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +125,10 @@ class Bot:
             #TODO: this part is unacceptable
             if action == "build":
                 self.build(village_name, building_id, building_gid)
+            elif action == "build_new":
+                # "build_new" uses the same UI flow as an upgrade: navigate to the slot and place the building
+                logger.info(f"Placing new building {target_name} (gid={building_gid}) in village {village_name} at slot {building_id}")
+                self.build_new(village_id, village_name, building_id, building_gid)
             elif action == "hero_adventure":
                 # Attempt to start a hero adventure via driver. This method is tolerant and
                 # returns False if no adventure button exists (e.g., UI differs or already on adventure).
@@ -138,7 +141,7 @@ class Bot:
                 if not started:
                     # If we couldn't start an adventure, mark the job as expired/failed
                     job.status = JobStatus.EXPIRED
-                    return f"Hero adventure not started (no button found or driver failed)"
+                    return "Hero adventure not started (no button found or driver failed)"
             elif action == "allocate_attributes":
                 try:
                     points = int(payload.get('points') or 0)
@@ -310,3 +313,33 @@ class Bot:
         villages = [self.fetch_village_info(v) for v in self.village_list()]
         hero_info = self.fetch_hero_info()
         return GameState(hero_info=hero_info, account=account_info, villages=villages)
+
+    def build_new(self, village_id, village_name, id, gid) -> str:
+        building_category = 1 # infrastructure
+
+        self.driver.navigate_to_village(village_id)
+
+        # I don't like this code
+        url = f"{self.driver.config.server_url}/build.php?id={id}"
+        self.driver.page.goto(url)
+        self.driver.page.wait_for_selector("#contract")
+
+        find_id = f'contract_building{gid}'
+        building_part = self.driver.page.locator(f"button.textButtonV1.green.build#{find_id}").first
+
+        # contract = scan_new_building_contract(building_part)
+
+        # Click the primary action button inside the contract (the button inside div.section1)
+        try:
+            # The contract wrapper has id like 'contract_building{slotId}', use it to scope the selector
+            contract_container_selector = f"#{find_id}"
+            section1_button = self.driver.page.locator(f"{contract_container_selector} .section1 button").first
+            if section1_button:
+                section1_button.click()
+                logger.info("Clicked new building button (section1)")
+            else:
+                logger.error(f"Section1 button not found for contract {find_id}")
+        except Exception as e:
+            logger.error(f"Failed to click new building button for contract {find_id}: {e}", exc_info=True)
+
+        return f"Placed new building contract in village {village_name} (id={village_id}) at slot {id} for building gid {gid}"

@@ -1,9 +1,8 @@
-from pathlib import Path
-
 import pytest
 from bs4 import BeautifulSoup
 
-from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, Tribe, HeroInfo, Village
+from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, \
+    Tribe, HeroInfo, Village, BuildingContract
 from src.scan_adapter.scanner import (
     scan_village_name,
     scan_stock_bar,
@@ -15,7 +14,8 @@ from src.scan_adapter.scanner import (
     scan_account_info,
     identity_tribe,
     scan_hero_info,
-    _parse_adventure_number
+    _parse_adventure_number,
+    scan_new_building_contract
 )
 from tests.scanner_adapter.html_utils import HtmlUtils
 
@@ -270,3 +270,55 @@ def test_scan_hero_with_adventures():
 
     # Then
     assert result == 5
+
+
+def test_scan_contract():
+    # Given
+    html = """
+           <div id="contract_building10" class="buildingWrapper">
+               <div class="upgradeBuilding">
+                   <div id="contract" class="contractWrapper">
+                       <div class="inlineIconList resourceWrapper">
+                           <div class="inlineIcon resource"><i class="r1Big"></i><span class="value value">130</span>
+                           </div>
+                           <div class="inlineIcon resource"><i class="r2Big"></i><span class="value value">160</span>
+                           </div>
+                           <div class="inlineIcon resource"><i class="r3Big"></i><span class="value value">90</span>
+                           </div>
+                           <div class="inlineIcon resource"><i class="r4Big"></i><span class="value value">40</span>
+                           </div>
+                           <div class="inlineIcon resource"><i class="cropConsumptionBig"></i><span class="value value">1</span>
+                           </div>
+                       </div>
+                       <div class="upgradeBlocked">
+                       </div>
+                   </div>
+                   <div class="upgradeButtonsContainer section2Enabled">
+                       <div class="section1">
+                           <div class="inlineIcon duration">
+                               <div class="iconWrapper"><i class="clock_medium"></i></div>
+                               <span class="value ">0:33:20</span>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+           </div>
+           """
+
+    soup = BeautifulSoup(html, "html.parser")
+    tag = soup.select_one("#contract_building10")
+    if tag is None:
+        pytest.fail("Failed to parse test HTML for contract scanning.")
+
+    # When
+    result = scan_new_building_contract(tag)
+
+    # Then
+    expected = BuildingContract(
+        lumber=130,
+        clay=160,
+        iron=90,
+        crop=40,
+        crop_consumption=1,
+    )
+    assert result == expected

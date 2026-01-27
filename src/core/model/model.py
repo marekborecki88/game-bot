@@ -143,7 +143,7 @@ class Village:
 
     def needs_more_free_crop(self) -> bool:
 
-        crop_ratio = self.free_crop / self.crop
+        crop_ratio = self.free_crop / self.crop_hourly_production
         return crop_ratio < 0.1 and self.any_crop_is_upgradable()
 
     def max_source_pit_level(self):
@@ -288,4 +288,3 @@ class AttributePointType(Enum):
 
 # default attribute type to allocate when not specified
 DEFAULT_ATTRIBUTE_POINT_TYPE = AttributePointType.PRODUCTION_POINTS
-
