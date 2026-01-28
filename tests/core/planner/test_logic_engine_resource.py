@@ -1,6 +1,6 @@
 import pytest
 
-from src.core.model.model import Village, SourceType, GameState, HeroInfo, Tribe, Account
+from src.core.model.model import Village, SourceType, GameState, HeroInfo, Tribe, Account, Resources
 from src.core.planner.logic_engine import LogicEngine
 
 
@@ -27,10 +27,7 @@ def base_village():
         id=1,
         name="TestVillage",
         tribe=Tribe.ROMANS,
-        lumber=100,
-        clay=200,
-        iron=300,
-        crop=400,
+        resources=Resources(lumber=100, clay=200, iron=300, crop=400),
         free_crop=0,
         source_pits=[],
         buildings=[],
@@ -64,10 +61,7 @@ def test_lowest_resource_type_balanced(account_info, empty_hero):
         id=1,
         name="V1",
         tribe=Tribe.ROMANS,
-        lumber=100,
-        clay=100,
-        iron=100,
-        crop=100,
+        resources=Resources(lumber=100, clay=100, iron=100, crop=100),
         free_crop=0,
         source_pits=[],
         buildings=[],
@@ -86,10 +80,7 @@ def test_lowest_resource_type_with_multiple_villages(account_info, empty_hero):
         id=1,
         name="V1",
         tribe=Tribe.ROMANS,
-        lumber=100,
-        clay=200,
-        iron=300,
-        crop=400,
+        resources=Resources(lumber=100, clay=200, iron=300, crop=400),
         free_crop=0,
         source_pits=[],
         buildings=[],
@@ -101,10 +92,7 @@ def test_lowest_resource_type_with_multiple_villages(account_info, empty_hero):
         id=2,
         name="V2",
         tribe=Tribe.ROMANS,
-        lumber=50,
-        clay=50,
-        iron=50,
-        crop=50,
+        resources=Resources(lumber=50, clay=50, iron=50, crop=50),
         free_crop=0,
         source_pits=[],
         buildings=[],
@@ -128,5 +116,4 @@ def test_lowest_resource_type_with_hero_inventory_only(account_info):
     game_state = GameState(account=account_info, villages=[], hero_info=hero)
     engine = LogicEngine(game_state=game_state)
     assert engine.determine_next_resoure_to_develop(game_state) == SourceType.CLAY
-
 

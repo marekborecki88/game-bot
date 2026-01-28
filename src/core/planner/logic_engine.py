@@ -3,7 +3,7 @@ from src.core.tasks import (
     BuildTask, BuildNewTask, HeroAdventureTask, AllocateAttributesTask,
     CollectDailyQuestsTask, CollectQuestmasterTask
 )
-from src.core.model.model import Village, BuildingType, SourceType, GameState, HeroInfo
+from src.core.model.model import Village, BuildingType, SourceType, GameState, HeroInfo, Resources, ReservationStatus
 from src.core.calculator.calculator import TravianCalculator
 from datetime import datetime, timedelta
 import math
@@ -93,66 +93,39 @@ class LogicEngine:
         now = datetime.now()
 
         building_cost = self.calculator.get_building_details(building_gid, target_level)
+        build_task = BuildTask(success_message="build scheduled", failure_message="build failed",
+                               village_name=village.name, village_id=village.id, building_id=building_id,
+                               building_gid=building_gid, target_name=target_name, target_level=target_level)
         if building_cost is None:
             # Fallback to immediate job if we cannot calculate cost
             scheduled = now
             expires = now + timedelta(hours=1)
             return Job(
-                task=BuildTask(
-                    success_message="build scheduled",
-                    failure_message="build failed",
-                    village_name=village.name,
-                    village_id=village.id,
-                    building_id=building_id,
-                    building_gid=building_gid,
-                    target_name=target_name,
-                    target_level=target_level,
-                ),
+                task=build_task,
                 scheduled_time=scheduled,
                 expires_at=expires,
                 metadata={"action": "build", "village_id": village.id}
             )
 
-        # Available resources = village resources + hero inventory
-        inv = (self.game_state.hero_info.inventory if self.game_state and self.game_state.hero_info else {})
-        avail = {
-            'lumber': village.lumber + inv.get('lumber', 0),
-            'clay': village.clay + inv.get('clay', 0),
-            'iron': village.iron + inv.get('iron', 0),
-            'crop': village.crop + inv.get('crop', 0),
-        }
+        # Require game_state to be present
+        if not self.game_state:
+            raise ValueError("LogicEngine._create_build_job requires game_state to be set")
 
-        req = {'lumber': building_cost.lumber, 'clay': building_cost.clay, 'iron': building_cost.iron, 'crop': building_cost.crop}
+        # Use hero inventory to cover as much of the cost as possible, transfer those
+        # resources into the village (mutate hero inventory and village values), then
+        # compute remaining shortages based only on village production.
+        # game_state.hero_info is guaranteed to exist; use it directly
+        hero_info = self.game_state.hero_info
 
-        # Compute shortage in seconds per resource (ceil hours -> seconds)
-        shortages = {}
-        max_delay_seconds = 0
-        for key in ('lumber', 'clay', 'iron', 'crop'):
-            short = max(0, req[key] - avail.get(key, 0))
-            shortages[key] = short
-            if short > 0:
-                # hourly production mapping
-                prod = 0
-                if key == 'lumber':
-                    prod = village.lumber_hourly_production
-                elif key == 'clay':
-                    prod = village.clay_hourly_production
-                elif key == 'iron':
-                    prod = village.iron_hourly_production
-                elif key == 'crop':
-                    prod = village.free_crop_hourly_production
+        reservation_request = village.create_reservation_request(building_cost)
 
-                if prod > 0:
-                    hours = math.ceil(short / prod)
-                    delay = hours * 3600
-                else:
-                    # If production is zero, we cannot compute a reasonable delay; fallback to immediate
-                    delay = 0
+        # send reservation request to hero
+        response = hero_info.send_request(reservation_request)
 
-                if delay > max_delay_seconds:
-                    max_delay_seconds = delay
+        if response.status is not ReservationStatus.ACCEPTED:
+            shortage = reservation_request - response.provided_resources
+            max_delay_seconds = self.calculate_delay(shortage, village)
 
-        if max_delay_seconds > 0:
             scheduled = now + timedelta(seconds=max_delay_seconds)
             # set an expiry reasonably after scheduled time
             expires = scheduled + timedelta(hours=1)
@@ -162,16 +135,7 @@ class LogicEngine:
             logger.info(f"Scheduled delayed build for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue")
 
             return Job(
-                task=BuildTask(
-                    success_message="build scheduled",
-                    failure_message="build failed",
-                    village_name=village.name,
-                    village_id=village.id,
-                    building_id=building_id,
-                    building_gid=building_gid,
-                    target_name=target_name,
-                    target_level=target_level,
-                ),
+                task=build_task,
                 scheduled_time=scheduled,
                 expires_at=expires,
                 metadata={"action": "build", "village_id": village.id}
@@ -181,16 +145,7 @@ class LogicEngine:
         scheduled = now
         expires = now + timedelta(hours=1)
         return Job(
-            task=BuildTask(
-                success_message="build scheduled",
-                failure_message="build failed",
-                village_name=village.name,
-                village_id=village.id,
-                building_id=building_id,
-                building_gid=building_gid,
-                target_name=target_name,
-                target_level=target_level,
-            ),
+            task=build_task,
             scheduled_time=scheduled,
             expires_at=expires,
             metadata={"action": "build", "village_id": village.id}
@@ -240,31 +195,22 @@ class LogicEngine:
     def determine_next_resoure_to_develop(self, game_state: GameState) -> SourceType | None:
 
         # Sum resources from villages and hero inventory
-        totals = {
-            SourceType.LUMBER: 0,
-            SourceType.CLAY: 0,
-            SourceType.IRON: 0,
-            SourceType.CROP: 0,
-        }
+        total = Resources()
         for v in game_state.villages:
-            totals[SourceType.LUMBER] += v.lumber
-            totals[SourceType.CLAY] += v.clay
-            totals[SourceType.IRON] += v.iron
-            totals[SourceType.CROP] += v.crop
-        # Add resources from hero inventory
-        inv = game_state.hero_info.inventory
-        totals[SourceType.LUMBER] += inv.get('lumber', 0)
-        totals[SourceType.CLAY] += inv.get('clay', 0)
-        totals[SourceType.IRON] += inv.get('iron', 0)
-        totals[SourceType.CROP] += inv.get('crop', 0)
+            total += v.resources
+        # Add resources from hero inventory via hero_inventory_resource() (SourceType -> int)
+        # game_state.hero_info exists, use its normalized resource mapping
+        hero_resources = game_state.hero_info.hero_inventory_resource()
 
-        min_val = min(totals.values())
-        max_val = max(totals.values())
+        total += hero_resources
+
+        min_val = total.min()
+        max_val = total.max()
         if max_val != 0:
             diff = (max_val - min_val) / max_val
             if diff < 0.1:
                 return None
-        return min(totals, key=totals.get)
+        return total.min_type()
 
     def _create_new_build_job(self, village, gid, name) -> Job | None:
         for id in range(19, 39):
@@ -317,3 +263,9 @@ class LogicEngine:
             if v.id == village_id:
                 v.is_queue_building_freeze = False
                 return
+
+    def calculate_delay(self, shortage: Resources, village: Village) -> int:
+        village_production = shortage / village.resources_hourly_production()
+
+        return math.ceil(village_production.max() * 3600)
+

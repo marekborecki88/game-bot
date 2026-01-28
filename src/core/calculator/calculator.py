@@ -1,6 +1,9 @@
 import math
 from dataclasses import dataclass
 
+from src.core.model.model import Resources, BuildingCost
+
+
 # This code is translated and adapted from external JS Travian calculator:
 
 class TimeT3:
@@ -246,10 +249,10 @@ class TravianCalculator:
 
         return BuildingCost(
             target_level=level,
-            lumber=cost[0],
-            clay=cost[1],
-            iron=cost[2],
-            crop=cost[3],
+            resources=Resources(lumber=cost[0],
+                                clay=cost[1],
+                                iron=cost[2],
+                                crop=cost[3]),
             total=sum(cost),
             time_seconds=time,
             time_formatted=self._format_time(time)
@@ -261,13 +264,3 @@ class TravianCalculator:
         seconds = seconds % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-@dataclass
-class BuildingCost:
-    target_level: int
-    lumber: int
-    clay: int
-    iron: int
-    crop: int
-    total: int
-    time_seconds: int
-    time_formatted: str

@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime, timedelta
 
 from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, SourcePit, SourceType, Tribe, GameState, Account, HeroInfo
+from src.core.model.model import Village, SourcePit, SourceType, Tribe, GameState, Account, HeroInfo, Resources
 from src.core.tasks import BuildTask
 
 
@@ -11,10 +11,7 @@ def make_village(**overrides) -> Village:
         "id": 42,
         "name": "DelayedVillage",
         "tribe": Tribe.ROMANS,
-        "lumber": 0,
-        "clay": 0,
-        "iron": 0,
-        "crop": 0,
+        "resources": Resources(lumber=0, clay=0, iron=0, crop=0),
         "free_crop": 0,
         "source_pits": [SourcePit(id=1, type=SourceType.LUMBER, level=1)],
         "buildings": [],
@@ -43,7 +40,7 @@ def hero_info() -> HeroInfo:
 def test_create_build_job_schedules_future_when_insufficient_resources(account_info, hero_info):
     """Ensure LogicEngine._create_build_job schedules a future job when village lacks resources."""
     village = make_village(
-        lumber=0, clay=0, iron=0, crop=0,
+        resources=Resources(lumber=0, clay=0, iron=0, crop=0),
         lumber_hourly_production=5, clay_hourly_production=5, iron_hourly_production=5, crop_hourly_production=5,
         source_pits=[SourcePit(id=2, type=SourceType.LUMBER, level=1)],
     )
@@ -82,7 +79,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info,
     """If hero inventory provides the missing resources, the build job should be scheduled immediately."""
     # Village has no resources, but hero carries enough to cover the cost
     village = make_village(
-        lumber=0, clay=0, iron=0, crop=0,
+        resources=Resources(lumber=0, clay=0, iron=0, crop=0),
         lumber_hourly_production=0, clay_hourly_production=0, iron_hourly_production=0, crop_hourly_production=0,
         source_pits=[SourcePit(id=3, type=SourceType.LUMBER, level=1)],
     )
