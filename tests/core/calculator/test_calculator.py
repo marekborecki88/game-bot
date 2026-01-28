@@ -1,4 +1,6 @@
-from src.core.calculator.calculator import TravianCalculator, BuildingCost
+from src.core.calculator.calculator import TravianCalculator
+from src.core.model.model import Resources, BuildingCost
+
 
 def test_warehouse_level_8_speed_5_mb_3():
     # Warehouse from level 7 to 8
@@ -19,10 +21,10 @@ def test_warehouse_level_8_speed_5_mb_3():
     # Time = 8776.58... * 0.929296 / 5 = 1631.18... -> 1631
     expected = BuildingCost(
         target_level=8,
-        lumber=730,
-        clay=900,
-        iron=505,
-        crop=225,
+        resources=Resources(lumber=730,
+                            clay=900,
+                            iron=505,
+                            crop=225),
         total=2360,
         time_seconds=1631,
         time_formatted="00:27:11"

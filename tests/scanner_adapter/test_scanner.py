@@ -2,7 +2,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, \
-    Tribe, HeroInfo, Village, BuildingContract
+    Tribe, HeroInfo, Village, BuildingContract, Resources
 from src.scan_adapter.scanner import (
     scan_village_name,
     scan_stock_bar,
@@ -41,7 +41,6 @@ def inventory_html():
 
 
 def test_scan_village_list(dorf1_html):
-
     # When
     result = scan_village_list(dorf1_html)
 
@@ -55,7 +54,6 @@ def test_scan_village_list(dorf1_html):
 
 
 def test_scan_village_source(dorf1_html):
-
     # When
     result = scan_village_source(dorf1_html)
 
@@ -85,7 +83,6 @@ def test_scan_village_source(dorf1_html):
 
 
 def test_scan_village_center(dorf2_html):
-
     # When
     result = scan_village_center(dorf2_html)
 
@@ -101,7 +98,6 @@ def test_scan_village_center(dorf2_html):
 
 
 def test_scan_village_name(dorf1_html):
-
     # When
     result = scan_village_name(dorf1_html)
 
@@ -153,10 +149,7 @@ def test_scan_village(dorf1_html, dorf2_html):
         id=50287,
         name="New village",
         tribe=result.tribe,
-        lumber=5636,
-        clay=5475,
-        iron=5844,
-        crop=14284,
+        resources=Resources(lumber=5636, clay=5475, iron=5844, crop=14284),
         free_crop=1503,
         warehouse_capacity=6300,
         granary_capacity=14400,
@@ -239,6 +232,7 @@ def test_scan_hero_info_without_attribute_points(hero_attributes_html, inventory
     result = scan_hero_info(hero_attributes_html, inventory_html)
     assert result.points_available == 0
 
+
 def test_scan_hero_without_adventures():
     # Given
     html = """
@@ -254,6 +248,7 @@ def test_scan_hero_without_adventures():
 
     # Then
     assert result == 0
+
 
 def test_scan_hero_with_adventures():
     # Given
@@ -315,10 +310,7 @@ def test_scan_contract():
 
     # Then
     expected = BuildingContract(
-        lumber=130,
-        clay=160,
-        iron=90,
-        crop=40,
+        Resources(lumber=130, clay=160, iron=90, crop=40),
         crop_consumption=1,
     )
     assert result == expected

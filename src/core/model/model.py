@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
-
 from enum import Enum
+
 from playwright.sync_api import Page
 
 from src.config import Config
@@ -10,16 +10,94 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class Resources:
+    lumber: int | float = 0
+    clay: int | float = 0
+    iron: int | float = 0
+    crop: int | float = 0
+
+    def __sub__(self, other):
+        return Resources(
+            lumber=self.lumber - other.lumber,
+            clay=self.clay - other.clay,
+            iron=self.iron - other.iron,
+            crop=self.crop - other.crop,
+        )
+
+    def __add__(self, other):
+        return Resources(
+            lumber=self.lumber + other.lumber,
+            clay=self.clay + other.clay,
+            iron=self.iron + other.iron,
+            crop=self.crop + other.crop,
+        )
+
+    def __gt__(self, other):
+        return (self.lumber > other.lumber and
+                self.clay > other.clay and
+                self.iron > other.iron and
+                self.crop > other.crop)
+
+    def __truediv__(self, other: "Resources"):
+        return Resources(
+            lumber=self.lumber / other.lumber,
+            clay=self.clay / other.clay,
+            iron=self.iron / other.iron,
+            crop=self.crop / other.crop
+        )
+
+
+
+    def min(self):
+        return min(self.lumber, self.clay, self.iron, self.crop)
+
+    def max(self):
+        return max(self.lumber, self.clay, self.iron, self.crop)
+
+    def min_type(self) -> SourceType:
+        resource_dict = {
+            SourceType.LUMBER: self.lumber,
+            SourceType.CLAY: self.clay,
+            SourceType.IRON: self.iron,
+            SourceType.CROP: self.crop,
+        }
+        return min(resource_dict, key=resource_dict.get)
+
+    def is_disjoint(self, other: "Resources") -> bool:
+        """Return True if there is no overlap in positive resources between self and other."""
+        for source_type, value in vars(self).items():
+            if value > 0 and getattr(other, source_type) > 0:
+                return False
+        return True
+
+    def calculate_how_much_can_provide(self, request: "Resources") -> "Resources":
+        provided = Resources()
+        for source_type in vars(self).keys():
+            available = getattr(self, source_type)
+            requested = getattr(request, source_type)
+
+            transfer = min(available, requested)
+
+            setattr(provided, source_type, transfer)
+
+        return provided
+
+
+@dataclass
+class BuildingCost:
+    target_level: int
+    resources: Resources
+    total: int
+    time_seconds: int
+    time_formatted: str
+
+@dataclass
 class BuildingContract:
-    lumber: int
-    clay: int
-    iron: int
-    crop: int
+    resources: Resources
     crop_consumption: int
 
 
 def scan_contract(page: Page) -> BuildingContract:
-
     resource_wrapper = page.locator(".resourceWrapper")
     resource_values = resource_wrapper.locator(".inlineIcon.resource .value").all_text_contents()
 
@@ -30,17 +108,33 @@ def scan_contract(page: Page) -> BuildingContract:
     crop_consumption = int(resource_values[4])
 
     return BuildingContract(
-        lumber=lumber,
-        clay=clay,
-        iron=iron,
-        crop=crop,
+        resources=Resources(lumber=lumber, clay=clay, iron=iron, crop=crop),
         crop_consumption=crop_consumption
     )
+
 
 @dataclass
 class Account:
     server_speed: float
     when_beginners_protection_expires: int = 0
+
+
+class ReservationStatus(Enum):
+    REJECTED = "rejected"
+    ACCEPTED = "accepted"
+    PARTIALLY_ACCEPTED = "partially_accepted"
+
+
+@dataclass
+class ReservationRequest:
+    resources: Resources
+
+
+# Response object describing how the hero answered a reservation request.
+@dataclass
+class ReservationResponse:
+    status: ReservationStatus
+    provided_resources: Resources
 
 
 @dataclass
@@ -50,26 +144,52 @@ class HeroInfo:
     adventures: int
     is_available: bool
     points_available: int = 0
-    inventory: dict = field(default_factory=dict)
+    inventory: dict[str, int] = field(default_factory=dict)
     # Whether the daily quests UI shows a new-quest indicator (!) — belongs to UI/hero context
     has_daily_quest_indicator: bool = False
+    reserved_resources: Resources = field(default_factory=Resources)
+
+    def hero_inventory_resource(self) -> Resources:
+        return Resources(
+            lumber=self.inventory.get('lumber', 0),
+            clay=self.inventory.get('clay', 0),
+            iron=self.inventory.get('iron', 0),
+            crop=self.inventory.get('crop', 0),
+        )
+
+    def send_request(self, request: Resources) -> ReservationResponse:
+        zero = Resources(0, 0, 0, 0)
+
+        if request == zero:
+            return ReservationResponse(status=ReservationStatus.REJECTED, provided_resources=zero)
+
+        hero_available_resources = self.hero_inventory_resource() - self.reserved_resources
+
+        if hero_available_resources > request:
+            # Hero has enough resources to fulfill the entire request
+            return ReservationResponse(status=ReservationStatus.ACCEPTED, provided_resources=request)
+
+        if hero_available_resources.is_disjoint(request):
+            # Hero has some resources but not enough to fulfill the entire request
+            return ReservationResponse(status=ReservationStatus.REJECTED, provided_resources=zero)
+
+        to_provide = hero_available_resources.calculate_how_much_can_provide(request)
+        self.reserved_resources += to_provide
+        return ReservationResponse(status=ReservationStatus.PARTIALLY_ACCEPTED, provided_resources=to_provide)
 
 
 @dataclass
 class Village:
     id: int
     name: str
-    tribe: Tribe
-    lumber: int
-    clay: int
-    iron: int
-    crop: int
+    tribe: "Tribe"
+    resources: Resources
     free_crop: int
-    source_pits: list[SourcePit]
-    buildings: list[Building]
+    source_pits: list["SourcePit"]
+    buildings: list["Building"]
     warehouse_capacity: int
     granary_capacity: int
-    building_queue: list[BuildingJob]
+    building_queue: list["BuildingJob"]
     lumber_hourly_production: int = 0
     clay_hourly_production: int = 0
     iron_hourly_production: int = 0
@@ -105,17 +225,17 @@ class Village:
         # planner from scheduling another action while a future build is planned.
         return len(self.building_queue) == 0 and not self.is_queue_building_freeze
 
-    def lowest_source(self) -> SourceType:
+    def lowest_source(self) -> "SourceType":
         source_dict = {
-            SourceType.LUMBER: self.lumber,
-            SourceType.CLAY: self.clay,
-            SourceType.IRON: self.iron,
-            SourceType.CROP: self.crop,
+            SourceType.LUMBER: self.resources.lumber,
+            SourceType.CLAY: self.resources.clay,
+            SourceType.IRON: self.resources.iron,
+            SourceType.CROP: self.resources.crop,
         }
-        
+
         return min(source_dict, key=source_dict.get)
 
-    def pit_with_lowest_level_building(self, lowest_source: SourceType):
+    def pit_with_lowest_level_building(self, lowest_source: "SourceType"):
         pits_with_given_type = [pit for pit in self.source_pits if pit.type == lowest_source]
         return min(pits_with_given_type, key=lambda p: p.level)
 
@@ -143,10 +263,10 @@ class Village:
     def granary_min_ratio(self) -> float:
         return self.crop_24h_ratio()
 
-    def get_building(self, building_type: BuildingType) -> Building | None:
+    def get_building(self, building_type: "BuildingType") -> "Building | None":
         return next((b for b in self.buildings if b.type == building_type), None)
 
-    def upgradable_source_pits(self) -> list[SourcePit]:
+    def upgradable_source_pits(self) -> list["SourcePit"]:
         return [p for p in self.source_pits if p.level < self.max_source_pit_level()]
 
     def needs_more_free_crop(self) -> bool:
@@ -161,44 +281,33 @@ class Village:
             return 12
         return 10
 
-    #TODO: better would be return particular id to upgrade
+    # TODO: better would be return particular id to upgrade
     def any_crop_is_upgradable(self):
-        self_source_pits = [p for p in self.source_pits if p.type == SourceType.CROP and p.level < self.max_source_pit_level()]
+        self_source_pits = [p for p in self.source_pits if
+                            p.type == SourceType.CROP and p.level < self.max_source_pit_level()]
         return len(self_source_pits) > 0
 
+    def create_reservation_request(self, building_cost: BuildingCost) -> Resources:
+        """Return shortages for a building cost based on current village resources.
 
-@dataclass
-class Building:
-    id: int
-    level: int
-    type: BuildingType
+        Result is a dict keyed by SourceType with non-negative integer shortages
+        (cost - available, floored at 0). This is a pure calculation and does not
+        mutate village state.
+        """
+        return Resources(
+            lumber=max(0, building_cost.resources.lumber - self.resources.lumber),
+            clay=max(0, building_cost.resources.clay - self.resources.clay),
+            iron=max(0, building_cost.resources.iron - self.resources.iron),
+            crop=max(0, building_cost.resources.crop - self.resources.crop),
+        )
 
-
-@dataclass
-class SourcePit:
-    id: int
-    type: SourceType
-    level: int
-
-class Tribe(Enum):
-    ROMANS = 1
-    TEUTONS = 2
-    GAULS = 3
-    HUNS = 4
-    SPARTANS = 5
-    NORS = 6
-    EGYPTIANS = 7
-
-class SourceType(Enum):
-    # (gid, max_level)
-    LUMBER = (1, 10)
-    CLAY = (2, 10)
-    IRON = (3, 10)
-    CROP = (4, 10)
-
-    def __init__(self, gid: int, max_level: int):
-        self.gid = gid
-        self.max_level = max_level
+    def resources_hourly_production(self) -> Resources:
+        return Resources(
+            lumber=self.lumber_hourly_production,
+            clay=self.clay_hourly_production,
+            iron=self.iron_hourly_production,
+            crop=self.crop_hourly_production,
+        )
 
 
 class BuildingType(Enum):
@@ -268,11 +377,48 @@ class BuildingType(Enum):
         raise ValueError(f"No {cls.__name__} with gid {gid}")
 
 
+class SourceType(Enum):
+    # (gid, max_level)
+    LUMBER = (1, 10)
+    CLAY = (2, 10)
+    IRON = (3, 10)
+    CROP = (4, 10)
+
+    def __init__(self, gid: int, max_level: int):
+        self.gid = gid
+        self.max_level = max_level
+
+
+@dataclass
+class Building:
+    id: int
+    level: int
+    type: BuildingType
+
+
+@dataclass
+class SourcePit:
+    id: int
+    type: SourceType
+    level: int
+
+
+class Tribe(Enum):
+    ROMANS = 1
+    TEUTONS = 2
+    GAULS = 3
+    HUNS = 4
+    SPARTANS = 5
+    NORS = 6
+    EGYPTIANS = 7
+
+
 @dataclass
 class BuildingJob:
     building_id: int
     target_level: int
     time_remaining: int
+
 
 @dataclass
 class VillageIdentity:
@@ -281,18 +427,20 @@ class VillageIdentity:
     coordinate_x: int
     coordinate_y: int
 
+
 @dataclass
 class GameState:
-    account: Account
+    account: "Account"
     villages: list[Village]
-    hero_info: HeroInfo
+    hero_info: "HeroInfo"
 
 
 class AttributePointType(Enum):
-    POWER = "power"
-    OFF_BONUS = "offBonus"
-    DEF_BONUS = "defBonus"
-    PRODUCTION_POINTS = "productionPoints"
+    POWER = 1
+    OFF_BONUS = 2
+    DEF_BONUS = 3
+    PRODUCTION_POINTS = 4
+
 
 # default attribute type to allocate when not specified
 DEFAULT_ATTRIBUTE_POINT_TYPE = AttributePointType.PRODUCTION_POINTS

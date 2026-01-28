@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from src.core.bot import Bot
 from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo, Building
+from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo, Building, Resources
 
 
 class FakeDriver:
@@ -34,10 +34,7 @@ def make_village(**overrides) -> Village:
         "id": 2002,
         "name": "BotTestVillage",
         "tribe": Tribe.ROMANS,
-        "lumber": 0,
-        "clay": 0,
-        "iron": 0,
-        "crop": 0,
+        "resources": Resources(lumber=0, clay=0, iron=0, crop=0),
         "free_crop": 0,
         "source_pits": [SourcePit(id=1, type=SourceType.LUMBER, level=1)],
         "buildings": [Building(id=10, level=1, type=BuildingType.WAREHOUSE)],

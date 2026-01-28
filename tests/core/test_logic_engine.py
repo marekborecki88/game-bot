@@ -1,7 +1,7 @@
 import pytest
 
 from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo
+from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo, Resources
 from src.core.tasks import BuildTask, HeroAdventureTask, AllocateAttributesTask
 
 
@@ -11,10 +11,7 @@ def make_village(**overrides) -> Village:
         "id": 999,
         "name": "Test Village",
         "tribe": Tribe.ROMANS,
-        "lumber": 1000,
-        "clay": 1000,
-        "iron": 1000,
-        "crop": 1000,
+        "resources": Resources(lumber=1000, clay=1000, iron=1000, crop=1000),
         "free_crop": 500,
         "source_pits": [SourcePit(id=1, type=SourceType.LUMBER, level=1)],
         "buildings": [],
@@ -164,10 +161,7 @@ class TestLogicEngine:
         # Given
         village = make_village(
             name="SourcePitTest",
-            lumber=100,
-            clay=500,
-            iron=500,
-            crop=500,
+            resources=Resources(lumber=100, clay=500, iron=500, crop=500),
             source_pits=[
                 SourcePit(id=1, type=SourceType.LUMBER, level=3),
                 SourcePit(id=2, type=SourceType.LUMBER, level=1),
@@ -266,7 +260,9 @@ class TestLogicEngine:
             adventures=83,
             is_available=True
         )
-        engine = LogicEngine(game_state = None)
+        # Provide a minimal GameState for the engine
+        game_state = GameState(account=account_info, villages=[], hero_info=hero_info)
+        engine = LogicEngine(game_state=game_state)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
@@ -288,7 +284,8 @@ class TestLogicEngine:
             adventures=10,
             is_available=False
         )
-        engine = LogicEngine(game_state = None)
+        gs = GameState(account=account_info, villages=[], hero_info=hero_info)
+        engine = LogicEngine(game_state=gs)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)
@@ -305,7 +302,8 @@ class TestLogicEngine:
             is_available=False,
             points_available=4
         )
-        engine = LogicEngine(game_state = None)
+        gs = GameState(account=account_info, villages=[], hero_info=hero_info)
+        engine = LogicEngine(game_state=gs)
 
         # When
         jobs = engine.create_plan_for_hero(hero_info)

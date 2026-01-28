@@ -4,7 +4,6 @@ import signal
 import sys
 import time
 from types import FrameType
-from dataclasses import is_dataclass
 
 import schedule
 
@@ -39,6 +38,68 @@ class Bot:
         self._planning_job = None
 
         self._setup_signal_handlers()
+
+    def _schedule_planning_in(self, seconds: int) -> None:
+        """Schedule the next planning run after `seconds` seconds.
+
+        Cancels any previously scheduled planning job to ensure only one planner job exists.
+        """
+        # cancel previous planning job if present
+        if self._planning_job is not None:
+            try:
+                schedule.cancel_job(self._planning_job)
+            except Exception:
+                pass
+
+        # schedule the next planner job
+        try:
+            self._planning_job = schedule.every(seconds).seconds.do(self._run_planning)
+            logger.info(f"Next planning scheduled in {seconds} seconds")
+        except Exception as e:
+            logger.error(f"Failed to schedule next planning run: {e}")
+
+
+
+    def _run_planning(self) -> None:
+        """Run the planning phase, add new jobs and schedule the next planning run dynamically.
+
+        The next planning run will be scheduled for when the shortest building queue finishes
+        across all villages. If there are no villages or the computed delay is invalid, a
+        fallback interval (PLANNING_INTERVAL) will be used.
+        """
+        logger.info("Running planning phase...")
+
+        new_jobs = []
+
+        try:
+            # Build fresh game state so we can both plan and compute next planning time
+            game_state = self.create_game_state()
+            new_jobs.extend(self.logic_engine.create_plan_for_village(game_state))
+            # Also plan hero adventure (if applicable)
+            hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
+            new_jobs.extend(hero_jobs)
+            self.jobs.extend(new_jobs)
+            logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
+
+            #TODO: extract calculation of next planning time into separate method
+            # compute when the building queues will finish
+            try:
+                if game_state.villages:
+                    next_delay = int(shortest_building_queue(game_state.villages))
+                else:
+                    next_delay = self.PLANNING_INTERVAL
+            except Exception:
+                # in case something unexpected happens, fall back to default
+                next_delay = self.PLANNING_INTERVAL
+
+            # enforce sensible minimum delay to avoid tight recursion
+            if next_delay <= 0:
+                next_delay = 1
+
+            self._schedule_planning_in(next_delay)
+
+        except Exception as e:
+            logger.error(f"Planning failed: {e}", exc_info=True)
 
     def _setup_signal_handlers(self) -> None:
         """Setup graceful shutdown handlers for SIGINT and SIGTERM."""
