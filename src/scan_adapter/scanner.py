@@ -1,9 +1,9 @@
 import json
 import re
-
 from bs4 import BeautifulSoup, Tag
+
 from src.core.model.model import BuildingType, Village, SourcePit, SourceType, Building, BuildingJob, VillageIdentity, \
-    Account, Tribe, HeroInfo, BuildingContract
+    Account, Tribe, HeroInfo, BuildingContract, Resources
 
 HTML_PARSER = 'html.parser'
 
@@ -248,15 +248,34 @@ def identity_tribe(dorf2: str) -> Tribe:
 
 
 def scan_village(identity: VillageIdentity, dorf1, dorf2) -> Village:
+    # Collect stock and production data then assemble Village with Resources model
+    stock = scan_stock_bar(dorf1)
+    production = scan_production(dorf1)
+
+
+    resources = Resources(
+        lumber=stock.get("lumber", 0),
+        clay=stock.get("clay", 0),
+        iron=stock.get("iron", 0),
+        crop=stock.get("crop", 0),
+    )
+
     return Village(
         id=identity.id,
-        name=(scan_village_name(dorf1)),
-        tribe=(identity_tribe(dorf2)),
-        source_pits=(scan_village_source(dorf1)),
-        buildings=(scan_village_center(dorf2)),
-        building_queue=(scan_building_queue(dorf1)),
-        **(scan_stock_bar(dorf1)),
-        **(scan_production(dorf1))
+        name=scan_village_name(dorf1),
+        tribe=identity_tribe(dorf2),
+        resources=resources,
+        free_crop=stock.get("free_crop", 0),
+        source_pits=scan_village_source(dorf1),
+        buildings=scan_village_center(dorf2),
+        building_queue=scan_building_queue(dorf1),
+        warehouse_capacity=stock.get("warehouse_capacity", 0),
+        granary_capacity=stock.get("granary_capacity", 0),
+        lumber_hourly_production=production.get("lumber_hourly_production", 0),
+        clay_hourly_production=production.get("clay_hourly_production", 0),
+        iron_hourly_production=production.get("iron_hourly_production", 0),
+        crop_hourly_production=production.get("crop_hourly_production", 0),
+        free_crop_hourly_production=production.get("free_crop_hourly_production", 0),
     )
 
 
@@ -293,6 +312,7 @@ def scan_village_list(html: str) -> list[VillageIdentity]:
     village_entries = soup.select('.villageList .listEntry.village')
     return [_parse_village_entry(entry) for entry in village_entries]
 
+
 def scan_account_info(html: str) -> Account:
     soup = BeautifulSoup(html, HTML_PARSER)
 
@@ -321,6 +341,7 @@ def scan_account_info(html: str) -> Account:
         server_speed=server_speed,
         when_beginners_protection_expires=beginners_expires
     )
+
 
 def _is_hero_available(html: str) -> bool:
     """Check if hero is available for adventures."""
@@ -362,10 +383,11 @@ def _parse_hero_inventory(inventory_html: str) -> dict:
                         inventory[resource] = _parse_number_value(count_div.get_text())
     return inventory
 
+
 def scan_hero_info(hero_html: str, inventory_html: str = None) -> HeroInfo:
     soup = BeautifulSoup(hero_html, HTML_PARSER)
     value_elements = (_get_item_or_raise_error(soup, ".stats", "Hero stats container not found")
-                       .select(".value"))
+                      .select(".value"))
     if len(value_elements) < 2:
         raise ValueError("Not enough stats values found for hero info")
 
@@ -391,17 +413,20 @@ def scan_hero_info(hero_html: str, inventory_html: str = None) -> HeroInfo:
         has_daily_quest_indicator=daily_indicator
     )
 
+
 def _parse_adventure_number(adventure_button: Tag) -> int:
     contant = adventure_button.select_one('div.content')
     if contant is None:
         return 0
     return _parse_number_value(contant.get_text())
 
+
 def _parse_available_attribute_points(soup: BeautifulSoup) -> int:
     points_elem = soup.select_one(".pointsAvailable")
     if not points_elem:
         return 0
     return _parse_number_value(points_elem.get_text())
+
 
 def is_reward_available(html: str) -> bool:
     """Check whether the quest/questmaster has a claimable reward visible on the page.
@@ -435,6 +460,7 @@ def is_reward_available(html: str) -> bool:
 
     return False
 
+
 def scan_new_building_contract(html: Tag) -> BuildingContract:
     """Scan the new building contract from the current page and return BuildingContract.
 
@@ -452,7 +478,8 @@ def scan_new_building_contract(html: Tag) -> BuildingContract:
     resource_wrapper = soup.select_one('.inlineIconList.resourceWrapper') or soup.select_one('.resourceWrapper')
     if not resource_wrapper:
         # fallback: if provided element is a container like #contract_building10, search within it
-        resource_wrapper = soup.select_one('#contract .inlineIconList.resourceWrapper') or soup.select_one('#contract .resourceWrapper')
+        resource_wrapper = soup.select_one('#contract .inlineIconList.resourceWrapper') or soup.select_one(
+            '#contract .resourceWrapper')
 
     if not resource_wrapper:
         raise ValueError("Resource wrapper not found in building contract HTML")
@@ -473,12 +500,13 @@ def scan_new_building_contract(html: Tag) -> BuildingContract:
     crop_consumption = _parse_number_value(value_elements[4].get_text())
 
     return BuildingContract(
-        lumber=lumber,
-        clay=clay,
-        iron=iron,
-        crop=crop,
+        Resources(lumber=lumber,
+                  clay=clay,
+                  iron=iron,
+                  crop=crop),
         crop_consumption=crop_consumption
     )
+
 
 def _class_list_to_str(class_attr) -> str:
     """Normalize class attribute (string or list) to space-joined string."""
@@ -487,7 +515,7 @@ def _class_list_to_str(class_attr) -> str:
     return str(class_attr or '')
 
 
-#TODO: add configuration option to enable/disable this scan and to set threshold values for minumum reward points
+# TODO: add configuration option to enable/disable this scan and to set threshold values for minumum reward points
 def is_daily_quest_indicator(nav_tag: Tag) -> bool:
     """Return True if provided Tag contains <a.dailyQuests> with a child div.indicator whose text is exactly '!'.
 

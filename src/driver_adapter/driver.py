@@ -235,7 +235,7 @@ class Driver:
 
         buttons_selector = "button.textButtonV2.buttonFramed.plus.rectangle.withIcon.green, [role=\"button\"].textButtonV2.buttonFramed.plus.rectangle.withIcon.green"
         buttons = self.page.locator(buttons_selector)
-        button = buttons.nth(target - 1)
+        button = buttons.nth(target.value - 1)
 
         for _ in range(points_to_allocate):
             button.click()
