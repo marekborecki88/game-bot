@@ -122,6 +122,7 @@ class LogicEngine:
         # send reservation request to hero
         response = hero_info.send_request(reservation_request)
 
+        #TODO: FOR ACCAPETED AND PARTIALLY_ACCEPTED, there is need to create separate task because we need to transfer resources from hero to village
         if response.status is not ReservationStatus.ACCEPTED:
             shortage = reservation_request - response.provided_resources
             max_delay_seconds = self.calculate_delay(shortage, village)
