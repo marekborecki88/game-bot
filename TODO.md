@@ -20,4 +20,6 @@ ISSUES:
        use dedicated type, add abstraction to reflect different type of jobs like building, sending troops, sending merchants, etc.
 3. for some reason logic_engine decide to send hero to adventure even when there is no adventure available
    logs like "Hero adventure not started (no button found or driver failed)"
-4. ____
+4. fix loosing internet connection issue
+    "Planning failed: Page.goto: net::ERR_NAME_NOT_RESOLVED at ..."
+5. ____
