@@ -445,7 +445,9 @@ class Bot:
         hero_info = self.fetch_hero_info()
         return GameState(hero_info=hero_info, account=account_info, villages=villages)
 
+
     def build_new(self, village_id, village_name, id, gid) -> str:
+        #TODO: need to determinate in which category building is being built and possible switch tab
         building_category = 1 # infrastructure
 
         self.driver.navigate_to_village(village_id)
