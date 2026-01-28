@@ -358,7 +358,6 @@ class Bot:
     def planning(self) -> list[Job]:
         """Create a plan for all villages and return new jobs."""
         game_state = self.create_game_state()
-        interval_seconds = 3600  # 60 minutes
         jobs = self.logic_engine.create_plan_for_village(game_state)
         hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
         jobs.extend(hero_jobs)
