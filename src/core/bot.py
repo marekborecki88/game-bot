@@ -330,17 +330,12 @@ class Bot:
     @_handle_task.register
     def _(self, task: CollectDailyQuestsTask, job: Job) -> str:  # type: ignore[override]
         try:
-            clicked = self.driver.claim_daily_quests()
-            if not clicked:
-                job.status = JobStatus.EXPIRED
-                return "Daily quests not collected (element not found or click failed)"
+            self.driver.claim_daily_quests()
+            return "Daily quests not collected (element not found or click failed)"
         except Exception as e:
-            logger.error(f"Error while collecting daily quests: {e}")
+            logger.info(f"Error while collecting daily quests: {e}")
             job.status = JobStatus.TERMINATED
-            raise
-
-        job.status = JobStatus.COMPLETED
-        return "Collected daily quests"
+            return "Failed to collect daily quests"
 
 
     @_handle_task.register
