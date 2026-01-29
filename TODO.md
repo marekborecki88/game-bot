@@ -16,9 +16,5 @@
 
 ISSUES:
 
-1. remove dict from job execution
-       use dedicated type, add abstraction to reflect different type of jobs like building, sending troops, sending merchants, etc.
-2. for some reason logic_engine decide to send hero to adventure even when there is no adventure available
-   logs like "Hero adventure not started (no button found or driver failed)"
-3. fix loosing internet connection issue
+1. fix loosing internet connection issue
     "Planning failed: Page.goto: net::ERR_NAME_NOT_RESOLVED at ..."
