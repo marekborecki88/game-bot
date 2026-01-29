@@ -158,52 +158,6 @@ class Driver:
         except Exception:
             logger.debug("Questmaster button not clickable or not present")
 
-    # --- Public high-level actions ---
-    def start_hero_adventure(self) -> bool:
-        """Navigate to hero adventures and attempt to start an adventure.
-
-        Returns True when the adventure was started or when the UI indicates success,
-        False when the initial explore button is not present or clicking it failed.
-        """
-        try:
-            self.navigate("/hero/adventures")
-        except Exception:
-            logger.debug("Failed to navigate to /hero/adventures")
-            return False
-
-        # Click Explore; fail if not clicked
-        if not self._click_explore_button():
-            logger.debug("Explore button not found or not visible")
-            return False
-
-        # Allow UI to update and try continue buttons
-        self._safe_wait()
-        continue_selectors = [
-            "button.textButtonV2.buttonFramed.continue.rectangle.withText.green",
-            "text=Continue",
-            "button.continue",
-            "a.continue",
-            "button.button.green",
-            "a.button.green",
-            "button:has-text('Continue')",
-            "a:has-text('Continue')",
-        ]
-
-        if self._click_first_visible(continue_selectors):
-            return True
-
-        # If no Continue found, accept arrival as success
-        try:
-            current_url = self.page.url
-            if "/hero/adventures" in current_url:
-                logger.debug("Arrived at /hero/adventures after clicking explore (no explicit continue needed)")
-                return True
-        except Exception:
-            pass
-
-        logger.debug("Explore clicked but no continue button found; returning success because explore was clicked")
-        return True
-
     def claim_quest_rewards(self, page_html: str) -> int:
         """If rewards are available according to a scan, open dialogs and click Collect controls.
 
