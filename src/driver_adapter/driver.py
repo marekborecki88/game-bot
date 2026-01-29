@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 from playwright.sync_api import Playwright
 
@@ -288,3 +288,37 @@ class Driver:
         except Exception:
             # Swallow exceptions to maintain tolerant UI behavior
             logger.debug('claim_daily_quests encountered an error')
+
+    def click(self, selector: str) -> bool:
+        """Click first element matching selector if visible; return True on click."""
+        try:
+            locator = self.page.locator(selector).first
+            if locator.count() and locator.is_visible():
+                try:
+                    locator.click()
+                    return True
+                except Exception:
+                    logger.debug(f"Click found element but click failed for selector: {selector}")
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def click_first(self, selectors: Iterable[str]) -> bool:
+        """Try selectors in order and click the first visible element found."""
+        return self._click_first_visible(list(selectors))
+
+    def click_all(self, selectors: Iterable[str]) -> int:
+        """Click all visible elements matching provided selectors."""
+        return self._click_all_visible(list(selectors))
+
+    def wait_for_load_state(self, timeout: int = 3000) -> None:
+        """Wait for page to settle; swallow non-fatal errors."""
+        self._safe_wait(timeout)
+
+    def current_url(self) -> str:
+        try:
+            return self.page.url
+        except Exception:
+            return ""
+

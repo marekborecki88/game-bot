@@ -300,7 +300,8 @@ class Bot:
     def _(self, task: HeroAdventureTask, job: Job) -> str:  # type: ignore[override]
         started = False
         try:
-            started = self.driver.start_hero_adventure()
+            # Delegate orchestration to the Task which uses DriverProtocol primitives
+            started = task.execute(self.driver)
         except Exception as e:
             logger.error(f"Error while starting hero adventure: {e}")
 
