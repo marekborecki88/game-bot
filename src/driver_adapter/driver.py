@@ -51,8 +51,8 @@ class Driver:
         self.page.goto(url)
         self.page.wait_for_load_state('networkidle')
 
-    def get_html(self, dorf: str) -> str:
-        self.navigate(f"/{dorf}.php")
+    def get_html(self, path: str) -> str:
+        self.navigate(path)
         return self.page.content()
 
     def navigate_to_village(self, id: int) -> None:
@@ -63,20 +63,10 @@ class Driver:
 
     def get_village_inner_html(self, id: int) -> Tuple[str, str]:
         self.navigate_to_village(id)
-        dorf1: str = self.get_html("dorf1")
-        dorf2: str = self.get_html("dorf2")
+        dorf1: str = self.get_html("/dorf1.php")
+        dorf2: str = self.get_html("/dorf2.php")
 
         return dorf1, dorf2
-
-    def get_hero_attributes_html(self) -> str:
-        """Navigate to hero attributes page and return its HTML."""
-        self.navigate("/hero/attributes")
-        return self.page.content()
-
-    def get_hero_inventory_html(self) -> str:
-        """Navigate to hero inventory page and return its HTML."""
-        self.navigate("/hero/inventory")
-        return self.page.content()
 
     # --- Public primitives only ---
     def click(self, selector: str) -> bool:
