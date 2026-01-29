@@ -376,19 +376,22 @@ class Bot:
     def build(self, village_name: str, id: int, gid: int) -> None:
         """Build/upgrade a building in a village."""
         source_type = next((st for st in SourceType if st.value == gid), None)
-        logger.info(f"Building in village: {village_name}, id: {id}, "
-                    f"type: {source_type.name if source_type else 'unknown'}")
+        source_label = source_type.name if source_type else f"gid={gid}"
 
         # I don't like this code
         url = f"{self.driver.config.server_url}/build.php?id={id}&gid={gid}"
-        self.driver.page.goto(url)
-        self.driver.page.wait_for_selector("#contract ")
+        try:
+            self.driver.page.goto(url)
+            self.driver.page.wait_for_selector("#contract")
 
-        # Contract should be checked by scanner and building should be queued only if enough resources
-
-        upgrade_button = self.driver.page.locator("button.textButtonV1.green.build").first
-        upgrade_button.click()
-        logger.info("Clicked upgrade button")
+            upgrade_button = self.driver.page.locator("button.textButtonV1.green.build").first
+            if upgrade_button:
+                upgrade_button.click()
+                logger.info(f"Started building {source_label} in village {village_name} (id={id})")
+            else:
+                logger.warning(f"Failed to start building {source_label} in village {village_name} (id={id}): upgrade button not found")
+        except Exception as e:
+            logger.error(f"Failed to start building {source_label} in village {village_name} (id={id}): {e}", exc_info=True)
 
     def wait_for_next_task(self, seconds: int) -> None:
         """Wait for a specified number of seconds before next task."""
