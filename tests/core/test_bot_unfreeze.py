@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from src.core.bot import Bot
-from src.core.driver import DriverProtocol
+from src.core.driver_protocol import DriverProtocol
 from src.core.job import Job, JobStatus
 from src.core.model.model import Village, SourcePit, SourceType, BuildingType, Tribe, GameState, \
     Account, HeroInfo, Building, Resources

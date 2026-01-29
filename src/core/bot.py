@@ -6,13 +6,15 @@ from types import FrameType
 
 import schedule
 
-from src.core.driver import DriverProtocol
+from src.core.driver_protocol import DriverProtocol
 from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity, GameState
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, is_reward_available
+from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, \
+    is_reward_available, scan_village_name
 from src.core.tasks import BuildTask, BuildNewTask
+from src.core.html_cache import HtmlCache
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,11 @@ class Bot:
         self._running: bool = False
         # handle to the scheduled planning job (so we can cancel/reschedule dynamically)
         self._planning_job = None
+
+        # HTML cache keyed by (village_name, index) where index is 1 or 2
+        self.html_cache = HtmlCache()
+        # Remember active village name after create_game_state builds cache
+        self._active_village_name: str | None = None
 
         self._setup_signal_handlers()
 
@@ -238,60 +245,47 @@ class Bot:
         return task.success_message
 
 
-    def planning(self) -> list[Job]:
-        """Create a plan for all villages and return new jobs."""
-        game_state = self.create_game_state()
-        jobs = self.logic_engine.create_plan_for_village(game_state)
-        hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
-        jobs.extend(hero_jobs)
+    def create_game_state(self):
+        # Clear previous run cache
+        self.html_cache.clear()
 
-        return jobs
+        # Fetch initial dorf1 and dorf2 (active village)
+        dorf1_html = self.driver.get_html("/dorf1.php")
+        dorf2_html = self.driver.get_html("/dorf2.php")
 
-    def fetch_account_info(self):
-        html: str = self.driver.get_html("/dorf1.php")
-        return scan_account_info(html)
+        # Parse village list and active village name
+        villages_identities = scan_village_list(dorf1_html)
+        active_name = scan_village_name(dorf1_html)
 
-    def village_list(self) -> list[VillageIdentity]:
-        """Get the list of all villages."""
-        html: str = self.driver.get_html("/dorf1.php")
-        return scan_village_list(html)
+        # Put active village pages into cache and remember active name
+        self.html_cache.set(active_name, 1, dorf1_html)
+        self.html_cache.set(active_name, 2, dorf2_html)
+        self._active_village_name = active_name
 
-    def wait_for_next_task(self, seconds: int) -> None:
-        """Wait for a specified number of seconds before next task."""
-        logger.info(f"Waiting {seconds} seconds for next task...")
-        self._count_down(seconds)
+        # Prefetch other villages and fill cache
+        for v in villages_identities:
+            if v.name == active_name:
+                continue
+            d1, d2 = self.driver.get_village_inner_html(v.id)
+            self.html_cache.set(v.name, 1, d1)
+            self.html_cache.set(v.name, 2, d2)
 
-    def _count_down(self, seconds: int) -> int:
-        """Countdown timer with periodic page refresh."""
-        if seconds == 0:
-            sys.stdout.write('\rWaiting for next task: Finished\n')
-            sys.stdout.flush()
-            return 0
-        elif seconds % 60 == 0:
-            self.driver.refresh()
+        # Build game state from cache
+        account_info = scan_account_info(dorf1_html)
 
-        sys.stdout.write(f'\rWaiting for next task: {seconds} seconds remaining')
-        time.sleep(1)
-        sys.stdout.flush()
-        return self._count_down(seconds - 1)
+        villages = []
+        for v in villages_identities:
+            d1 = self.html_cache.get(v.name, 1)
+            d2 = self.html_cache.get(v.name, 2)
+            if d1 is None or d2 is None:
+                d1, d2 = self.driver.get_village_inner_html(v.id)
+            village = scan_village(v, d1, d2)
+            village.has_quest_master_reward = is_reward_available(d1)
+            villages.append(village)
 
-    def fetch_village_info(self, village_identity: VillageIdentity) -> Village:
-        """Scan a village and return its current state."""
-        logger.debug(f"Scanning village: {village_identity.name}")
-        dorf1, dorf2 = self.driver.get_village_inner_html(village_identity.id)
+        hero_info = self.fetch_hero_info()
 
-        # Ensure we're on the village page (dorf1)
-        self.driver.navigate_to_village(village_identity.id)
-
-        # Detect questmaster reward and set flag directly (allow exceptions to surface)
-        reward_available = is_reward_available(dorf1)
-
-        village = scan_village(village_identity, dorf1, dorf2)
-
-        # Set detection flag directly on the typed dataclass
-        village.has_quest_master_reward = reward_available
-
-        return village
+        return GameState(hero_info=hero_info, account=account_info, villages=villages)
 
 
     def fetch_hero_info(self):
@@ -306,9 +300,3 @@ class Bot:
 
         return scan_hero_info(hero_attrs_html, hero_inventory_html)
 
-
-    def create_game_state(self):
-        account_info = self.fetch_account_info()
-        villages = [self.fetch_village_info(v) for v in self.village_list()]
-        hero_info = self.fetch_hero_info()
-        return GameState(hero_info=hero_info, account=account_info, villages=villages)
