@@ -4,6 +4,7 @@ from typing import Any
 from src.core.model.model import Village
 from src.core.task import Task
 from src.core.driver import DriverProtocol
+from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
 
 
 @dataclass(frozen=True)
@@ -113,17 +114,12 @@ class HeroAdventureTask(Task):
                 "a:has-text('Continue')",
             ]
 
-            if driver.click_first(continue_selectors):
-                return True
+            success = driver.click_first(continue_selectors)
 
-            # If no explicit continue button clicked, consider arrival at adventures page as success
-            try:
-                if "/hero/adventures" in driver.current_url():
-                    return True
-            except Exception:
-                pass
+            if not success:
+                return False
 
-            # Default to success because explore was clicked
+            driver.click("a#closeContentButton")
             return True
         except Exception:
             # Swallow any driver exceptions and report failure
@@ -148,21 +144,16 @@ class AllocateAttributesTask(Task):
 
             buttons_selector = "button.textButtonV2.buttonFramed.plus.rectangle.withIcon.green, [role=\"button\"].textButtonV2.buttonFramed.plus.rectangle.withIcon.green"
 
-            # The target index is provided by DEFAULT_ATTRIBUTE_POINT_TYPE; import locally to avoid heavy coupling
-            from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
             target_index = DEFAULT_ATTRIBUTE_POINT_TYPE.value - 1
 
             # Click the N-th plus button points times
-            for _ in range(int(self.points)):
-                clicked = driver.click_nth(buttons_selector, target_index)
-                if not clicked:
-                    # If clicking failed for a particular point, continue attempts but mark result if none succeeded
-                    continue
+            for _ in range(self.points):
+                driver.click_nth(buttons_selector, target_index)
 
-            # Click save if present
             saved = driver.click_first(['#savePoints', 'button#savePoints'])
-            # Treat success as either save clicked or at least one allocation performed
-            return saved or True
+            driver.click("a#closeContentButton")
+
+            return saved
         except Exception:
             return False
 
@@ -207,6 +198,7 @@ class CollectDailyQuestsTask(Task):
             ]
 
             driver.click_all(final_collect_selectors)
+            driver.click("a#closeContentButton")
             return True
         except Exception:
             return False
@@ -251,6 +243,7 @@ class CollectQuestmasterTask(Task):
             ]
 
             clicks = driver.click_all(collect_selectors)
+            driver.click("a#closeContentButton")
             return clicks > 0
         except Exception:
             return False
