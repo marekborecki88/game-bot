@@ -176,6 +176,12 @@ class HeroInfo:
         to_provide = hero_available_resources.calculate_how_much_can_provide(request)
         self.reserved_resources += to_provide
         return ReservationResponse(status=ReservationStatus.PARTIALLY_ACCEPTED, provided_resources=to_provide)
+    
+    def has_any_adventure(self):
+        return self.adventures > 0
+
+    def can_go_on_adventure(self):
+        return self.is_available and self.has_any_adventure() and self.health > 20
 
 
 @dataclass

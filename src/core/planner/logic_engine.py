@@ -164,7 +164,7 @@ class LogicEngine:
 
         now = datetime.now()
 
-        if hero_info.is_available:
+        if hero_info.can_go_on_adventure():
             jobs.append(Job(
                 task=HeroAdventureTask(
                     success_message="hero adventure scheduled",
