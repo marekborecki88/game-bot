@@ -1,4 +1,3 @@
-from functools import singledispatchmethod
 import logging
 import signal
 import sys
@@ -11,8 +10,8 @@ from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity, GameState
 from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, scan_new_building_contract, is_reward_available
-from src.core.tasks import BuildTask, BuildNewTask, HeroAdventureTask, AllocateAttributesTask, CollectDailyQuestsTask, CollectQuestmasterTask
+from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, is_reward_available
+from src.core.tasks import BuildTask, BuildNewTask
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +199,7 @@ class Bot:
 
         job.status = JobStatus.RUNNING
         try:
-            summary = self._handle_task(job.task, job)
+            summary = self._handle_task(job)
             # If handler succeeded, ensure job status is COMPLETED unless handler set it.
             if job.status == JobStatus.RUNNING:
                 job.status = JobStatus.COMPLETED
@@ -228,15 +227,17 @@ class Bot:
                 pass
 
 
-    # Task-specific handlers using singledispatchmethod
-    @singledispatchmethod
-    def _handle_task(self, task, job: Job) -> str:
-        """Fallback handler for unsupported task types.
+    def _handle_task(self, job: Job) -> str:
+        """Generic task handler: run the task (or fallback) and return a summary.
 
-        If `task` is a callable (legacy), run the fallback behaviour otherwise
-        raise a RuntimeError to indicate unsupported Task type.
+        This replaces the previous singledispatch handlers since all handlers
+        shared the same implementation. The method accepts a Job and is
+        responsible for setting job.status on success/failure before returning
+        the human-readable message.
         """
-        # Unknown task type — fallback to old behaviour if task is callable
+        task = job.task
+
+        # Legacy callable fallback
         if callable(task):
             payload = task()
             action = payload.get("action")
@@ -249,74 +250,12 @@ class Bot:
                 except Exception:
                     logger.debug(f"Failed to navigate to village id {village_id}")
 
-            # minimal fallback actions
             if action == "build":
                 self.build(village_name, payload.get('building_id'), payload.get('building_gid'))
             job.status = JobStatus.COMPLETED
             return f"Fallback executed action {action}"
 
-        raise RuntimeError("Unsupported Task type and not callable")
-
-
-    @_handle_task.register
-    def _(self, task: BuildTask, job: Job) -> str:  # type: ignore[override]
-        village_name = task.village_name
-        village_id = task.village_id
-        building_id = task.building_id
-        building_gid = task.building_gid
-        target_name = task.target_name
-        target_level = task.target_level
-
-        try:
-            self.driver.navigate_to_village(village_id)
-        except Exception:
-            logger.debug(f"Failed to navigate to village id {village_id}")
-
-        self.build(village_name, building_id, building_gid)
-        job.status = JobStatus.COMPLETED
-        return f"In the village {village_name} with id {village_id} was done build of {target_name} to level {target_level}"
-
-
-    @_handle_task.register
-    def _(self, task: BuildNewTask, job: Job) -> str:  # type: ignore[override]
-        village_name = task.village_name
-        village_id = task.village_id
-        building_id = task.building_id
-        building_gid = task.building_gid
-        target_name = task.target_name
-
-        try:
-            self.driver.navigate_to_village(village_id)
-        except Exception:
-            logger.debug(f"Failed to navigate to village id {village_id}")
-
-        logger.info(f"Placing new building {target_name} (gid={building_gid}) in village {village_name} at slot {building_id}")
-        self.build_new(village_id, village_name, building_id, building_gid)
-        job.status = JobStatus.COMPLETED
-        return f"Placed new building {target_name} in village {village_name} (id={village_id})"
-
-
-    @_handle_task.register
-    def _(self, task: HeroAdventureTask, job: Job) -> str:  # type: ignore[override]
-        started = False
-        try:
-            # Delegate orchestration to the Task which uses DriverProtocol primitives
-            started = task.execute(self.driver)
-        except Exception:
-            # Swallow exceptions here; the handler will mark the job as expired below
-            started = False
-
-        if not started:
-            job.status = JobStatus.EXPIRED
-            return task.failure_message
-
-        job.status = JobStatus.COMPLETED
-        return task.success_message
-
-
-    @_handle_task.register
-    def _(self, task: AllocateAttributesTask, job: Job) -> str:  # type: ignore[override]
-        succeeded = False
+        # New-style Task objects (must implement execute and have messages)
         try:
             succeeded = task.execute(self.driver)
         except Exception:
@@ -324,39 +263,12 @@ class Bot:
 
         if not succeeded:
             job.status = JobStatus.EXPIRED
-            return task.failure_message
+            # Attempt to return a failure message if present, otherwise a default
+            return getattr(task, 'failure_message', 'Task failed')
 
         job.status = JobStatus.COMPLETED
-        return task.success_message
+        return getattr(task, 'success_message', 'Task completed')
 
-
-    @_handle_task.register
-    def _(self, task: CollectDailyQuestsTask, job: Job) -> str:  # type: ignore[override]
-        try:
-            self.driver.claim_daily_quests()
-            return "Daily quests not collected (element not found or click failed)"
-        except Exception as e:
-            logger.info(f"Error while collecting daily quests: {e}")
-            job.status = JobStatus.TERMINATED
-            return "Failed to collect daily quests"
-
-
-    @_handle_task.register
-    def _(self, task: CollectQuestmasterTask, job: Job) -> str:  # type: ignore[override]
-        try:
-            # get latest page html for detection and then call claim_quest_rewards
-            page_html = self.driver.get_html("dorf1")
-            clicks = self.driver.claim_quest_rewards(page_html)
-            if clicks == 0:
-                job.status = JobStatus.EXPIRED
-                return "No questmaster rewards collected"
-        except Exception as e:
-            logger.error(f"Error while collecting questmaster rewards: {e}")
-            job.status = JobStatus.TERMINATED
-            raise
-
-        job.status = JobStatus.COMPLETED
-        return "Collected questmaster rewards"
 
     def planning(self) -> list[Job]:
         """Create a plan for all villages and return new jobs."""

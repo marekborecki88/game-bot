@@ -15,6 +15,23 @@ class BuildTask(Task):
     target_name: str
     target_level: int
 
+    def execute(self, driver: DriverProtocol) -> bool:
+        """Perform building/upgrade action using driver primitives.
+
+        Returns True if the primary action (clicking the build/upgrade button)
+        was attempted, False otherwise.
+        """
+        # Navigate directly to the build URL for the given slot and gid
+        driver.navigate(f"/build.php?id={self.building_id}&gid={self.building_gid}")
+
+        # Wait for contract UI to appear
+        if not driver.wait_for_selector('#contract', timeout=3000):
+            return False
+
+        # Try common upgrade button selector
+        upgrade_selector = "button.textButtonV1.green.build"
+        return driver.click(upgrade_selector)
+
 
 @dataclass(frozen=True)
 class BuildNewTask(Task):
@@ -23,6 +40,39 @@ class BuildNewTask(Task):
     building_id: int
     building_gid: int
     target_name: str
+
+    def execute(self, driver: DriverProtocol) -> bool:
+        """Place a new building contract using driver primitives.
+
+        Navigates to the build page for the slot and attempts to click the
+        contract action button. Returns True if a click attempt was made.
+        """
+        try:
+            # Navigate to the build page for the slot
+            driver.navigate(f"/build.php?id={self.building_id}")
+
+            # Wait for contract area
+            if not driver.wait_for_selector('#contract', timeout=3000):
+                return False
+
+            # Try to click the specific contract button for the building gid
+            find_id = f'contract_building{self.building_gid}'
+            contract_button_selectors = [
+                f"button.textButtonV1.green.build#{find_id}",
+                f"#{find_id} .section1 button",
+                f"#{find_id} button",
+            ]
+
+            if driver.click_first(contract_button_selectors):
+                return True
+
+            # Fallback: generic contract button
+            if driver.click_first(["#contract .section1 button", "#contract button"]):
+                return True
+
+            return False
+        except Exception:
+            return False
 
 
 @dataclass(frozen=True)
@@ -119,10 +169,88 @@ class AllocateAttributesTask(Task):
 
 @dataclass(frozen=True)
 class CollectDailyQuestsTask(Task):
-    pass
+    def execute(self, driver: DriverProtocol) -> bool:
+        """Click the daily quests anchor and collect rewards using driver primitives.
+
+        Returns True if the flow ran (click attempts made), False otherwise.
+        """
+        try:
+            # Wait for daily quests anchor
+            present = driver.wait_for_selector('#navigation a.dailyQuests', timeout=1000)
+            if not present:
+                return False
+
+            # Try to click the anchor (may fail silently)
+            try:
+                driver.click('#navigation a.dailyQuests')
+            except Exception:
+                # continue regardless
+                pass
+
+            # Try initial Collect rewards controls
+            collect_rewards_selectors = [
+                'button.collectRewards',
+                "button.textButtonV2.buttonFramed.collectRewards",
+                "button:has-text('Collect rewards')",
+                "text=Collect rewards",
+            ]
+
+            driver.click_first(collect_rewards_selectors)
+
+            # Final collect buttons
+            final_collect_selectors = [
+                "button.collect",
+                "button.collectable",
+                "button:has-text('Collect')",
+                "button.textButtonV2.buttonFramed.collect",
+                "button.textButtonV2.buttonFramed.collect.collectable",
+            ]
+
+            driver.click_all(final_collect_selectors)
+            return True
+        except Exception:
+            return False
 
 
 @dataclass(frozen=True)
 class CollectQuestmasterTask(Task):
     village: Village
 
+    def execute(self, driver: DriverProtocol) -> bool:
+        """Collect questmaster rewards if available.
+
+        Returns True if any click attempts were made (rewards collected or attempted), False otherwise.
+        """
+        try:
+            # Get the latest page HTML for detection
+            page_html = driver.get_html("dorf1")
+            try:
+                from src.scan_adapter.scanner import is_reward_available
+                if not is_reward_available(page_html):
+                    return False
+            except Exception:
+                # If detection fails, be conservative and do nothing
+                return False
+
+            # Click the questmaster button if present
+            try:
+                driver.click('#questmasterButton')
+                driver.wait_for_load_state(3000)
+            except Exception:
+                # continue even if click fails
+                pass
+
+            # Click all 'Collect' controls
+            collect_selectors = [
+                "button:has-text('Collect')",
+                "button:has-text('collect')",
+                "a:has-text('Collect')",
+                "a:has-text('collect')",
+                "text=Collect",
+                "text=collect",
+            ]
+
+            clicks = driver.click_all(collect_selectors)
+            return clicks > 0
+        except Exception:
+            return False
