@@ -215,7 +215,7 @@ class CollectQuestmasterTask(Task):
         """
         try:
             # Get the latest page HTML for detection
-            page_html = driver.get_html("dorf1")
+            page_html = driver.get_html("/dorf1.php")
             try:
                 from src.scan_adapter.scanner import is_reward_available
                 if not is_reward_available(page_html):

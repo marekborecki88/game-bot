@@ -248,12 +248,12 @@ class Bot:
         return jobs
 
     def fetch_account_info(self):
-        html: str = self.driver.get_html("dorf1")
+        html: str = self.driver.get_html("/dorf1.php")
         return scan_account_info(html)
 
     def village_list(self) -> list[VillageIdentity]:
         """Get the list of all villages."""
-        html: str = self.driver.get_html("dorf1")
+        html: str = self.driver.get_html("/dorf1.php")
         return scan_village_list(html)
 
     def wait_for_next_task(self, seconds: int) -> None:
@@ -299,8 +299,10 @@ class Bot:
         logger.debug("Scanning hero info")
 
         # Fetch attributes and inventory pages separately, in sequence
-        hero_attrs_html = self.driver.get_hero_attributes_html()
-        hero_inventory_html = self.driver.get_hero_inventory_html()
+        hero_attrs_html = self.driver.get_html("/hero/attributes")
+        hero_inventory_html = self.driver.get_html("/hero/inventory")
+        # close inventory popup if present
+        self.driver.click("#closeContentButton")
 
         return scan_hero_info(hero_attrs_html, hero_inventory_html)
 
