@@ -1,26 +1,60 @@
 from datetime import datetime, timedelta
 
 from src.core.bot import Bot
+from src.core.driver import DriverProtocol
 from src.core.job import Job, JobStatus
-from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo, Building, Resources
+from src.core.model.model import Village, SourcePit, SourceType, BuildingType, Tribe, GameState, \
+    Account, HeroInfo, Building, Resources
+from src.core.tasks import BuildTask
 
 
-class FakeDriver:
+class FakeDriver(DriverProtocol):
     def __init__(self):
         class Page:
             def goto(self, *args, **kwargs):
                 pass
+
             def wait_for_selector(self, *args, **kwargs):
                 pass
+
         self.page = Page()
         self.config = type('C', (), {'server_url': 'http://example'})
 
+    # Provide DriverProtocol methods as stubs or delegations
+    def navigate(self, path: str) -> None:
+        # Map to page.goto for compatibility
+        self.page.goto(path)
+
+    def stop(self) -> None:
+        return None
+
+    def get_html(self, dorf: str) -> str:
+        return ""
+
+    def click(self, selector: str) -> bool:
+        return False
+
+    def click_first(self, selectors):
+        return False
+
+    def click_all(self, selectors):
+        return 0
+
+    def click_nth(self, selector: str, index: int) -> bool:
+        return False
+
+    def wait_for_load_state(self, timeout: int = 3000) -> None:
+        return None
+
+    def wait_for_selector(self, selector: str, timeout: int = 3000) -> bool:
+        return False
+
+    def current_url(self) -> str:
+        return ""
+
+    # Legacy helpers used by this test
     def navigate_to_village(self, id):
         return
-
-    def get_html(self, *args, **kwargs):
-        return ""
 
     def get_hero_attributes_html(self):
         return ""
@@ -66,7 +100,16 @@ def test_unfreeze_on_expired_job_cleanup():
     # Simulate a delayed job that then expires (status changed to EXPIRED)
     now = datetime.now()
     expired_job = Job(
-        task=lambda: {"action": "build", "village_id": village.id},
+        task=BuildTask(
+            success_message="build scheduled",
+            failure_message="build failed",
+            village_name=village.name,
+            village_id=village.id,
+            building_id=1,
+            building_gid=1,
+            target_name="",
+            target_level=1,
+        ),
         scheduled_time=now - timedelta(hours=2),
         expires_at=now - timedelta(hours=1),
         status=JobStatus.PENDING,
@@ -82,4 +125,3 @@ def test_unfreeze_on_expired_job_cleanup():
     bot._execute_pending_jobs()
 
     assert village.is_queue_building_freeze is False
-

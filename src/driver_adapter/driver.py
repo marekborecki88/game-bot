@@ -1,10 +1,10 @@
 import logging
 import random
+from typing import Iterable, Tuple
 
 from playwright.sync_api import Playwright
 
 from src.config import Config
-from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class Driver:
         self.page = self.browser.new_page()
         self.login()
 
-    def login(self):
+    def login(self) -> None:
         logger.info("Logging in...")
 
         self.page.goto(self.config.server_url)
@@ -33,13 +33,13 @@ class Driver:
 
         logger.info("logged in.")
 
-    def stop(self):
+    def stop(self) -> None:
         self.browser.close()
 
-    def _navigate(self, path: str) -> None:
-        """Internal helper: navigate to a path on the configured server and wait for load.
+    def navigate(self, path: str) -> None:
+        """Navigate to a path on the configured server and wait for load.
 
-        `path` may start with '/' (recommended) or be a relative path without leading slash.
+        This is the single public navigation method used throughout the codebase.
         """
         if not path.startswith("/"):
             path = "/" + path
@@ -51,17 +51,17 @@ class Driver:
         self.page.goto(url)
         self.page.wait_for_load_state('networkidle')
 
-    def get_html(self, dorf: str):
-        self._navigate(f"/{dorf}.php")
+    def get_html(self, dorf: str) -> str:
+        self.navigate(f"/{dorf}.php")
         return self.page.content()
 
-    def navigate_to_village(self, id):
-        self._navigate(f"/dorf1.php?newdid={id}")
+    def navigate_to_village(self, id: int) -> None:
+        self.navigate(f"/dorf1.php?newdid={id}")
 
-    def refresh(self):
+    def refresh(self) -> None:
         self.page.reload()
 
-    def get_village_inner_html(self, id: int) -> tuple[str, str]:
+    def get_village_inner_html(self, id: int) -> Tuple[str, str]:
         self.navigate_to_village(id)
         dorf1: str = self.get_html("dorf1")
         dorf2: str = self.get_html("dorf2")
@@ -70,224 +70,98 @@ class Driver:
 
     def get_hero_attributes_html(self) -> str:
         """Navigate to hero attributes page and return its HTML."""
-        self._navigate("/hero/attributes")
+        self.navigate("/hero/attributes")
         return self.page.content()
 
     def get_hero_inventory_html(self) -> str:
         """Navigate to hero inventory page and return its HTML."""
-        self._navigate("/hero/inventory")
+        self.navigate("/hero/inventory")
         return self.page.content()
 
-    def start_hero_adventure(self) -> bool:
-        """Navigate to hero attributes/adventures and start an adventure.
-
-        Steps:
-        1. Open hero attributes page and click the green "explore" (adventure) button.
-        2. Wait for the adventures view/modal to appear and click the "continue" button.
-        """
-
-        # Open hero attributes where the green explore button typically lives
+    # --- Public primitives only ---
+    def click(self, selector: str) -> bool:
+        """Click first element matching selector if visible; return True on click."""
         try:
-            self._navigate("/hero/adventures")
+            locator = self.page.locator(selector).first
+            if locator.count() and locator.is_visible():
+                try:
+                    locator.click()
+                    return True
+                except Exception:
+                    logger.debug(f"Click found element but click failed for selector: {selector}")
+                    return True
         except Exception:
-            logger.debug("Failed to navigate to /hero/adventures")
-            return False
-
-        # Use single exact selector for Explore button (no list or loop)
-        sel = "button.textButtonV2.buttonFramed.rectangle.withText.green"
-        try:
-            locator = self.page.locator(sel).first
-            if not (locator.count() and locator.is_visible()):
-                logger.debug("Explore button not found or not visible")
-                return False
-            locator.click()
-            logger.info(f"Clicked explore/adventure button using selector: {sel}")
-        except Exception:
-            logger.debug("Failed to click explore/adventure button")
-            return False
-
-        # After clicking explore, either a new page is loaded or a modal/window appears.
-        # Wait briefly for UI to update, then attempt to click the 'continue' control.
-        try:
-            # allow some time for navigation/modal
-            self.page.wait_for_load_state("networkidle", timeout=3000)
-        except Exception:
-            # non-fatal, continue to look for button
             pass
+        return False
 
-        # Prioritize the exact observed Continue button selector
-        continue_selectors = [
-            "button.textButtonV2.buttonFramed.continue.rectangle.withText.green",
-            "text=Continue",
-            "button.continue",
-            "a.continue",
-            "button.button.green",
-            "a.button.green",
-            "button:has-text('Continue')",
-            "a:has-text('Continue')",
-        ]
-
-        for sel in continue_selectors:
+    def click_first(self, selectors: Iterable[str]) -> bool:
+        """Try selectors in order and click the first visible element found."""
+        for sel in selectors:
             try:
                 locator = self.page.locator(sel).first
                 if locator.count() and locator.is_visible():
                     try:
                         locator.click()
-                        logger.info(f"Clicked continue button using selector: {sel}")
                         return True
                     except Exception:
-                        # click failed, but we already clicked explore; consider this success
-                        logger.debug(f"Continue button found but click failed for selector: {sel}")
+                        logger.debug(f"Element found but click failed for selector: {sel}")
                         return True
             except Exception:
                 continue
+        return False
 
-        # If we couldn't find a continue button, consider the explore click successful
-        # if we ended up on the adventures page (URL contains /hero/adventures) or if an
-        # adventures view seems present.
+    def click_all(self, selectors: Iterable[str]) -> int:
+        """Click all visible elements matching provided selectors."""
+        clicks = 0
+        for sel in selectors:
+            try:
+                loc = self.page.locator(sel)
+                count = loc.count()
+                for i in range(count):
+                    el = loc.nth(i)
+                    try:
+                        if el.is_visible():
+                            el.click()
+                            clicks += 1
+                    except Exception:
+                        logger.debug(f"Click failed for element matched by selector: {sel}")
+                        continue
+            except Exception:
+                continue
+        return clicks
+
+    def wait_for_load_state(self, timeout: int = 3000) -> None:
+        """Wait for page to settle; swallow non-fatal errors."""
         try:
-            current_url = self.page.url
-            if "/hero/adventures" in current_url:
-                logger.info("Arrived at /hero/adventures after clicking explore (no explicit continue needed)")
-                return True
+            self.page.wait_for_load_state('networkidle', timeout=timeout)
         except Exception:
             pass
 
-        logger.debug("Explore clicked but no continue button found; returning success because explore was clicked")
-        return True
-
-    def claim_quest_rewards(self, page_html: str) -> int:
-        """If the quest master reward is available on the provided page HTML,
-        click the quest master button and then click all elements that allow
-        collecting rewards (buttons/links labeled 'Collect' or 'collect').
-
-        Returns the number of collect clicks attempted.
-        The method is tolerant and will swallow exceptions to avoid breaking
-        scanning flow if the UI doesn't match exactly.
-        """
+    def current_url(self) -> str:
         try:
-            # Import scanner helper locally to avoid top-level coupling during tests
-            from src.scan_adapter.scanner import is_reward_available
+            return self.page.url
         except Exception:
-            return 0
+            return ""
 
+    def wait_for_selector(self, selector: str, timeout: int = 3000) -> bool:
         try:
-            if not is_reward_available(page_html):
-                return 0
+            self.page.wait_for_selector(selector, timeout=timeout)
+            return True
         except Exception:
-            # If detection fails, be conservative and do nothing
-            return 0
+            return False
 
-        clicks = 0
+    def click_nth(self, selector: str, index: int) -> bool:
         try:
-            # Try clicking the questmaster button if present on the current page
-            try:
-                qm = self.page.locator("#questmasterButton").first
-                if qm.count() and qm.is_visible():
-                    qm.click()
-                    logger.info("Clicked questmaster button")
-                    # wait for tasks page to load
-                    try:
-                        self.page.wait_for_load_state('networkidle', timeout=3000)
-                    except Exception:
-                        pass
-            except Exception:
-                logger.debug("Questmaster button not clickable or not present")
-
-            # Now attempt to click all elements that contain text 'Collect' (case variants)
-            selectors = [
-                "button:has-text('Collect')",
-                "button:has-text('collect')",
-                "a:has-text('Collect')",
-                "a:has-text('collect')",
-                "text=Collect",
-                "text=collect",
-            ]
-
-            for sel in selectors:
-                try:
-                    loc = self.page.locator(sel)
-                    count = loc.count()
-                    for i in range(count):
-                        el = loc.nth(i)
-                        try:
-                            if el.is_visible():
-                                el.click()
-                                clicks += 1
-                        except Exception:
-                            # ignore click failures for individual elements
-                            continue
-                except Exception:
-                    continue
-
-        except Exception as e:
-            logger.debug(f"claim_quest_rewards_if_available failed: {e}")
-
-        return clicks
-
-    def allocate_hero_attributes(self, points_to_allocate: int) -> None:
-        target = DEFAULT_ATTRIBUTE_POINT_TYPE
-
-        self._navigate('/hero/attributes')
-        self.page.wait_for_selector('div.heroAttributes', timeout=3000)
-
-        buttons_selector = "button.textButtonV2.buttonFramed.plus.rectangle.withIcon.green, [role=\"button\"].textButtonV2.buttonFramed.plus.rectangle.withIcon.green"
-        buttons = self.page.locator(buttons_selector)
-        button = buttons.nth(target.value - 1)
-
-        for _ in range(points_to_allocate):
-            button.click()
-
-        save_btn = self.page.locator('#savePoints').first
-        if save_btn.count() and save_btn.is_visible():
-            save_btn.click()
-
-    def claim_daily_quests(self) -> None:
-        """If the daily quests anchor shows an indicator, click it to open dialog and click Collect rewards.
-        Returns True if any relevant click occurred, False otherwise. Tolerant to UI differences.
-        """
-        self.page.wait_for_selector('#navigation a.dailyQuests', timeout=1000)
-        locator = self.page.locator('#navigation a.dailyQuests').first
-        if locator.count() and locator.is_visible():
-            try:
-                locator.click()
-                logger.info('Clicked dailyQuests anchor')
-            except Exception:
-                logger.info('dailyQuests anchor found but click failed')
-
-        # After anchor click, the Collect rewards control may appear. Try multiple selectors.
-        collect_rewards_selectors = [
-            'button.collectRewards',
-            "button.textButtonV2.buttonFramed.collectRewards",
-            "button:has-text('Collect rewards')",
-            "text=Collect rewards",
-        ]
-
-        for sel in collect_rewards_selectors:
-            loc = self.page.locator(sel).first
-            try:
-                loc.click()
-                logger.info(f"Clicked collect rewards button using selector: {sel}")
-                # don't return immediately, there may be a final Collect button to click
-                break
-            except Exception:
-                logger.info(f"Collect rewards button found but click failed for selector: {sel}")
-
-        # After clicking 'Collect rewards' there is often a final 'Collect' button
-        final_collect_selectors = [
-            "button.collect",
-            "button.collectable",
-            "button:has-text('Collect')",
-            "button.textButtonV2.buttonFramed.collect",
-            "button.textButtonV2.buttonFramed.collect.collectable",
-        ]
-
-        for sel in final_collect_selectors:
-            locs = self.page.locator(sel)
-            count = locs.count()
-            for i in range(count):
-                el = locs.nth(i)
+            locs = self.page.locator(selector)
+            if locs.count() > index:
+                el = locs.nth(index)
                 if el.is_visible():
-                    el.click()
-                    logger.info(f"Clicked final collect button using selector: {sel}")
-
+                    try:
+                        el.click()
+                        return True
+                    except Exception:
+                        logger.debug(f"click_nth failed for selector={selector} index={index}")
+                        return False
+        except Exception:
+            pass
+        return False

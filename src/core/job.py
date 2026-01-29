@@ -16,7 +16,6 @@ class JobStatus(Enum):
 #TODO: need refactor, different kind of jobs should extend Job class
 @dataclass
 class Job:
-    # Enforce Task interface - no more unions. Use CallableTask to wrap legacy callables.
     task: Task
     scheduled_time: datetime
     expires_at: datetime
