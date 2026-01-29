@@ -276,3 +276,25 @@ class Driver:
         except Exception:
             return ""
 
+    def wait_for_selector(self, selector: str, timeout: int = 3000) -> bool:
+        try:
+            self.page.wait_for_selector(selector, timeout=timeout)
+            return True
+        except Exception:
+            return False
+
+    def click_nth(self, selector: str, index: int) -> bool:
+        try:
+            locs = self.page.locator(selector)
+            if locs.count() > index:
+                el = locs.nth(index)
+                if el.is_visible():
+                    try:
+                        el.click()
+                        return True
+                    except Exception:
+                        logger.debug(f"click_nth failed for selector={selector} index={index}")
+                        return False
+        except Exception:
+            pass
+        return False

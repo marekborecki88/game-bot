@@ -302,30 +302,32 @@ class Bot:
         try:
             # Delegate orchestration to the Task which uses DriverProtocol primitives
             started = task.execute(self.driver)
-        except Exception as e:
-            logger.error(f"Error while starting hero adventure: {e}")
+        except Exception:
+            # Swallow exceptions here; the handler will mark the job as expired below
+            started = False
 
         if not started:
             job.status = JobStatus.EXPIRED
-            return "Hero adventure not started (no button found or driver failed)"
+            return task.failure_message
 
         job.status = JobStatus.COMPLETED
-        h = task.hero_info
-        return f"Hero adventure started (health={h.health}, experience={h.experience}, adventures={h.adventures})"
+        return task.success_message
 
 
     @_handle_task.register
     def _(self, task: AllocateAttributesTask, job: Job) -> str:  # type: ignore[override]
+        succeeded = False
         try:
-            points = int(task.points or 0)
-            self.driver.allocate_hero_attributes(points_to_allocate=points)
-        except Exception as e:
-            logger.error(f"Error while allocating hero attributes: {e}")
-            job.status = JobStatus.TERMINATED
-            raise
+            succeeded = task.execute(self.driver)
+        except Exception:
+            succeeded = False
+
+        if not succeeded:
+            job.status = JobStatus.EXPIRED
+            return task.failure_message
 
         job.status = JobStatus.COMPLETED
-        return f"Allocated {task.points} hero attribute points"
+        return task.success_message
 
 
     @_handle_task.register

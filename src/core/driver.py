@@ -44,11 +44,17 @@ class DriverProtocol(Protocol):
         Returns an estimate of number of click attempts made.
         """
 
+    def click_nth(self, selector: str, index: int) -> bool:
+        """Click the N-th element matching selector (0-based index); return True if clicked."""
+
     def wait_for_load_state(self, timeout: int = 3000) -> None:
         """Wait for the page to reach a stable load state or timeout (milliseconds).
 
         Implementations should swallow non-fatal exceptions and return.
         """
+
+    def wait_for_selector(self, selector: str, timeout: int = 3000) -> bool:
+        """Wait for a selector to appear on the page and return True if present."""
 
     def current_url(self) -> str:
         """Return the driver's current URL as a string."""
