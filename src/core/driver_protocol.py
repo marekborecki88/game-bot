@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, Iterable
+from typing import Protocol, Iterable, Tuple
 
 
 class DriverProtocol(Protocol):
@@ -8,7 +8,7 @@ class DriverProtocol(Protocol):
 
     The protocol intentionally exposes a very small surface so the core
     package does not depend on Playwright. Concrete drivers (for example
-    the Playwright-based driver in `src/driver_adapter/driver.py`) should
+    the Playwright-based driver in `src/driver_adapter/driver_protocol.py`) should
     implement these methods.
     """
 
@@ -18,6 +18,13 @@ class DriverProtocol(Protocol):
         The path may start with a leading slash or be a relative path.
         Implementations are expected to wait for the page to reach a stable
         load state before returning.
+        """
+
+    def get_village_inner_html(self, village_id: int) -> Tuple[str, str]:
+        """
+        Return the inner HTML's of dorf1 and dorf2 for the given village ID.
+        :param village_id:
+        :return: A tuple of (dorf1_html, dorf2_html)
         """
 
     def stop(self) -> None:

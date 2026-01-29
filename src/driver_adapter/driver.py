@@ -41,8 +41,6 @@ class Driver:
 
         This is the single public navigation method used throughout the codebase.
         """
-        if not path.startswith("/"):
-            path = "/" + path
         url = f"{self.config.server_url}{path}"
 
         # Log where we're navigating to for easier tracing
@@ -55,14 +53,14 @@ class Driver:
         self.navigate(path)
         return self.page.content()
 
-    def navigate_to_village(self, id: int) -> None:
-        self.navigate(f"/dorf1.php?newdid={id}")
+    def navigate_to_village(self, village_id: int) -> None:
+        self.navigate(f"/dorf1.php?newdid={village_id}")
 
     def refresh(self) -> None:
         self.page.reload()
 
-    def get_village_inner_html(self, id: int) -> Tuple[str, str]:
-        self.navigate_to_village(id)
+    def get_village_inner_html(self, village_id: int) -> Tuple[str, str]:
+        self.navigate_to_village(village_id)
         dorf1: str = self.get_html("/dorf1.php")
         dorf2: str = self.get_html("/dorf2.php")
 

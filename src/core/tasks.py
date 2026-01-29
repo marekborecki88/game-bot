@@ -3,7 +3,7 @@ from typing import Any
 
 from src.core.model.model import Village
 from src.core.task import Task
-from src.core.driver import DriverProtocol
+from src.core.driver_protocol import DriverProtocol
 from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
 
 
