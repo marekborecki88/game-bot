@@ -5,7 +5,7 @@ from src.core.model.model import Village
 from src.core.task import Task
 
 
-@dataclass
+@dataclass(frozen=True)
 class BuildTask(Task):
     village_name: str
     village_id: int
@@ -15,7 +15,7 @@ class BuildTask(Task):
     target_level: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class BuildNewTask(Task):
     village_name: str
     village_id: int
@@ -24,24 +24,22 @@ class BuildNewTask(Task):
     target_name: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class HeroAdventureTask(Task):
     hero_info: Any
 
 
-@dataclass
+@dataclass(frozen=True)
 class AllocateAttributesTask(Task):
     points: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class CollectDailyQuestsTask(Task):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class CollectQuestmasterTask(Task):
     village: Village
-
-
 
