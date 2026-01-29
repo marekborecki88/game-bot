@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 
 from src.core.bot import Bot
-from src.core.job import Job, JobStatus
-from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo, Building, Resources
 from src.core.driver import DriverProtocol
+from src.core.job import Job, JobStatus
+from src.core.model.model import Village, SourcePit, SourceType, BuildingType, Tribe, GameState, \
+    Account, HeroInfo, Building, Resources
+from src.core.tasks import BuildTask
 
 
 class FakeDriver(DriverProtocol):
@@ -99,7 +100,16 @@ def test_unfreeze_on_expired_job_cleanup():
     # Simulate a delayed job that then expires (status changed to EXPIRED)
     now = datetime.now()
     expired_job = Job(
-        task=lambda: {"action": "build", "village_id": village.id},
+        task=BuildTask(
+            success_message="build scheduled",
+            failure_message="build failed",
+            village_name=village.name,
+            village_id=village.id,
+            building_id=1,
+            building_gid=1,
+            target_name="",
+            target_level=1,
+        ),
         scheduled_time=now - timedelta(hours=2),
         expires_at=now - timedelta(hours=1),
         status=JobStatus.PENDING,

@@ -6,6 +6,7 @@ from types import FrameType
 
 import schedule
 
+from src.core.driver import DriverProtocol
 from src.core.job import Job, JobStatus
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourceType, VillageIdentity, GameState
@@ -26,8 +27,8 @@ class Bot:
     PLANNING_INTERVAL: int = 300  # seconds (fallback)
     JOB_CHECK_INTERVAL: int = 1  # seconds
 
-    def __init__(self, driver: Driver) -> None:
-        self.driver: Driver = driver
+    def __init__(self, driver: DriverProtocol) -> None:
+        self.driver: DriverProtocol = driver
         # Do not perform expensive scans during construction. The LogicEngine may receive
         # a fresh GameState at planning time via create_plan_for_village(game_state).
         self.logic_engine: LogicEngine = LogicEngine(game_state=None)
@@ -38,7 +39,7 @@ class Bot:
 
         self._setup_signal_handlers()
 
-    def _schedule_planning_in(self, seconds: int) -> None:
+    def _schedule_planning(self, game_state: GameState) -> None:
         """Schedule the next planning run after `seconds` seconds.
 
         Cancels any previously scheduled planning job to ensure only one planner job exists.
@@ -52,8 +53,9 @@ class Bot:
 
         # schedule the next planner job
         try:
-            self._planning_job = schedule.every(seconds).seconds.do(self._run_planning)
-            logger.info(f"Next planning scheduled in {seconds} seconds")
+            delay = self._calculate_next_delay(game_state)
+            self._planning_job = schedule.every(delay).seconds.do(self._run_planning)
+            logger.info(f"Next planning scheduled in {delay} seconds")
         except Exception as e:
             logger.error(f"Failed to schedule next planning run: {e}")
 
@@ -80,25 +82,13 @@ class Bot:
             self.jobs.extend(new_jobs)
             logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
 
-            #TODO: extract calculation of next planning time into separate method
-            # compute when the building queues will finish
-            try:
-                if game_state.villages:
-                    next_delay = int(shortest_building_queue(game_state.villages))
-                else:
-                    next_delay = self.PLANNING_INTERVAL
-            except Exception:
-                # in case something unexpected happens, fall back to default
-                next_delay = self.PLANNING_INTERVAL
-
-            # enforce sensible minimum delay to avoid tight recursion
-            if next_delay <= 0:
-                next_delay = 1
-
-            self._schedule_planning_in(next_delay)
+            self._schedule_planning(game_state)
 
         except Exception as e:
             logger.error(f"Planning failed: {e}", exc_info=True)
+
+    def _calculate_next_delay(self, game_state: GameState) -> int:
+        return int(shortest_building_queue(game_state.villages)) or 1
 
     def _setup_signal_handlers(self) -> None:
         """Setup graceful shutdown handlers for SIGINT and SIGTERM."""
@@ -190,8 +180,7 @@ class Bot:
 
         This method performs common bookkeeping (expiration check, status toggles,
         exception handling and final cleanup) and delegates the task-specific
-        execution to the singledispatch `_handle_task` method which contains
-        overloads for each Task subtype and a callable fallback.
+        execution to the `_handle_task` method which runs Task instances.
         """
         if job.is_expired():
             job.status = JobStatus.EXPIRED
@@ -228,34 +217,14 @@ class Bot:
 
 
     def _handle_task(self, job: Job) -> str:
-        """Generic task handler: run the task (or fallback) and return a summary.
+        """Generic task handler: run the Task and return a summary.
 
-        This replaces the previous singledispatch handlers since all handlers
-        shared the same implementation. The method accepts a Job and is
-        responsible for setting job.status on success/failure before returning
-        the human-readable message.
+        Assumes `job.task` is a Task instance implementing execute() and
+        providing success_message/failure_message. Legacy callable jobs were
+        removed from planning; if a non-Task is encountered we raise.
         """
         task = job.task
 
-        # Legacy callable fallback
-        if callable(task):
-            payload = task()
-            action = payload.get("action")
-            village_name = payload.get("village_name")
-            village_id = payload.get("village_id")
-
-            if village_id is not None:
-                try:
-                    self.driver.navigate_to_village(village_id)
-                except Exception:
-                    logger.debug(f"Failed to navigate to village id {village_id}")
-
-            if action == "build":
-                self.build(village_name, payload.get('building_id'), payload.get('building_gid'))
-            job.status = JobStatus.COMPLETED
-            return f"Fallback executed action {action}"
-
-        # New-style Task objects (must implement execute and have messages)
         try:
             succeeded = task.execute(self.driver)
         except Exception:
@@ -263,11 +232,10 @@ class Bot:
 
         if not succeeded:
             job.status = JobStatus.EXPIRED
-            # Attempt to return a failure message if present, otherwise a default
-            return getattr(task, 'failure_message', 'Task failed')
+            return task.failure_message
 
         job.status = JobStatus.COMPLETED
-        return getattr(task, 'success_message', 'Task completed')
+        return task.success_message
 
 
     def planning(self) -> list[Job]:
@@ -287,26 +255,6 @@ class Bot:
         """Get the list of all villages."""
         html: str = self.driver.get_html("dorf1")
         return scan_village_list(html)
-
-    def build(self, village_name: str, id: int, gid: int) -> None:
-        """Build/upgrade a building in a village."""
-        source_type = next((st for st in SourceType if st.value == gid), None)
-        source_label = source_type.name if source_type else f"gid={gid}"
-
-        # I don't like this code
-        url = f"{self.driver.config.server_url}/build.php?id={id}&gid={gid}"
-        try:
-            self.driver.page.goto(url)
-            self.driver.page.wait_for_selector("#contract")
-
-            upgrade_button = self.driver.page.locator("button.textButtonV1.green.build").first
-            if upgrade_button:
-                upgrade_button.click()
-                logger.info(f"Started building {source_label} in village {village_name} (id={id})")
-            else:
-                logger.warning(f"Failed to start building {source_label} in village {village_name} (id={id}): upgrade button not found")
-        except Exception as e:
-            logger.error(f"Failed to start building {source_label} in village {village_name} (id={id}): {e}", exc_info=True)
 
     def wait_for_next_task(self, seconds: int) -> None:
         """Wait for a specified number of seconds before next task."""
@@ -362,35 +310,3 @@ class Bot:
         villages = [self.fetch_village_info(v) for v in self.village_list()]
         hero_info = self.fetch_hero_info()
         return GameState(hero_info=hero_info, account=account_info, villages=villages)
-
-
-    def build_new(self, village_id, village_name, id, gid) -> str:
-        #TODO: need to determinate in which category building is being built and possible switch tab
-        building_category = 1 # infrastructure
-
-        self.driver.navigate_to_village(village_id)
-
-        # I don't like this code
-        url = f"{self.driver.config.server_url}/build.php?id={id}"
-        self.driver.page.goto(url)
-        self.driver.page.wait_for_selector("#contract")
-
-        find_id = f'contract_building{gid}'
-        building_part = self.driver.page.locator(f"button.textButtonV1.green.build#{find_id}").first
-
-        # contract = scan_new_building_contract(building_part)
-
-        # Click the primary action button inside the contract (the button inside div.section1)
-        try:
-            # The contract wrapper has id like 'contract_building{slotId}', use it to scope the selector
-            contract_container_selector = f"#{find_id}"
-            section1_button = self.driver.page.locator(f"{contract_container_selector} .section1 button").first
-            if section1_button:
-                section1_button.click()
-                logger.info("Clicked new building button (section1)")
-            else:
-                logger.error(f"Section1 button not found for contract {find_id}")
-        except Exception as e:
-            logger.error(f"Failed to click new building button for contract {find_id}: {e}", exc_info=True)
-
-        return f"Placed new building contract in village {village_name} (id={village_id}) at slot {id} for building gid {gid}"
