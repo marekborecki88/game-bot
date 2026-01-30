@@ -25,8 +25,6 @@ class Driver(DriverProtocol):
         self.login()
 
     def login(self) -> None:
-        logger.info("Logging in...")
-
         self.page.goto(self.config.server_url)
 
         self.page.fill('input[name="name"]', self.config.user_login)
@@ -42,7 +40,7 @@ class Driver(DriverProtocol):
             self.page.mouse.click(x, y)
         self.page.wait_for_load_state('networkidle')
 
-        logger.info("logged in.")
+        logger.info("Successfully logged in.")
 
     def stop(self) -> None:
         self.browser.close()

@@ -62,8 +62,8 @@ def test_create_build_job_schedules_future_when_insufficient_resources(account_i
     assert getattr(village, 'is_queue_building_freeze', False) is True
 
     expected = BuildTask(
-        success_message="build scheduled",
-        failure_message="build failed",
+        success_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} started",
+        failure_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
         village_id=village.id,
         building_id=2,
@@ -107,8 +107,8 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info,
     assert job.metadata.get('action') == 'build'
 
     expected = BuildTask(
-        success_message="build scheduled",
-        failure_message="build failed",
+        success_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} started",
+        failure_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
         village_id=village.id,
         building_id=3,

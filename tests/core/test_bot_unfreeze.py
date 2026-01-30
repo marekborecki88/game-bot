@@ -102,8 +102,8 @@ def test_unfreeze_on_expired_job_cleanup():
     now = datetime.now()
     expired_job = Job(
         task=BuildTask(
-            success_message="build scheduled",
-            failure_message="build failed",
+            success_message=f"construction of  level 1 in {village.name} started",
+            failure_message=f"construction of  level 1 in {village.name} failed",
             village_name=village.name,
             village_id=village.id,
             building_id=1,

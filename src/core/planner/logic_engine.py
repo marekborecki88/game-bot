@@ -109,7 +109,8 @@ class LogicEngine:
 
         support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
 
-        build_task = BuildTask(success_message="build scheduled", failure_message="build failed",
+        build_task = BuildTask(success_message=f"construction of {target_name} level {target_level} in {village.name} started",
+                               failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
                                village_name=village.name, village_id=village.id, building_id=building_id,
                                building_gid=building_gid, target_name=target_name, target_level=target_level,
                                support=support
@@ -173,8 +174,8 @@ class LogicEngine:
         if points > 0:
             jobs.append(Job(
                 task=AllocateAttributesTask(
-                    success_message="attribute allocation scheduled",
-                    failure_message="attribute allocation failed",
+                    success_message="attribute points allocated ",
+                    failure_message="attribute points allocation failed",
                     points=points,
                 ),
                 scheduled_time=now,
@@ -218,8 +219,8 @@ class LogicEngine:
                         building_id=id,
                         building_gid=gid,
                         target_name=name,
-                        success_message="new building scheduled",
-                        failure_message="new building failed",
+                        success_message="construction of new building started",
+                        failure_message="construction of new building failed",
                     ),
                     scheduled_time=now,
                     expires_at=now + timedelta(hours=1),
@@ -231,8 +232,8 @@ class LogicEngine:
         now = datetime.now()
         return Job(
             task=CollectDailyQuestsTask(
-                success_message="collect daily scheduled",
-                failure_message="collect daily failed",
+                success_message="daily quests collected",
+                failure_message="daily quests collection failed",
             ),
             scheduled_time=now,
             expires_at=now + timedelta(hours=1)
@@ -242,8 +243,8 @@ class LogicEngine:
         now = datetime.now()
         return Job(
             task=CollectQuestmasterTask(
-                success_message="collect qm scheduled",
-                failure_message="collect qm failed",
+                success_message="reward from quest master collected",
+                failure_message="reward from quest master collection failed",
                 village=village,
             ),
             scheduled_time=now,
