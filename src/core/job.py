@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Any, Optional, Dict
+from typing import Any, Optional, Dict
 
-from src.core.task import Task
+from src.core.task.task import Task
 
 
 class JobStatus(Enum):

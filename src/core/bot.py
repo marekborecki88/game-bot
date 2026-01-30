@@ -10,7 +10,7 @@ from src.core.html_cache import HtmlCache
 from src.core.job import Job, JobStatus
 from src.core.model.model import Village, GameState
 from src.core.planner.logic_engine import LogicEngine
-from src.core.tasks import BuildTask, BuildNewTask
+from src.core.task.tasks import BuildTask, BuildNewTask
 from src.core.scanner_protocol import ScannerProtocol
 
 CLOSE_CONTENT_BUTTON_SELECTOR = "#closeContentButton"

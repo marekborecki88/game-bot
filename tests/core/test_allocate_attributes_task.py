@@ -1,4 +1,4 @@
-from src.core.tasks import AllocateAttributesTask
+from src.core.task.tasks import AllocateAttributesTask
 
 
 def test_allocate_attributes_clicks_n_times(fake_driver_factory) -> None:

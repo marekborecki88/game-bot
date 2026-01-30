@@ -1,4 +1,4 @@
-from src.core.tasks import BuildNewTask
+from src.core.task.tasks import BuildNewTask
 
 
 def test_build_new_task_places_contract(fake_driver_factory) -> None:

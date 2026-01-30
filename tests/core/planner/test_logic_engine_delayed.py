@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, SourcePit, SourceType, Tribe, GameState, Account, HeroInfo, Resources
-from src.core.tasks import BuildTask
+from src.core.task.tasks import BuildTask
 
 
 def make_village(**overrides) -> Village:

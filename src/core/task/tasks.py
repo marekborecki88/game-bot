@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.core.model.model import Village, Resources
-from src.core.task import Task
+from src.core.task.task import Task
 from src.core.driver_protocol import DriverProtocol
 from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
 
@@ -198,23 +198,7 @@ class CollectQuestmasterTask(Task):
         Returns True if any click attempts were made (rewards collected or attempted), False otherwise.
         """
         try:
-            # Get the latest page HTML for detection
-            page_html = driver.get_html("/dorf1.php")
-            try:
-                from src.scan_adapter.scanner import is_reward_available
-                if not is_reward_available(page_html):
-                    return False
-            except Exception:
-                # If detection fails, be conservative and do nothing
-                return False
-
-            # Click the questmaster button if present
-            try:
-                driver.click('#questmasterButton')
-                driver.wait_for_load_state(3000)
-            except Exception:
-                # continue even if click fails
-                pass
+            driver.wait_for_selector_and_click('#questmasterButton')
 
             # Click all 'Collect' controls
             collect_selectors = [
@@ -226,7 +210,19 @@ class CollectQuestmasterTask(Task):
                 "text=collect",
             ]
 
-            clicks = driver.click_all(collect_selectors)
+            clicks = 0
+            # iterate through reward pages until forward button is disabled
+            while True:
+                clicks += driver.click_all(collect_selectors)
+                classes = driver.catch_full_classes_by_selector("button.forward")
+                if "disabled" in classes:
+                    break
+                driver.click("button.forward")
+
+            # click general tasks
+            driver.wait_for_selector_and_click("a.tabItem:has-text('General tasks')")
+            clicks += driver.click_all(collect_selectors)
+
             driver.click("a#closeContentButton")
             return clicks > 0
         except Exception:

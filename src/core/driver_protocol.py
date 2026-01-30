@@ -73,3 +73,6 @@ class DriverProtocol(Protocol):
 
     def transfer_resources_from_hero(self, support: Resources):
         """Transfer resources from the hero to the current village storage."""
+
+    def catch_full_classes_by_selector(self, selector: str) -> str:
+        """Return the classes of the first element matching the selector."""

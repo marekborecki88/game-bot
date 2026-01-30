@@ -1,9 +1,8 @@
 from types import SimpleNamespace
-from typing import Iterable
 
 import pytest
 
-from src.core.tasks import HeroAdventureTask
+from src.core.task.tasks import HeroAdventureTask
 
 
 @pytest.mark.parametrize(

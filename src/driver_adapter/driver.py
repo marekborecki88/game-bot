@@ -2,7 +2,7 @@ import logging
 import random
 from typing import Iterable, Tuple
 
-from playwright.sync_api import Playwright
+from playwright.sync_api import Playwright, Locator
 
 from src.config import Config
 from src.core.bot import HERO_INVENTORY, CLOSE_CONTENT_BUTTON_SELECTOR, RESOURCE_TO_CLASS_MAP
@@ -182,3 +182,6 @@ class Driver(DriverProtocol):
     def wait_for_selector_and_click(self, selector: str, timeout: int = 3000) -> None:
         self.wait_for_selector(selector, timeout=timeout)
         self.click(selector)
+
+    def catch_full_classes_by_selector(self, selector: str) -> str:
+        return self.page.locator(selector).first.get_attribute("class") or ""

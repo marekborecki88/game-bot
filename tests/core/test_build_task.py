@@ -1,4 +1,4 @@
-from src.core.tasks import BuildTask
+from src.core.task.tasks import BuildTask
 
 
 def test_build_task_attempts_upgrade_click(fake_driver_factory) -> None:

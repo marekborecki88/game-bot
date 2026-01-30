@@ -2,7 +2,7 @@ import pytest
 
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import Village, Building, SourcePit, SourceType, BuildingType, BuildingJob, Tribe, GameState, Account, HeroInfo, Resources
-from src.core.tasks import BuildTask, HeroAdventureTask, AllocateAttributesTask
+from src.core.task.tasks import BuildTask, HeroAdventureTask, AllocateAttributesTask
 
 
 def make_village(**overrides) -> Village:
