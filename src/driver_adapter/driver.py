@@ -32,10 +32,14 @@ class Driver(DriverProtocol):
         self.page.fill('input[name="name"]', self.config.user_login)
         self.page.fill('input[name="password"]', self.config.user_password)
 
-        self.page.keyboard.press('Tab')
-        for char in self.config.user_password:
-            self.page.keyboard.type(char, delay=random.uniform(150, 200))
-
+        # move mouse to random position within login button and click
+        login_button: Locator = self.page.locator('button[type="submit"]').first
+        box = login_button.bounding_box()
+        if box:
+            x = box["x"] + random.uniform(0, box["width"])
+            y = box["y"] + random.uniform(0, box["height"])
+            self.page.mouse.move(x, y)
+            self.page.mouse.click(x, y)
         self.page.wait_for_load_state('networkidle')
 
         logger.info("logged in.")
