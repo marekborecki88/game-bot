@@ -23,7 +23,7 @@ class BuildTask(Task):
     building_gid: int
     target_name: str
     target_level: int
-    support: Resources | None
+    support: Resources | None = None
 
     def execute(self, driver: DriverProtocol) -> bool:
         """Perform building/upgrade action using driver primitives.
