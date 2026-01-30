@@ -1,10 +1,18 @@
 from dataclasses import dataclass
 from typing import Any
 
-from src.core.model.model import Village
+from src.core.model.model import Village, Resources
 from src.core.task import Task
 from src.core.driver_protocol import DriverProtocol
 from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
+
+DAILY_QUESTS_SELECTOR = '#navigation a.dailyQuests'
+
+CLOSE_WINDOW_BUTTON_SELECTOR = "a#closeContentButton"
+
+CONFIRM_COLLECT_REWARDS_BUTTON_SELECTOR = ".textButtonV2.buttonFramed.collect.collectable.rectangle.withText.green"
+
+COLLECT_REWARDS_BUTTON_SELECTOR = ".textButtonV2.buttonFramed.collectRewards.rectangle.withText.green"
 
 
 @dataclass(frozen=True)
@@ -15,6 +23,7 @@ class BuildTask(Task):
     building_gid: int
     target_name: str
     target_level: int
+    support: Resources | None
 
     def execute(self, driver: DriverProtocol) -> bool:
         """Perform building/upgrade action using driver primitives.
@@ -24,6 +33,10 @@ class BuildTask(Task):
         """
         # Navigate directly to the build URL for the given slot and gid
         driver.navigate(f"/build.php?id={self.building_id}&gid={self.building_gid}")
+
+        if self.support:
+            # Fill in support resources if provided
+            driver.transfer_resources_from_hero(self.support)
 
         # Wait for contract UI to appear
         if not driver.wait_for_selector('#contract', timeout=3000):
@@ -166,39 +179,10 @@ class CollectDailyQuestsTask(Task):
         Returns True if the flow ran (click attempts made), False otherwise.
         """
         try:
-            # Wait for daily quests anchor
-            present = driver.wait_for_selector('#navigation a.dailyQuests', timeout=1000)
-            if not present:
-                return False
-
-            # Try to click the anchor (may fail silently)
-            try:
-                driver.click('#navigation a.dailyQuests')
-            except Exception:
-                # continue regardless
-                pass
-
-            # Try initial Collect rewards controls
-            collect_rewards_selectors = [
-                'button.collectRewards',
-                "button.textButtonV2.buttonFramed.collectRewards",
-                "button:has-text('Collect rewards')",
-                "text=Collect rewards",
-            ]
-
-            driver.click_first(collect_rewards_selectors)
-
-            # Final collect buttons
-            final_collect_selectors = [
-                "button.collect",
-                "button.collectable",
-                "button:has-text('Collect')",
-                "button.textButtonV2.buttonFramed.collect",
-                "button.textButtonV2.buttonFramed.collect.collectable",
-            ]
-
-            driver.click_all(final_collect_selectors)
-            driver.click("a#closeContentButton")
+            driver.wait_for_selector_and_click(DAILY_QUESTS_SELECTOR)
+            driver.wait_for_selector_and_click(COLLECT_REWARDS_BUTTON_SELECTOR)
+            driver.wait_for_selector_and_click(CONFIRM_COLLECT_REWARDS_BUTTON_SELECTOR)
+            driver.wait_for_selector_and_click(CLOSE_WINDOW_BUTTON_SELECTOR)
             return True
         except Exception:
             return False

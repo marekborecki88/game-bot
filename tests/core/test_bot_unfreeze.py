@@ -6,6 +6,7 @@ from src.core.job import Job, JobStatus
 from src.core.model.model import Village, SourcePit, SourceType, BuildingType, Tribe, GameState, \
     Account, HeroInfo, Building, Resources
 from src.core.tasks import BuildTask
+from src.scan_adapter.scanner_adapter import Scanner
 
 
 class FakeDriver(DriverProtocol):
@@ -87,7 +88,7 @@ def make_village(**overrides) -> Village:
 def test_unfreeze_on_expired_job_cleanup():
     # Setup bot with fake driver and a frozen village
     driver = FakeDriver()
-    bot = Bot(driver)
+    bot = Bot(driver, scanner=Scanner())
 
     village = make_village()
     account = Account(server_speed=1.0)

@@ -9,6 +9,7 @@ from src.config import Config
 logger = logging.getLogger(__name__)
 
 
+
 @dataclass
 class Resources:
     lumber: int | float = 0

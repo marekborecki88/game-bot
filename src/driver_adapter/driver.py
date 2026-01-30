@@ -5,11 +5,18 @@ from typing import Iterable, Tuple
 from playwright.sync_api import Playwright
 
 from src.config import Config
+from src.core.bot import HERO_INVENTORY, CLOSE_CONTENT_BUTTON_SELECTOR, RESOURCE_TO_CLASS_MAP
+from src.core.driver_protocol import DriverProtocol
+from src.core.model.model import Resources
+
+RESOURCE_TRANSFER_SUBMIT_SELECTOR = 'button.withText.green'
+
+RESOURCE_TRANSFER_INPUT_SELECTOR = 'input[inputmode="numeric"]'
 
 logger = logging.getLogger(__name__)
 
 
-class Driver:
+class Driver(DriverProtocol):
     def __init__(self, playwright: Playwright, config: Config):
         self.playwright = playwright
         self.config = config
@@ -126,10 +133,28 @@ class Driver:
             pass
 
     def current_url(self) -> str:
-        try:
-            return self.page.url
-        except Exception:
-            return ""
+        return self.page.url
+
+
+    def transfer_resources_from_hero(self, support: Resources):
+        self.navigate(HERO_INVENTORY)
+
+        for item_id, amount in vars(support).items():
+            if amount > 0:
+                self.transfer_resource(amount, item_id)
+
+        logger.info(f"Transferred {support} from hero inventory.")
+        self.click(CLOSE_CONTENT_BUTTON_SELECTOR)
+
+
+    def transfer_resource(self, amount, item_id: str):
+        selector = RESOURCE_TO_CLASS_MAP.get(item_id)
+        self.click(f".item.{selector}")
+        # wait for input to appear
+        self.wait_for_selector(RESOURCE_TRANSFER_INPUT_SELECTOR, timeout=2000)
+        # self._fill_input('input[inputmode="numeric"]', str(amount))
+        self.page.fill(RESOURCE_TRANSFER_INPUT_SELECTOR, str(amount))
+        self.click(RESOURCE_TRANSFER_SUBMIT_SELECTOR)
 
     def wait_for_selector(self, selector: str, timeout: int = 3000) -> bool:
         try:
@@ -153,3 +178,7 @@ class Driver:
         except Exception:
             pass
         return False
+
+    def wait_for_selector_and_click(self, selector: str, timeout: int = 3000) -> None:
+        self.wait_for_selector(selector, timeout=timeout)
+        self.click(selector)
