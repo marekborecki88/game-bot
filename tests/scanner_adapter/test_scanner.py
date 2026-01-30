@@ -3,20 +3,7 @@ from bs4 import BeautifulSoup
 
 from src.core.model.model import VillageIdentity, SourcePit, SourceType, Building, BuildingType, BuildingJob, Account, \
     Tribe, HeroInfo, Village, BuildingContract, Resources
-from src.scan_adapter.scanner import (
-    scan_village_name,
-    scan_stock_bar,
-    scan_building_queue,
-    scan_village_source,
-    scan_village_center, scan_village_list,
-    scan_production,
-    scan_village,
-    scan_account_info,
-    identity_tribe,
-    scan_hero_info,
-    _parse_adventure_number,
-    scan_new_building_contract
-)
+from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
 
@@ -41,8 +28,11 @@ def inventory_html():
 
 
 def test_scan_village_list(dorf1_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_village_list(dorf1_html)
+    result = scanner.scan_village_list(dorf1_html)
 
     # Then
     expected = [
@@ -54,8 +44,11 @@ def test_scan_village_list(dorf1_html):
 
 
 def test_scan_village_source(dorf1_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_village_source(dorf1_html)
+    result = scanner.scan_village_source(dorf1_html)
 
     # Then
     expected = [
@@ -83,8 +76,11 @@ def test_scan_village_source(dorf1_html):
 
 
 def test_scan_village_center(dorf2_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_village_center(dorf2_html)
+    result = scanner.scan_village_center(dorf2_html)
 
     # Then
     expected = [
@@ -98,16 +94,22 @@ def test_scan_village_center(dorf2_html):
 
 
 def test_scan_village_name(dorf1_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_village_name(dorf1_html)
+    result = scanner.scan_village_name(dorf1_html)
 
     # Then
     assert result == "New village"
 
 
 def test_scan_stock_bar(dorf1_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_stock_bar(dorf1_html)
+    result = scanner.scan_stock_bar(dorf1_html)
 
     # Then
     expected = {
@@ -123,8 +125,11 @@ def test_scan_stock_bar(dorf1_html):
 
 
 def test_scan_production(dorf1_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_production(dorf1_html)
+    result = scanner.scan_production(dorf1_html)
 
     # Then
     expected = {
@@ -139,10 +144,11 @@ def test_scan_production(dorf1_html):
 
 def test_scan_village(dorf1_html, dorf2_html):
     # Given
+    scanner = Scanner()
     identity = VillageIdentity(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
 
     # When
-    result = scan_village(identity, dorf1_html, dorf2_html)
+    result = scanner.scan_village(identity, dorf1_html, dorf2_html)
 
     # Then
     expected = Village(
@@ -166,8 +172,11 @@ def test_scan_village(dorf1_html, dorf2_html):
 
 
 def test_scan_building_queue(dorf1_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_building_queue(dorf1_html)
+    result = scanner.scan_building_queue(dorf1_html)
 
     # Then
     expected = [
@@ -178,8 +187,11 @@ def test_scan_building_queue(dorf1_html):
 
 
 def test_scan_account_info(dorf1_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_account_info(dorf1_html)
+    result = scanner.scan_account_info(dorf1_html)
 
     # Then
     expected = Account(
@@ -190,16 +202,22 @@ def test_scan_account_info(dorf1_html):
 
 
 def test_identity_tribe(dorf2_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = identity_tribe(dorf2_html)
+    result = scanner.identity_tribe(dorf2_html)
 
     # Then
     assert result == Tribe.ROMANS
 
 
 def test_scan_hero_info(hero_attributes_html, inventory_html):
+    # Given
+    scanner = Scanner()
+
     # When
-    result = scan_hero_info(hero_attributes_html, inventory_html)
+    result = scanner.scan_hero_info(hero_attributes_html, inventory_html)
 
     # Then
     expected = HeroInfo(
@@ -219,22 +237,28 @@ def test_scan_hero_info(hero_attributes_html, inventory_html):
 
 def test_scan_hero_info_with_attribute_points(inventory_html):
     # Given
+    scanner = Scanner()
     html = HtmlUtils.load("hero_attributes_with_points.html")
+
     # When
-    result = scan_hero_info(html, inventory_html)
+    result = scanner.scan_hero_info(html, inventory_html)
 
     # Then
     assert result.points_available == 4
 
 
 def test_scan_hero_info_without_attribute_points(hero_attributes_html, inventory_html):
+    # Given
+    scanner = Scanner()
+
     # Ensure existing fixture doesn't report attribute points
-    result = scan_hero_info(hero_attributes_html, inventory_html)
+    result = scanner.scan_hero_info(hero_attributes_html, inventory_html)
     assert result.points_available == 0
 
 
 def test_scan_hero_without_adventures():
     # Given
+    scanner = Scanner()
     html = """
            <a id="button6977c92fb7cdd" class="layoutButton buttonFramed withIcon round adventure green    "
               href="/hero/adventures">
@@ -244,7 +268,7 @@ def test_scan_hero_without_adventures():
     tag = BeautifulSoup(html, "html.parser")
 
     # When
-    result = _parse_adventure_number(tag)
+    result = scanner._parse_adventure_number(tag)
 
     # Then
     assert result == 0
@@ -252,6 +276,7 @@ def test_scan_hero_without_adventures():
 
 def test_scan_hero_with_adventures():
     # Given
+    scanner = Scanner()
     html = """
            <a id="button6977c92fb7cdd" class="layoutButton buttonFramed withIcon round adventure green    "
               href="/hero/adventures">
@@ -261,7 +286,7 @@ def test_scan_hero_with_adventures():
     tag = BeautifulSoup(html, "html.parser")
 
     # When
-    result = _parse_adventure_number(tag)
+    result = scanner._parse_adventure_number(tag)
 
     # Then
     assert result == 5
@@ -269,6 +294,7 @@ def test_scan_hero_with_adventures():
 
 def test_scan_contract():
     # Given
+    scanner = Scanner()
     html = """
            <div id="contract_building10" class="buildingWrapper">
                <div class="upgradeBuilding">
@@ -306,7 +332,7 @@ def test_scan_contract():
         pytest.fail("Failed to parse test HTML for contract scanning.")
 
     # When
-    result = scan_new_building_contract(tag)
+    result = scanner.scan_new_building_contract(tag)
 
     # Then
     expected = BuildingContract(
