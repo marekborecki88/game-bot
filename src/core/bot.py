@@ -1,20 +1,34 @@
 import logging
 import signal
-import sys
 import time
 from types import FrameType
 
 import schedule
 
 from src.core.driver_protocol import DriverProtocol
-from src.core.job import Job, JobStatus
-from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, SourceType, VillageIdentity, GameState
-from src.driver_adapter.driver import Driver
-from src.scan_adapter.scanner import scan_village, scan_village_list, scan_account_info, scan_hero_info, \
-    is_reward_available, scan_village_name
-from src.core.tasks import BuildTask, BuildNewTask
 from src.core.html_cache import HtmlCache
+from src.core.job import Job, JobStatus
+from src.core.model.model import Village, GameState
+from src.core.planner.logic_engine import LogicEngine
+from src.core.tasks import BuildTask, BuildNewTask
+from src.core.scanner_protocol import ScannerProtocol
+
+CLOSE_CONTENT_BUTTON_SELECTOR = "#closeContentButton"
+ATTRIBUTES = "/hero/attributes"
+HERO_INVENTORY = "/hero/inventory"
+CLASS_TO_RESOURCE_MAP = {
+    "item145": "lumber",
+    "item146": "clay",
+    "item147": "iron",
+    "item148": "crop"
+}
+RESOURCE_TO_CLASS_MAP = {
+    "lumber": "item145",
+    "clay": "item146",
+    "iron": "item147",
+    "crop": "item148"
+}
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +39,13 @@ def shortest_building_queue(villages: list[Village]) -> int:
 
 class Bot:
     """Game bot with scheduled planning and job execution."""
-    
+
     PLANNING_INTERVAL: int = 300  # seconds (fallback)
     JOB_CHECK_INTERVAL: int = 1  # seconds
 
-    def __init__(self, driver: DriverProtocol) -> None:
+    def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol) -> None:
         self.driver: DriverProtocol = driver
+        self.scanner: ScannerProtocol = scanner
         # Do not perform expensive scans during construction. The LogicEngine may receive
         # a fresh GameState at planning time via create_plan_for_village(game_state).
         self.logic_engine: LogicEngine = LogicEngine(game_state=None)
@@ -65,8 +80,6 @@ class Bot:
             logger.info(f"Next planning scheduled in {delay} seconds")
         except Exception as e:
             logger.error(f"Failed to schedule next planning run: {e}")
-
-
 
     def _run_planning(self) -> None:
         """Run the planning phase, add new jobs and schedule the next planning run dynamically.
@@ -111,20 +124,20 @@ class Bot:
         """Start the bot's main loop with scheduled tasks."""
         logger.info("Starting bot...")
         self._running = True
-        
+
         # NOTE: planning is now scheduled dynamically by `_run_planning` itself
         # Schedule job execution check
         schedule.every(self.JOB_CHECK_INTERVAL).seconds.do(self._execute_pending_jobs)
-        
+
         # Run initial planning immediately; it will schedule the next run based on queues
         self._run_planning()
-        
+
         logger.info(f"Scheduler configured: dynamic planning, job check every {self.JOB_CHECK_INTERVAL}s")
 
         while self._running:
             schedule.run_pending()
             time.sleep(0.1)  # Small sleep to prevent CPU spinning
-        
+
         self._cleanup()
 
     def _cleanup(self) -> None:
@@ -171,9 +184,11 @@ class Bot:
                 if j.metadata and j.metadata.get('action') in ("build", "build_new") and j.metadata.get('village_id'):
                     try:
                         self.logic_engine.unfreeze_village_queue(j.metadata.get('village_id'))
-                        logger.debug(f"Unfroze village queue for village id {j.metadata.get('village_id')} during cleanup")
+                        logger.debug(
+                            f"Unfroze village queue for village id {j.metadata.get('village_id')} during cleanup")
                     except Exception:
-                        logger.debug(f"Failed to unfreeze village queue for id {j.metadata.get('village_id')} during cleanup")
+                        logger.debug(
+                            f"Failed to unfreeze village queue for id {j.metadata.get('village_id')} during cleanup")
             except Exception:
                 pass
 
@@ -200,7 +215,7 @@ class Bot:
             if job.status == JobStatus.RUNNING:
                 job.status = JobStatus.COMPLETED
             return summary
-        except Exception as e:
+        except Exception:
             # Ensure terminated on unexpected exceptions
             job.status = JobStatus.TERMINATED
             raise
@@ -221,7 +236,6 @@ class Bot:
             except Exception:
                 # Swallow any errors in cleanup to avoid masking job errors
                 pass
-
 
     def _handle_task(self, job: Job) -> str:
         """Generic task handler: run the Task and return a summary.
@@ -244,7 +258,6 @@ class Bot:
         job.status = JobStatus.COMPLETED
         return task.success_message
 
-
     def create_game_state(self):
         # Clear previous run cache
         self.html_cache.clear()
@@ -254,8 +267,8 @@ class Bot:
         dorf2_html = self.driver.get_html("/dorf2.php")
 
         # Parse village list and active village name
-        villages_identities = scan_village_list(dorf1_html)
-        active_name = scan_village_name(dorf1_html)
+        villages_identities = self.scanner.scan_village_list(dorf1_html)
+        active_name = self.scanner.scan_village_name(dorf1_html)
 
         # Put active village pages into cache and remember active name
         self.html_cache.set(active_name, 1, dorf1_html)
@@ -271,7 +284,7 @@ class Bot:
             self.html_cache.set(v.name, 2, d2)
 
         # Build game state from cache
-        account_info = scan_account_info(dorf1_html)
+        account_info = self.scanner.scan_account_info(dorf1_html)
 
         villages = []
         for v in villages_identities:
@@ -279,24 +292,22 @@ class Bot:
             d2 = self.html_cache.get(v.name, 2)
             if d1 is None or d2 is None:
                 d1, d2 = self.driver.get_village_inner_html(v.id)
-            village = scan_village(v, d1, d2)
-            village.has_quest_master_reward = is_reward_available(d1)
+            village = self.scanner.scan_village(v, d1, d2)
+            village.has_quest_master_reward = self.scanner.is_reward_available(d1)
             villages.append(village)
 
         hero_info = self.fetch_hero_info()
 
         return GameState(hero_info=hero_info, account=account_info, villages=villages)
 
-
     def fetch_hero_info(self):
         """Scan hero attributes and inventory and return HeroInfo."""
         logger.debug("Scanning hero info")
 
         # Fetch attributes and inventory pages separately, in sequence
-        hero_attrs_html = self.driver.get_html("/hero/attributes")
-        hero_inventory_html = self.driver.get_html("/hero/inventory")
+        hero_attrs_html = self.driver.get_html(ATTRIBUTES)
+        hero_inventory_html = self.driver.get_html(HERO_INVENTORY)
         # close inventory popup if present
-        self.driver.click("#closeContentButton")
+        self.driver.click(CLOSE_CONTENT_BUTTON_SELECTOR)
 
-        return scan_hero_info(hero_attrs_html, hero_inventory_html)
-
+        return self.scanner.scan_hero_info(hero_attrs_html, hero_inventory_html)

@@ -1,9 +1,11 @@
 from bs4 import BeautifulSoup
-from src.scan_adapter.scanner import is_daily_quest_indicator
+
+from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
 
 def test_daily_quest_indicator_present():
+    # Given
     html = """
     <div id="navigation">
         <a class="dailyQuests" href="#" accesskey="7" onclick="Travian.React.openDailyQuestsDialog(); return false;">
@@ -11,15 +13,26 @@ def test_daily_quest_indicator_present():
         </a>
     </div>
     """
-
     soup = BeautifulSoup(html, "html.parser")
-    nav = soup.select_one('#navigation')
+    scanner = Scanner()
 
-    assert is_daily_quest_indicator(nav) is True
+    # When
+    nav = soup.select_one('#navigation')
+    indicator = scanner.is_daily_quest_indicator(nav)
+
+    # Then
+    assert indicator is True
 
 
 def test_daily_quest_indicator_absent_in_hero_attributes():
+    # Given
     html = HtmlUtils.load("hero_attributes.html")
     soup = BeautifulSoup(html, "html.parser")
     nav = soup.select_one('#navigation')
-    assert is_daily_quest_indicator(nav) is False
+    scanner = Scanner()
+
+    # When
+    indicator = scanner.is_daily_quest_indicator(nav)
+
+    # Then
+    assert indicator is False

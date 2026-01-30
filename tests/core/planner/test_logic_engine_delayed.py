@@ -115,6 +115,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info,
         building_gid=1,
         target_name=SourceType.LUMBER.name,
         target_level=2,
+        support=Resources(lumber=65, clay=165, iron=85, crop=100)
     )
 
     assert expected == job.task

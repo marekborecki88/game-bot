@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol, Iterable, Tuple
 
+from src.core.model.model import Resources
+
 
 class DriverProtocol(Protocol):
     """Lightweight driver interface used by core Task implementations.
@@ -60,8 +62,14 @@ class DriverProtocol(Protocol):
         Implementations should swallow non-fatal exceptions and return.
         """
 
+    def wait_for_selector_and_click(self, selector: str, timeout: int = 3000) -> None:
+        """Wait for a selector to appear on the page and click it."""
+
     def wait_for_selector(self, selector: str, timeout: int = 3000) -> bool:
         """Wait for a selector to appear on the page and return True if present."""
 
     def current_url(self) -> str:
         """Return the driver's current URL as a string."""
+
+    def transfer_resources_from_hero(self, support: Resources):
+        """Transfer resources from the hero to the current village storage."""

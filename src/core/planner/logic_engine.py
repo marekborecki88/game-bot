@@ -1,25 +1,25 @@
+import logging
+import math
+from datetime import datetime, timedelta
+
+from src.core.calculator.calculator import TravianCalculator
 from src.core.job import Job
+from src.core.model.model import Village, BuildingType, SourceType, GameState, HeroInfo, Resources, ReservationStatus
 from src.core.tasks import (
     BuildTask, BuildNewTask, HeroAdventureTask, AllocateAttributesTask,
     CollectDailyQuestsTask, CollectQuestmasterTask
 )
-from src.core.model.model import Village, BuildingType, SourceType, GameState, HeroInfo, Resources, ReservationStatus
-from src.core.calculator.calculator import TravianCalculator
-from datetime import datetime, timedelta
-import math
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class LogicEngine:
-    #TODO: if game_state is not provided at construction, it must be passed to planning methods
+    # TODO: if game_state is not provided at construction, it must be passed to planning methods
     def __init__(self, game_state: GameState | None = None):
         # game_state may be provided at construction or passed later to planning methods
         self.game_state: GameState | None = game_state
         speed = game_state.account.server_speed if game_state else 1.0
         self.calculator = TravianCalculator(speed=speed)
-
 
     def create_plan_for_village(self, game_state: GameState | None = None) -> list[Job]:
         # Accept a fresh game_state (preferred) and store it for subsequent calculations
@@ -61,9 +61,10 @@ class LogicEngine:
             return self._create_new_build_job(village, building_type.gid, building_type.name)
 
         if building and building.level < building_type.max_level:
-            return self._create_build_job(village, building.id, building_type.gid, building_type.name, building.level + 1)
+            return self._create_build_job(village, building.id, building_type.gid, building_type.name,
+                                          building.level + 1)
 
-        #TODO: build next storage building if possible
+        # TODO: build next storage building if possible
         return None
 
     def _find_insufficient_storage(self, village: Village) -> list[tuple[BuildingType, float]]:
@@ -85,7 +86,8 @@ class LogicEngine:
         pit = min(pits_to_consider, key=lambda p: p.level)
         return self._create_build_job(village, pit.id, pit.type.gid, pit.type.name, pit.level + 1)
 
-    def _create_build_job(self, village: Village, building_id: int, building_gid: int, target_name: str, target_level: int) -> Job:
+    def _create_build_job(self, village: Village, building_id: int, building_gid: int, target_name: str,
+                          target_level: int) -> Job:
         """Create a build job. If resources are insufficient, compute delay based on hourly production
         (village + hero inventory) and schedule job in the future. Also set village.is_queue_building_freeze
         when scheduling a future job to prevent duplicate planning.
@@ -93,23 +95,6 @@ class LogicEngine:
         now = datetime.now()
 
         building_cost = self.calculator.get_building_details(building_gid, target_level)
-        build_task = BuildTask(success_message="build scheduled", failure_message="build failed",
-                               village_name=village.name, village_id=village.id, building_id=building_id,
-                               building_gid=building_gid, target_name=target_name, target_level=target_level)
-        if building_cost is None:
-            # Fallback to immediate job if we cannot calculate cost
-            scheduled = now
-            expires = now + timedelta(hours=1)
-            return Job(
-                task=build_task,
-                scheduled_time=scheduled,
-                expires_at=expires,
-                metadata={"action": "build", "village_id": village.id}
-            )
-
-        # Require game_state to be present
-        if not self.game_state:
-            raise ValueError("LogicEngine._create_build_job requires game_state to be set")
 
         # Use hero inventory to cover as much of the cost as possible, transfer those
         # resources into the village (mutate hero inventory and village values), then
@@ -122,7 +107,15 @@ class LogicEngine:
         # send reservation request to hero
         response = hero_info.send_request(reservation_request)
 
-        #TODO: FOR ACCAPETED AND PARTIALLY_ACCEPTED, there is need to create separate task because we need to transfer resources from hero to village
+        support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
+
+        build_task = BuildTask(success_message="build scheduled", failure_message="build failed",
+                               village_name=village.name, village_id=village.id, building_id=building_id,
+                               building_gid=building_gid, target_name=target_name, target_level=target_level,
+                               support=support
+                               )
+
+        # TODO: FOR ACCAPETED AND PARTIALLY_ACCEPTED, there is need to create separate task because we need to transfer resources from hero to village
         if response.status is not ReservationStatus.ACCEPTED:
             shortage = reservation_request - response.provided_resources
             max_delay_seconds = self.calculate_delay(shortage, village)
@@ -133,7 +126,8 @@ class LogicEngine:
 
             # Mark village queue frozen to avoid duplicate scheduling
             village.is_queue_building_freeze = True
-            logger.info(f"Scheduled delayed build for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue")
+            logger.info(
+                f"Scheduled delayed build for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue")
 
             return Job(
                 task=build_task,
@@ -256,7 +250,7 @@ class LogicEngine:
             expires_at=now + timedelta(hours=1)
         )
 
-    #TODO: need refactor
+    # TODO: need refactor
     def unfreeze_village_queue(self, village_id: int) -> None:
         if not self.game_state:
             return
@@ -269,4 +263,3 @@ class LogicEngine:
         village_production = shortage / village.resources_hourly_production()
 
         return math.ceil(village_production.max() * 3600)
-

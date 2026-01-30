@@ -1,8 +1,6 @@
+# Import only what's necessary for startup
 from pathlib import Path
 import os
-from typing import Optional
-
-# Import only what's necessary for startup
 from src.config import load_config, Config
 from src.core.logging_config import configure_logging
 
@@ -24,12 +22,13 @@ def main() -> None:
     from playwright.sync_api import sync_playwright
     from src.core.bot import Bot
     from src.driver_adapter.driver import Driver
+    from src.scan_adapter.scanner_adapter import Scanner
 
     with sync_playwright() as playwright:
         # Use a context manager or try/finally for the driver
         driver = Driver(playwright=playwright, config=config)
         try:
-            bot = Bot(driver=driver)
+            bot = Bot(driver=driver, scanner=Scanner())
             bot.run()
         finally:
             # Ensure the browser is closed even on error
