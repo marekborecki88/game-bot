@@ -187,3 +187,6 @@ class Driver(DriverProtocol):
 
     def catch_full_classes_by_selector(self, selector: str) -> str:
         return self.page.locator(selector).first.get_attribute("class") or ""
+
+    def sleep(self, seconds: int) -> None:
+        self.page.wait_for_timeout(seconds * 1000)

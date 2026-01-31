@@ -76,3 +76,6 @@ class DriverProtocol(Protocol):
 
     def catch_full_classes_by_selector(self, selector: str) -> str:
         """Return the classes of the first element matching the selector."""
+
+    def sleep(self, seconds: int) -> None:
+        """Sleep for the given number of seconds."""
