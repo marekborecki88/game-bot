@@ -1,18 +1,19 @@
 # Import only what's necessary for startup
-from pathlib import Path
 import os
-from src.config import load_config, Config
+from src.config import Config
 from src.core.logging_config import configure_logging
 
+
 def setup_env() -> Config:
-    """Configure the environment and return the configuration object."""
-    # Tip: You can allow passing the path via an environment variable
-    default_path = Path(__file__).parent.parent / "config.yaml"
-    cfg_path = os.getenv("CONFIG_PATH", str(default_path))
-    
-    config = load_config(cfg_path)
+    """Load configuration and configure logging.
+
+    Uses Config.load() factory which handles discovery and environment substitution.
+    """
+    # Load configuration (Config.load handles CONFIG_PATH discovery)
+    config = Config.load()
     configure_logging(os.getenv("LOG_LEVEL", config.log_level))
     return config
+
 
 def main() -> None:
     # 1. Load loggers before heavy modules are imported
@@ -33,6 +34,7 @@ def main() -> None:
         finally:
             # Ensure the browser is closed even on error
             driver.stop()
+
 
 if __name__ == "__main__":
     main()
