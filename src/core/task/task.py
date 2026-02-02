@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from src.core.driver_protocol import DriverProtocol
+from src.core.protocols.driver_protocol import DriverProtocol
 
 
 @dataclass(frozen=True)

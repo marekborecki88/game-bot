@@ -3,7 +3,7 @@ import math
 from datetime import datetime, timedelta
 
 from src.core.calculator.calculator import TravianCalculator
-from src.core.job import Job
+from src.core.task.job import Job
 from src.core.model.model import Village, BuildingType, SourceType, GameState, HeroInfo, Resources, ReservationStatus
 from src.core.task.tasks import (
     BuildTask, BuildNewTask, HeroAdventureTask, AllocateAttributesTask,

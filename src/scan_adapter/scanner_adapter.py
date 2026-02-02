@@ -24,7 +24,7 @@ from src.core.model.model import (
     Resources,
     Tribe, BuildingType, SourceType,
 )
-from src.core.scanner_protocol import ScannerProtocol
+from src.core.protocols.scanner_protocol import ScannerProtocol
 
 HTML_PARSER = 'html.parser'
 

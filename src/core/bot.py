@@ -5,13 +5,13 @@ from types import FrameType
 
 import schedule
 
-from src.core.driver_protocol import DriverProtocol
+from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
-from src.core.job import Job, JobStatus
+from src.core.task.job import Job, JobStatus
 from src.core.model.model import Village, GameState
 from src.core.planner.logic_engine import LogicEngine
 from src.core.task.tasks import BuildTask, BuildNewTask
-from src.core.scanner_protocol import ScannerProtocol
+from src.core.protocols.scanner_protocol import ScannerProtocol
 
 CLOSE_CONTENT_BUTTON_SELECTOR = "#closeContentButton"
 ATTRIBUTES = "/hero/attributes"

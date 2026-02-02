@@ -3,7 +3,7 @@ from typing import Any
 
 from src.core.model.model import Village, Resources
 from src.core.task.task import Task
-from src.core.driver_protocol import DriverProtocol
+from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
 
 DAILY_QUESTS_SELECTOR = '#navigation a.dailyQuests'

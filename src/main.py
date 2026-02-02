@@ -1,7 +1,7 @@
 # Import only what's necessary for startup
 import os
-from src.config import Config
-from src.core.logging_config import configure_logging
+from src.config.config import Config
+from src.config.logging_config import configure_logging
 
 
 def setup_env() -> Config:

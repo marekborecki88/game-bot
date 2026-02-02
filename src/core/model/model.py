@@ -4,7 +4,7 @@ from enum import Enum
 
 from playwright.sync_api import Page
 
-from src.config import Config
+from src.config.config import Config
 
 logger = logging.getLogger(__name__)
 

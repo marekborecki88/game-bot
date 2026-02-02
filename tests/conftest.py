@@ -1,7 +1,7 @@
 import pytest
 from typing import Any
 
-from src.core.driver_protocol import DriverProtocol
+from src.core.protocols.driver_protocol import DriverProtocol
 
 
 class _FakeDriver(DriverProtocol):

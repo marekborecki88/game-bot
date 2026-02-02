@@ -4,9 +4,9 @@ from typing import Iterable, Tuple
 
 from playwright.sync_api import Playwright, Locator
 
-from src.config import Config
+from src.config.config import Config
 from src.core.bot import HERO_INVENTORY, CLOSE_CONTENT_BUTTON_SELECTOR, RESOURCE_TO_CLASS_MAP
-from src.core.driver_protocol import DriverProtocol
+from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.model.model import Resources
 
 RESOURCE_TRANSFER_SUBMIT_SELECTOR = 'button.withText.green'
