@@ -168,6 +168,7 @@ class HeroInfo:
 
         if hero_available_resources > request:
             # Hero has enough resources to fulfill the entire request
+            self.reserved_resources += request
             return ReservationResponse(status=ReservationStatus.ACCEPTED, provided_resources=request)
 
         if hero_available_resources.is_disjoint(request):
