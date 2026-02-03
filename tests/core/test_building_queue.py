@@ -190,3 +190,18 @@ def test_non_romans_get_occupied_slots():
     assert len(slots) == 1
     assert slots[0].building_id == 25
     assert slots[0].target_level == 5
+
+
+def test_can_build_parallel_for_romans():
+    """Romans should support parallel building."""
+    queue = BuildingQueue(tribe=Tribe.ROMANS)
+    assert queue.can_build_parallel() is True
+
+
+def test_can_build_parallel_for_non_romans():
+    """Non-Romans should not support parallel building."""
+    queue = BuildingQueue(tribe=Tribe.GAULS)
+    assert queue.can_build_parallel() is False
+    
+    queue2 = BuildingQueue(tribe=Tribe.TEUTONS)
+    assert queue2.can_build_parallel() is False

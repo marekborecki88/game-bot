@@ -210,6 +210,25 @@ class Village:
     # When True, planning should treat the building queue as occupied because
     # we already scheduled a future building job that will consume the queue.
     is_queue_building_freeze: bool = False
+    # BuildingQueue manages construction slots based on tribe capabilities
+    building_queue_manager: "BuildingQueue" = field(init=False)
+    
+    def __post_init__(self):
+        """Initialize BuildingQueue and sync with current building jobs."""
+        self.building_queue_manager = BuildingQueue(tribe=self.tribe)
+        
+        # Populate the queue manager with current building jobs
+        for job in self.building_queue:
+            if is_resource_field(job.building_id):
+                self.building_queue_manager.occupy_resource_field_slot(
+                    building_id=job.building_id,
+                    target_level=job.target_level
+                )
+            else:
+                self.building_queue_manager.occupy_center_slot(
+                    building_id=job.building_id,
+                    target_level=job.target_level
+                )
 
     def build(self, page: Page, driver_config: DriverConfig, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)
@@ -233,37 +252,6 @@ class Village:
         # Consider the explicit freeze flag as a non-empty queue to prevent
         # planner from scheduling another action while a future build is planned.
         return len(self.building_queue) == 0 and not self.is_queue_building_freeze
-
-    def get_building_queue_manager(self) -> "BuildingQueue":
-        """Create a BuildingQueue manager initialized with current building jobs.
-        
-        Returns:
-            BuildingQueue instance populated with current building jobs
-        """
-        queue_manager = BuildingQueue(tribe=self.tribe)
-        
-        # Populate the queue manager with current building jobs
-        for job in self.building_queue:
-            if is_resource_field(job.building_id):
-                queue_manager.occupy_resource_field_slot(
-                    building_id=job.building_id,
-                    target_level=job.target_level
-                )
-            else:
-                queue_manager.occupy_center_slot(
-                    building_id=job.building_id,
-                    target_level=job.target_level
-                )
-        
-        return queue_manager
-
-    def can_build_parallel(self) -> bool:
-        """Check if this village can build in parallel (Romans only).
-        
-        Returns:
-            True if the tribe is Romans, False otherwise
-        """
-        return self.tribe == Tribe.ROMANS
 
     def lowest_source(self) -> "ResourceType":
         source_dict = {

@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus
-from src.core.model.tribe import Tribe
 from src.core.strategy.Strategy import Strategy
 from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob
 from src.core.building_queue import is_resource_field
@@ -137,8 +136,8 @@ class BalancedEconomicGrowth(Strategy):
     def _plan_village_jobs(self, village: Village, hero_info: HeroInfo, global_lowest: ResourceType | None) -> list[Job]:
         """Plan building jobs for a village.
         
-        For Romans: Can plan one center building AND one resource field in parallel.
-        For other tribes: Can only plan one building at a time.
+        Uses the village's BuildingQueue to determine available slots.
+        BuildingQueue handles tribe-specific logic (e.g., Romans can build in parallel).
         
         Args:
             village: The village to plan for
@@ -148,34 +147,18 @@ class BalancedEconomicGrowth(Strategy):
         Returns:
             List of Jobs that can be planned for this village
         """
-        # For non-Romans, use existing logic (max one job)
-        if village.tribe != Tribe.ROMANS:
-            if not village.building_queue_is_empty():
-                return []
-            
-            if village.needs_more_free_crop():
-                job = self._plan_source_pit_upgrade(village=village, hero_info=hero_info, global_lowest=ResourceType.CROP)
-                return [job] if job else []
-            
-            storage_job = self._plan_storage_upgrade(village, hero_info=hero_info)
-            if storage_job:
-                return [storage_job]
-            
-            resource_job = self._plan_source_pit_upgrade(village, hero_info, global_lowest)
-            return [resource_job] if resource_job else []
-        
-        # Romans can build in parallel
-        queue_manager = village.get_building_queue_manager()
-        
         # If freeze is set, don't plan anything
         if village.is_queue_building_freeze:
             return []
         
-        # Check what we can build
-        can_build_center = queue_manager.can_build_in_center()
-        can_build_resource = queue_manager.can_build_resource_field()
+        # Get the building queue manager (encapsulates tribe-specific logic)
+        queue = village.building_queue_manager
         
-        # If both slots are occupied, nothing to plan
+        # Check what we can build
+        can_build_center = queue.can_build_in_center()
+        can_build_resource = queue.can_build_resource_field()
+        
+        # If no slots are available, nothing to plan
         if not can_build_center and not can_build_resource:
             return []
         
@@ -194,7 +177,8 @@ class BalancedEconomicGrowth(Strategy):
                 jobs.append(resource_job)
         
         # Plan center building if available
-        if can_build_center:
+        # For non-parallel builders, only plan center if no resource job was planned
+        if can_build_center and (queue.can_build_parallel() or len(jobs) == 0):
             storage_job = self._plan_storage_upgrade(village, hero_info=hero_info)
             if storage_job:
                 jobs.append(storage_job)

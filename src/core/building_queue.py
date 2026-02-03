@@ -186,3 +186,11 @@ class BuildingQueue:
                 occupied.append(self._shared_slot)
         
         return occupied
+    
+    def can_build_parallel(self) -> bool:
+        """Check if this queue supports parallel building.
+        
+        Returns:
+            True if both center and resource field can be built simultaneously (Romans only)
+        """
+        return self.tribe == Tribe.ROMANS
