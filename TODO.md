@@ -9,7 +9,6 @@
 
 # MINOR TODOs
 1. add possibility to switch hero resource production bonus depend on current village needs
-2. watch commercials to improve diffucult level of adventure
 
 ISSUES:
 
