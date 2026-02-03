@@ -156,17 +156,35 @@ class Driver(DriverProtocol):
 
 
     def transfer_resource(self, amount, item_id: str):
-        selector = RESOURCE_TO_CLASS_MAP.get(item_id)
-        self.click(f".item.{selector}")
+        cls = RESOURCE_TO_CLASS_MAP.get(item_id)
+        selector = f"item {cls} none"
+        logger.debug(f"Try to click {selector}")
+        self._wait_for_selector_and_click_by_class(selector)
         # wait for input to appear
         self.wait_for_selector(RESOURCE_TRANSFER_INPUT_SELECTOR, timeout=2000)
         # self._fill_input('input[inputmode="numeric"]', str(amount))
         self.page.fill(RESOURCE_TRANSFER_INPUT_SELECTOR, str(amount))
         self.click(RESOURCE_TRANSFER_SUBMIT_SELECTOR)
 
+    def _wait_for_selector_and_click_by_class(self, class_name: str) -> bool:
+        self.wait_for_selector(class_name)
+        return self.page.evaluate(
+            """
+                (cls) => {
+                    const el = document.getElementsByClassName(cls)[0];
+                    if (el) {
+                        el.click();
+                        return true;
+                    }
+                    return false;
+                }
+            """,
+            class_name,
+        )
+
     def wait_for_selector(self, selector: str, timeout: int = 3000) -> bool:
         try:
-            self.page.wait_for_selector(selector, timeout=timeout)
+            self.page.wait_for_selector(selector.replace(" ", "."), timeout=timeout)
             return True
         except Exception:
             return False
