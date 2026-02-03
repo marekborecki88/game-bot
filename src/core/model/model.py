@@ -5,6 +5,8 @@ from enum import Enum
 from playwright.sync_api import Page
 
 from src.config.config import DriverConfig
+from src.core.building_queue import BuildingQueue, is_resource_field
+from src.core.model.tribe import Tribe
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +234,37 @@ class Village:
         # planner from scheduling another action while a future build is planned.
         return len(self.building_queue) == 0 and not self.is_queue_building_freeze
 
+    def get_building_queue_manager(self) -> "BuildingQueue":
+        """Create a BuildingQueue manager initialized with current building jobs.
+        
+        Returns:
+            BuildingQueue instance populated with current building jobs
+        """
+        queue_manager = BuildingQueue(tribe=self.tribe)
+        
+        # Populate the queue manager with current building jobs
+        for job in self.building_queue:
+            if is_resource_field(job.building_id):
+                queue_manager.occupy_resource_field_slot(
+                    building_id=job.building_id,
+                    target_level=job.target_level
+                )
+            else:
+                queue_manager.occupy_center_slot(
+                    building_id=job.building_id,
+                    target_level=job.target_level
+                )
+        
+        return queue_manager
+
+    def can_build_parallel(self) -> bool:
+        """Check if this village can build in parallel (Romans only).
+        
+        Returns:
+            True if the tribe is Romans, False otherwise
+        """
+        return self.tribe == Tribe.ROMANS
+
     def lowest_source(self) -> "ResourceType":
         source_dict = {
             ResourceType.LUMBER: self.resources.lumber,
@@ -408,16 +441,6 @@ class SourcePit:
     id: int
     type: ResourceType
     level: int
-
-
-class Tribe(Enum):
-    ROMANS = 1
-    TEUTONS = 2
-    GAULS = 3
-    HUNS = 4
-    SPARTANS = 5
-    NORS = 6
-    EGYPTIANS = 7
 
 
 @dataclass

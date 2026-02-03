@@ -1,8 +1,25 @@
 """Tests for BuildingQueue class that manages building jobs for villages."""
 
 import pytest
-from src.core.model.model import Tribe
-from src.core.building_queue import BuildingQueue, BuildingSlot
+from src.core.model.tribe import Tribe
+from src.core.building_queue import BuildingQueue, BuildingSlot, is_resource_field
+
+
+def test_is_resource_field_helper():
+    """Test helper function to identify resource fields."""
+    # Resource fields are IDs 1-18
+    assert is_resource_field(1) is True
+    assert is_resource_field(5) is True
+    assert is_resource_field(18) is True
+    
+    # Center buildings are IDs 19+
+    assert is_resource_field(19) is False
+    assert is_resource_field(25) is False
+    assert is_resource_field(40) is False
+    
+    # Invalid IDs
+    assert is_resource_field(0) is False
+    assert is_resource_field(-1) is False
 
 
 def test_building_queue_initialization_for_romans():

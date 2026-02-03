@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus
+from src.core.model.tribe import Tribe
 from src.core.strategy.Strategy import Strategy
 from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob
+from src.core.building_queue import is_resource_field
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,11 @@ class BalancedEconomicGrowth(Strategy):
 
     def create_plan_for_village(self, game_state: GameState | None = None) -> list[Job]:
         global_lowest = self.determine_next_resoure_to_develop(game_state)
-        jobs = [job for v in game_state.villages if (job := self._plan_village(v, game_state.hero_info, global_lowest)) is not None]
+        
+        jobs = []
+        for village in game_state.villages:
+            village_jobs = self._plan_village_jobs(village, game_state.hero_info, global_lowest)
+            jobs.extend(village_jobs)
 
         # For questmaster rewards schedule per-village collecting jobs
         for village in game_state.villages:
@@ -128,14 +134,72 @@ class BalancedEconomicGrowth(Strategy):
                 return None
         return total.min_type()
 
-    def _plan_village(self, village: Village, hero_info: HeroInfo, global_lowest: ResourceType | None) -> Job | None:
-        if not village.building_queue_is_empty():
-            return None
-
-        if village.needs_more_free_crop():
-            return self._plan_source_pit_upgrade(village=village, hero_info=hero_info, global_lowest=ResourceType.CROP)
-
-        return self._plan_storage_upgrade(village, hero_info=hero_info) or self._plan_source_pit_upgrade(village, hero_info, global_lowest)
+    def _plan_village_jobs(self, village: Village, hero_info: HeroInfo, global_lowest: ResourceType | None) -> list[Job]:
+        """Plan building jobs for a village.
+        
+        For Romans: Can plan one center building AND one resource field in parallel.
+        For other tribes: Can only plan one building at a time.
+        
+        Args:
+            village: The village to plan for
+            hero_info: Hero information for resource support
+            global_lowest: The globally lowest resource type to prioritize
+            
+        Returns:
+            List of Jobs that can be planned for this village
+        """
+        # For non-Romans, use existing logic (max one job)
+        if village.tribe != Tribe.ROMANS:
+            if not village.building_queue_is_empty():
+                return []
+            
+            if village.needs_more_free_crop():
+                job = self._plan_source_pit_upgrade(village=village, hero_info=hero_info, global_lowest=ResourceType.CROP)
+                return [job] if job else []
+            
+            storage_job = self._plan_storage_upgrade(village, hero_info=hero_info)
+            if storage_job:
+                return [storage_job]
+            
+            resource_job = self._plan_source_pit_upgrade(village, hero_info, global_lowest)
+            return [resource_job] if resource_job else []
+        
+        # Romans can build in parallel
+        queue_manager = village.get_building_queue_manager()
+        
+        # If freeze is set, don't plan anything
+        if village.is_queue_building_freeze:
+            return []
+        
+        # Check what we can build
+        can_build_center = queue_manager.can_build_in_center()
+        can_build_resource = queue_manager.can_build_resource_field()
+        
+        # If both slots are occupied, nothing to plan
+        if not can_build_center and not can_build_resource:
+            return []
+        
+        jobs = []
+        
+        # Plan resource field upgrade if needed and available
+        if can_build_resource:
+            if village.needs_more_free_crop():
+                # Need crop, prioritize crop field
+                resource_job = self._plan_source_pit_upgrade(village=village, hero_info=hero_info, global_lowest=ResourceType.CROP)
+            else:
+                # Regular resource field planning
+                resource_job = self._plan_source_pit_upgrade(village, hero_info, global_lowest)
+            
+            if resource_job:
+                jobs.append(resource_job)
+        
+        # Plan center building if available
+        if can_build_center:
+            storage_job = self._plan_storage_upgrade(village, hero_info=hero_info)
+            if storage_job:
+                jobs.append(storage_job)
+        
+        return jobs
 
     def _plan_storage_upgrade(self, village: Village, hero_info: HeroInfo) -> Job | None:
         storage_needs = self._find_insufficient_storage(village)

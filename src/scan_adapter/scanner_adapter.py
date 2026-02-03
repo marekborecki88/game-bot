@@ -22,8 +22,9 @@ from src.core.model.model import (
     BuildingJob,
     BuildingContract,
     Resources,
-    Tribe, BuildingType, ResourceType,
+    BuildingType, ResourceType,
 )
+from src.core.model.tribe import Tribe
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
 HTML_PARSER = 'html.parser'

@@ -7,8 +7,25 @@ In Travian, Romans have a special ability to build in parallel:
 Other tribes can only build one structure at a time (shared slot).
 """
 
+from __future__ import annotations
 from dataclasses import dataclass
-from src.core.model.model import Tribe
+
+from src.core.model.tribe import Tribe
+
+
+def is_resource_field(building_id: int) -> bool:
+    """Check if a building ID represents a resource field (outside village center).
+    
+    Resource fields (source pits) have IDs 1-18.
+    Buildings in the village center have IDs 19 and above.
+    
+    Args:
+        building_id: The ID of the building
+        
+    Returns:
+        True if the building is a resource field, False otherwise
+    """
+    return 1 <= building_id <= 18
 
 
 @dataclass
