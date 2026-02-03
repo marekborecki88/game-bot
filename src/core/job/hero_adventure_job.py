@@ -1,9 +1,11 @@
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from src.core.job.job import Job
 from src.core.protocols.driver_protocol import DriverProtocol
 
+logger = logging.getLogger(__name__)
 
 @dataclass(kw_only=True)
 class HeroAdventureJob(Job):
@@ -22,22 +24,7 @@ class HeroAdventureJob(Job):
             driver.navigate("/hero/adventures")
 
             # Watch video to unlock additional adventure difficulty levels
-            watch_video_button = "button.textButtonV2.buttonFramed.withTextAndIcon.rectangle.withText.purple"
-            if driver.is_visible(watch_video_button):
-                driver.click(watch_video_button)
-                driver.wait_for_load_state()
-
-                # Click confirmation dialog button
-                confirmation_button = "button.textButtonV2.buttonFramed.dialogButtonOk.rectangle.withText.green"
-                driver.click(confirmation_button)
-                driver.wait_for_load_state()
-
-                # Wait for video player to load
-                driver.sleep(3)
-                driver.wait_for_selector_and_click("#videoArea")
-
-                # Wait for advertisement to finish
-                driver.wait_for_load_state()
+            self.try_watch_video(driver)
 
             # Exact selector where the green Explore button typically lives
             explore_selector = "button.textButtonV2.buttonFramed.rectangle.withText.green"
@@ -66,8 +53,34 @@ class HeroAdventureJob(Job):
             if not success:
                 return False
 
+            # Watch video to unlock additional adventure difficulty levels
+            self.try_watch_video(driver)
+
             driver.click("a#closeContentButton")
             return True
-        except Exception:
-            # Swallow any driver exceptions and report failure
+        except Exception as e:
+            logger.error(f"Failed to start hero adventure {e}", exc_info=True)
             return False
+
+    def try_watch_video(self, driver: DriverProtocol) -> None:
+        try:
+            watch_video_button = "button.textButtonV2.buttonFramed.withTextAndIcon.rectangle.withText.purple"
+            if driver.is_visible(watch_video_button):
+                driver.click(watch_video_button)
+                driver.wait_for_load_state()
+
+                # Click confirmation dialog button
+                confirmation_button = "button.textButtonV2.buttonFramed.dialogButtonOk.rectangle.withText.green"
+                driver.click(confirmation_button)
+                driver.wait_for_load_state()
+
+                # Wait for video player to load
+                driver.sleep(3)
+                driver.wait_for_selector_and_click("#videoArea")
+
+                # Wait for advertisement to finish
+                while driver.is_visible("#videoArea"):
+                    driver.sleep(5)
+
+        except Exception as e:
+            logger.warning(f"Failed to watch video for hero adventure: {e}", exc_info=True)
