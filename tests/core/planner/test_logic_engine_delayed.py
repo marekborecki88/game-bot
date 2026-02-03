@@ -115,7 +115,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
     job = jobs[0]
 
     assert now - timedelta(seconds=1) <= job.scheduled_time <= now + timedelta(seconds=1)
-    assert village.is_queue_building_freeze is False
+    assert village.building_queue.is_queue_building_freeze is False
 
 
     expected = BuildJob(

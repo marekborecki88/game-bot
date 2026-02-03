@@ -22,7 +22,7 @@ from src.core.model.model import (
     BuildingJob,
     BuildingContract,
     Resources,
-    Tribe, BuildingType, ResourceType,
+    Tribe, BuildingType, ResourceType, BuildingQueue,
 )
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
@@ -170,15 +170,17 @@ class Scanner(ScannerProtocol):
             crop=stock.get("crop", 0),
         )
 
+        tribe = self.identity_tribe(dorf2)
+        paralell_building_allowed = tribe in {Tribe.ROMANS, Tribe.HUNS}
         return Village(
             id=identity.id,
             name=self.scan_village_name(dorf1),
-            tribe=self.identity_tribe(dorf2),
+            tribe=tribe,
             resources=resources,
             free_crop=stock.get("free_crop", 0),
             source_pits=self.scan_village_source(dorf1),
             buildings=self.scan_village_center(dorf2),
-            building_queue=self.scan_building_queue(dorf1),
+            building_queue=self.scan_building_queue(dorf1, paralell_building_allowed),
             warehouse_capacity=stock.get("warehouse_capacity", 0),
             granary_capacity=stock.get("granary_capacity", 0),
             lumber_hourly_production=production.get("lumber_hourly_production", 0),
@@ -296,16 +298,23 @@ class Scanner(ScannerProtocol):
             "free_crop_hourly_production": prod_data.get("l5", 0),
         }
 
-    def scan_building_queue(self, html: str) -> list[BuildingJob]:
+    def scan_building_queue(self, html: str, parallel_building_allowed: bool) -> BuildingQueue:
         """Scan the building queue from the current page."""
         soup = BeautifulSoup(html, HTML_PARSER)
         queue_container = soup.select_one(".buildingList")
 
+        building_queue = BuildingQueue(parallel_building_allowed)
+
         if not queue_container:
-            return []
+            return building_queue
 
         queue_items = queue_container.select("ul li")
-        return [self._extract_building_job(item) for item in queue_items]
+
+        for item in queue_items:
+            job = self._extract_building_job(item)
+            building_queue.add_job(job)
+
+        return building_queue
 
     def scan_village_source(self, html: str) -> list[SourcePit]:
         soup = BeautifulSoup(html, HTML_PARSER)

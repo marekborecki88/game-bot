@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Dict
 
 from src.core.protocols.driver_protocol import DriverProtocol
 
@@ -22,6 +21,7 @@ class Job(ABC):
     success_message: str
     failure_message: str
     status: JobStatus = JobStatus.PENDING
+    duration: int = 0
 
     @abstractmethod
     def execute(self, driver: DriverProtocol) -> bool:

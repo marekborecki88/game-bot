@@ -185,6 +185,28 @@ class HeroInfo:
     def can_go_on_adventure(self):
         return self.is_available and self.has_any_adventure() and self.health > 20
 
+@dataclass
+class BuildingQueue:
+    parallel_building_allowed: bool
+    in_jobs: list[BuildingJob] = field(default_factory=list)
+    out_jobs: list[BuildingJob] = field(default_factory=list)
+
+    @property
+    def duration(self) -> int:
+        """Calculate total time remaining for all jobs in the queue."""
+        # min from in_jobs and out_jobs
+        in_duration = sum(job.time_remaining for job in self.in_jobs)
+        out_duration = sum(job.time_remaining for job in self.out_jobs)
+        return max(in_duration, out_duration) if self.parallel_building_allowed else min(in_duration, out_duration)
+
+    def add_job(self, job: BuildingJob) -> None:
+        self.in_jobs.append(job) if job.building_id >= 19 else self.out_jobs.append(job)
+
+    def has_empty_slot(self):
+        if self.parallel_building_allowed:
+            return len(self.in_jobs) == 0 or len(self.out_jobs) == 0
+        return len(self.in_jobs) + len(self.out_jobs) == 0
+
 
 @dataclass
 class Village:
@@ -197,7 +219,7 @@ class Village:
     buildings: list["Building"]
     warehouse_capacity: int
     granary_capacity: int
-    building_queue: list["BuildingJob"]
+    building_queue: BuildingQueue
     lumber_hourly_production: int = 0
     clay_hourly_production: int = 0
     iron_hourly_production: int = 0
@@ -206,9 +228,7 @@ class Village:
     is_upgraded_to_city: bool = False
     is_permanent_capital: bool = False
     has_quest_master_reward: bool = False
-    # When True, planning should treat the building queue as occupied because
-    # we already scheduled a future building job that will consume the queue.
-    is_queue_building_freeze: bool = False
+
 
     def build(self, page: Page, driver_config: DriverConfig, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)
@@ -228,10 +248,8 @@ class Village:
         upgrade_button.click()
         logger.info("Clicked upgrade button")
 
-    def building_queue_is_empty(self):
-        # Consider the explicit freeze flag as a non-empty queue to prevent
-        # planner from scheduling another action while a future build is planned.
-        return len(self.building_queue) == 0 and not self.is_queue_building_freeze
+    def can_build(self):
+        return self.building_queue.has_empty_slot()
 
     def lowest_source(self) -> "ResourceType":
         source_dict = {
@@ -247,10 +265,8 @@ class Village:
         pits_with_given_type = [pit for pit in self.source_pits if pit.type == lowest_source]
         return min(pits_with_given_type, key=lambda p: p.level)
 
-    def building_queue_duration(self):
-        if not self.building_queue:
-            return 0
-        return max(self.building_queue, key=lambda job: job.time_remaining).time_remaining
+    def building_queue_duration(self) -> int:
+        return self.building_queue.duration
 
     def lumber_24h_ratio(self) -> float:
         return self.warehouse_capacity / (self.lumber_hourly_production * 24)

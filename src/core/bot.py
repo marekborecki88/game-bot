@@ -41,19 +41,13 @@ def shortest_building_queue(villages: list[Village]) -> int:
 class Bot:
     """Game bot with scheduled planning and job execution."""
 
-    PLANNING_INTERVAL: int = 300  # seconds (fallback)
-    JOB_CHECK_INTERVAL: int = 1  # seconds
-
     def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol, logic_config: LogicConfig) -> None:
         self.driver: DriverProtocol = driver
         self.scanner: ScannerProtocol = scanner
         # Do not perform expensive scans during construction. The LogicEngine may receive
         # a fresh GameState at planning time via create_plan_for_village(game_state).
         self.logic_engine: LogicEngine = LogicEngine(game_state=None, logic_config=logic_config)
-        self.jobs: list[Job] = []
         self._running: bool = False
-        # handle to the scheduled planning job (so we can cancel/reschedule dynamically)
-        self._planning_job = None
 
         # HTML cache keyed by (village_name, index) where index is 1 or 2
         self.html_cache = HtmlCache()
@@ -62,20 +56,21 @@ class Bot:
 
         self._setup_signal_handlers()
 
-    def _schedule_planning(self, game_state: GameState) -> None:
-        """Schedule the next planning run after `seconds` seconds.
-
-        Cancels any previously scheduled planning job to ensure only one planner job exists.
-        """
-        # cancel previous planning job if present
-        if self._planning_job is not None:
-            try:
-                schedule.cancel_job(self._planning_job)
-            except Exception:
-                pass
-
-        # schedule the next planner job
+    def _schedule_planning(self) -> None:
         try:
+            # Build fresh game state so we can both plan and compute next planning time
+            game_state = self.create_game_state()
+            jobs = self.logic_engine.plan(game_state)
+            logger.info(f"Planning complete: added {len(jobs)} new jobs. Total pending: {len(jobs)}")
+
+            for job in jobs:
+                try:
+                    logger.debug(f"Executing job scheduled for {job.scheduled_time}")
+                    summary = self._execute_job(job)
+                    logger.info(summary)
+                except Exception as e:
+                    logger.error(f"Job execution failed: {e}", exc_info=True)
+
             delay = self._calculate_next_delay(game_state)
             self._planning_job = schedule.every(delay).seconds.do(self._run_planning)
             logger.info(f"Next planning scheduled in {delay} seconds")
@@ -93,14 +88,7 @@ class Bot:
 
 
         try:
-            # Build fresh game state so we can both plan and compute next planning time
-            game_state = self.create_game_state()
-            jobs = self.logic_engine.plan(game_state)
-            self.jobs.extend(jobs)
-            logger.info(f"Planning complete: added {len(jobs)} new jobs. Total pending: {len(self.jobs)}")
-
-            self._schedule_planning(game_state)
-
+            self._schedule_planning()
         except Exception as e:
             logger.error(f"Planning failed: {e}", exc_info=True)
 
@@ -124,75 +112,15 @@ class Bot:
 
         # NOTE: planning is now scheduled dynamically by `_run_planning` itself
         # Schedule job execution check
-        schedule.every(self.JOB_CHECK_INTERVAL).seconds.do(self._execute_pending_jobs)
+        # schedule.every(self.JOB_CHECK_INTERVAL).seconds.do(self._execute_pending_jobs)
 
         # Run initial planning immediately; it will schedule the next run based on queues
         self._run_planning()
 
-        logger.info(f"Scheduler configured: dynamic planning, job check every {self.JOB_CHECK_INTERVAL}s")
 
         while self._running:
             schedule.run_pending()
             time.sleep(0.1)  # Small sleep to prevent CPU spinning
-
-        self._cleanup()
-
-    def _cleanup(self) -> None:
-        """Cleanup resources on shutdown."""
-        logger.info("Cleaning up...")
-        # cancel any planner job we registered
-        if self._planning_job is not None:
-            try:
-                schedule.cancel_job(self._planning_job)
-            except Exception:
-                pass
-        schedule.clear()
-        pending_count = len([j for j in self.jobs if j.status == JobStatus.PENDING])
-        logger.info(f"Shutdown complete. {pending_count} pending jobs remaining.")
-
-    def _execute_pending_jobs(self) -> None:
-        """Execute all jobs that are ready and cleanup completed ones."""
-        for job in self.jobs:
-            if job.should_execute():
-                try:
-                    logger.debug(f"Executing job scheduled for {job.scheduled_time}")
-                    summary = self._execute_job(job)
-                    logger.info(summary)
-                except Exception as e:
-                    logger.error(f"Job execution failed: {e}", exc_info=True)
-
-        # Mark expired jobs so they are included in cleanup
-        for j in self.jobs:
-            try:
-                if j.is_expired() and j.status == JobStatus.PENDING:
-                    j.status = JobStatus.EXPIRED
-            except Exception:
-                pass
-
-        # Cleanup completed/expired/terminated jobs
-        before_count = len(self.jobs)
-        # Identify jobs that will be removed so we can perform cleanup actions (e.g., unfreeze villages)
-        remaining = [j for j in self.jobs if j.status == JobStatus.PENDING]
-        removed = [j for j in self.jobs if j.status != JobStatus.PENDING]
-
-        # For any removed build-related jobs, attempt to unfreeze the respective village
-        for j in removed:
-            try:
-                if isinstance(j, (BuildJob, BuildNewJob)) and hasattr(j, 'village_id'):
-                    try:
-                        self.logic_engine.unfreeze_village_queue(j.village_id)
-                        logger.debug(
-                            f"Unfroze village queue for village id {j.village_id} during cleanup")
-                    except Exception:
-                        logger.debug(
-                            f"Failed to unfreeze village queue for id {j.village_id} during cleanup")
-            except Exception:
-                pass
-
-        self.jobs = remaining
-        cleaned = before_count - len(self.jobs)
-        if cleaned > 0:
-            logger.debug(f"Cleaned up {cleaned} completed jobs")
 
     def _execute_job(self, job: Job) -> str:
         """Execute a job and return a summary message.

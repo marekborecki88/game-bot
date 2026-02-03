@@ -3,7 +3,8 @@ import math
 from datetime import datetime, timedelta
 
 from src.core.calculator.calculator import TravianCalculator
-from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus
+from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
+    BuildingJob
 from src.core.strategy.Strategy import Strategy
 from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob
 
@@ -15,15 +16,15 @@ class BalancedEconomicGrowth(Strategy):
     def plan_jobs(self, game_state: GameState, calculator: TravianCalculator) -> list[Job]:
         self.calculator = calculator
         new_jobs = []
-        new_jobs.extend(self.create_plan_for_village(game_state))
+        new_jobs.extend(self.create_plan_for_villages(game_state))
         # Also plan hero adventure (if applicable)
         hero_jobs = self.create_plan_for_hero(game_state.hero_info)
         new_jobs.extend(hero_jobs)
         return new_jobs
 
-    def create_plan_for_village(self, game_state: GameState | None = None) -> list[Job]:
+    def create_plan_for_villages(self, game_state: GameState) -> list[Job]:
         global_lowest = self.determine_next_resoure_to_develop(game_state)
-        jobs = [job for v in game_state.villages if (job := self._plan_village(v, game_state.hero_info, global_lowest)) is not None]
+        jobs = [job for v in game_state.villages if (job := self._plan_village(v, game_state, global_lowest)) is not None]
 
         # For questmaster rewards schedule per-village collecting jobs
         for village in game_state.villages:
@@ -92,19 +93,21 @@ class BalancedEconomicGrowth(Strategy):
         )
 
     def _create_new_build_job(self, village, gid, name) -> Job | None:
-        for id in range(19, 39):
-            if not any(b for b in village.buildings if b.id == id):
+        for pit_id in range(19, 39):
+            if not any(b for b in village.buildings if b.id == pit_id):
                 now = datetime.now()
+                building_cost = self.calculator.get_building_details(gid, 1)
                 return BuildNewJob(
                     village_name=village.name,
                     village_id=village.id,
-                    building_id=id,
+                    building_id=pit_id,
                     building_gid=gid,
                     target_name=name,
                     success_message="construction of new building started",
                     failure_message="construction of new building failed",
                     scheduled_time=now,
-                    expires_at=now + timedelta(hours=1)
+                    expires_at=now + timedelta(hours=1),
+                    duration=building_cost.time_seconds
                 )
         return None
 
@@ -128,14 +131,21 @@ class BalancedEconomicGrowth(Strategy):
                 return None
         return total.min_type()
 
-    def _plan_village(self, village: Village, hero_info: HeroInfo, global_lowest: ResourceType | None) -> Job | None:
-        if not village.building_queue_is_empty():
+    def _plan_village(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> Job | None:
+        if not village.can_build():
             return None
 
+        job = None
         if village.needs_more_free_crop():
-            return self._plan_source_pit_upgrade(village=village, hero_info=hero_info, global_lowest=ResourceType.CROP)
+            job = self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=ResourceType.CROP)
+        else:
+            job = self._plan_storage_upgrade(village=village, hero_info=game_state.hero_info) or self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=global_lowest)
 
-        return self._plan_storage_upgrade(village, hero_info=hero_info) or self._plan_source_pit_upgrade(village, hero_info, global_lowest)
+        if isinstance(job, (BuildJob, BuildNewJob)):
+            # Add job to village building queue immediately to mark it as occupied (even if scheduled in the future) and prevent duplicate planning
+            building_job = BuildingJob(building_id=job.building_id, target_level=job.target_level, time_remaining=job.duration)
+            village.building_queue.add_job(building_job)
+        return job
 
     def _plan_storage_upgrade(self, village: Village, hero_info: HeroInfo) -> Job | None:
         storage_needs = self._find_insufficient_storage(village)
@@ -162,7 +172,7 @@ class BalancedEconomicGrowth(Strategy):
         ]
         return [(bt, ratio) for bt, ratio in checks if ratio < 1.0]
 
-    def _plan_source_pit_upgrade(self, village: Village, hero_info: HeroInfo, global_lowest: ResourceType | None) -> Job | None:
+    def _plan_source_pit_upgrade(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> Job | None:
         upgradable = village.upgradable_source_pits()
         if not upgradable:
             return None
@@ -172,7 +182,8 @@ class BalancedEconomicGrowth(Strategy):
         pits_to_consider = [p for p in upgradable if p.type == global_lowest] or upgradable
 
         pit = min(pits_to_consider, key=lambda p: p.level)
-        return self._create_build_job(village, pit.id, pit.type.gid, pit.type.name, pit.level + 1, hero_info=hero_info)
+
+        return self._create_build_job(village, pit.id, pit.type.gid, pit.type.name, pit.level + 1, hero_info=game_state.hero_info)
 
     def _create_build_job(self, village: Village, building_id: int, building_gid: int, target_name: str,
                           target_level: int, hero_info: HeroInfo) -> Job:
@@ -190,6 +201,8 @@ class BalancedEconomicGrowth(Strategy):
         response = hero_info.send_request(reservation_request)
 
         support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
+
+        duration = building_cost.time_seconds
 
         # TODO: FOR ACCAPETED AND PARTIALLY_ACCEPTED, there is need to create separate task because we need to transfer resources from hero to village
         if response.status is not ReservationStatus.ACCEPTED:
@@ -213,6 +226,7 @@ class BalancedEconomicGrowth(Strategy):
                 support=support,
                 scheduled_time=scheduled,
                 expires_at=expires,
+                duration=duration
             )
 
         # No shortages -> immediate job
@@ -226,6 +240,7 @@ class BalancedEconomicGrowth(Strategy):
             support=support,
             scheduled_time=scheduled,
             expires_at=expires,
+            duration=duration
         )
 
     def calculate_delay(self, shortage: Resources, village: Village) -> int:
