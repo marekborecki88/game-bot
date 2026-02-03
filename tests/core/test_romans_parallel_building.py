@@ -1,7 +1,10 @@
 """Integration tests for Romans parallel building feature."""
 
 from datetime import datetime, timedelta
-from src.core.model.model import Village, GameState, HeroInfo, Resources, SourcePit, Building, BuildingType, ResourceType, Account
+from src.core.model.model import (
+    Village, GameState, HeroInfo, Resources, SourcePit, Building, 
+    BuildingType, ResourceType, Account, BuildingJob
+)
 from src.core.model.tribe import Tribe
 from src.core.strategy.balanced_economic_growth import BalancedEconomicGrowth
 from src.core.calculator.calculator import TravianCalculator
@@ -151,8 +154,7 @@ def test_romans_with_occupied_center_can_build_resource_field():
         warehouse_capacity=800,
         granary_capacity=800,
         building_queue=[
-            # Center building in queue (ID 25 is RESIDENCE, a center building)
-            {"building_id": 25, "target_level": 2, "time_remaining": 100}
+            BuildingJob(building_id=25, target_level=2, time_remaining=100)
         ],
         lumber_hourly_production=100,
         clay_hourly_production=100,
@@ -160,10 +162,6 @@ def test_romans_with_occupied_center_can_build_resource_field():
         crop_hourly_production=100,
         free_crop_hourly_production=50,
     )
-    
-    # Need to import BuildingJob
-    from src.core.model.model import BuildingJob
-    village.building_queue = [BuildingJob(building_id=25, target_level=2, time_remaining=100)]
     
     hero_info = HeroInfo(
         health=100,
@@ -197,8 +195,6 @@ def test_romans_with_occupied_resource_field_can_build_center():
     strategy.calculator = calculator
     
     # Create a Roman village with resource field in queue
-    from src.core.model.model import BuildingJob
-    
     village = Village(
         id=1,
         name="Test Village",
