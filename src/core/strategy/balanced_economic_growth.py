@@ -5,9 +5,7 @@ from datetime import datetime, timedelta
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus
 from src.core.strategy.Strategy import Strategy
-from src.core.job.job import Job
-from src.core.job.jobs import HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, \
-    CollectQuestmasterJob, BuildNewJob, BuildJob
+from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob
 
 logger = logging.getLogger(__name__)
 

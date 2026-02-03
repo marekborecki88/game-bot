@@ -1,5 +1,5 @@
 from datetime import datetime
-from src.core.job.jobs import AllocateAttributesJob
+from src.core.job import AllocateAttributesJob
 
 
 def test_allocate_attributes_clicks_n_times(fake_driver_factory) -> None:

@@ -16,7 +16,7 @@ from src.core.model.model import (
     Building,
     Resources,
 )
-from src.core.job.jobs import BuildJob
+from src.core.job import BuildJob
 from src.scan_adapter.scanner_adapter import Scanner
 
 

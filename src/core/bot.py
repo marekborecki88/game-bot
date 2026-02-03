@@ -11,7 +11,7 @@ from src.core.html_cache import HtmlCache
 from src.core.job.job import Job, JobStatus
 from src.core.model.model import Village, GameState
 from src.core.planner.logic_engine import LogicEngine
-from src.core.job.jobs import BuildJob, BuildNewJob
+from src.core.job import BuildJob, BuildNewJob
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
 CLOSE_CONTENT_BUTTON_SELECTOR = "#closeContentButton"

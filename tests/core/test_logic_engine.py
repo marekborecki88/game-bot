@@ -15,7 +15,7 @@ from src.core.model.model import (
     HeroInfo,
     Resources,
 )
-from src.core.job.jobs import BuildJob, HeroAdventureJob, AllocateAttributesJob
+from src.core.job import BuildJob, HeroAdventureJob, AllocateAttributesJob
 
 
 def make_village(**overrides) -> Village:

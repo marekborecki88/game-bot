@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from src.config.config import Config, Strategy
 from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village
 from src.core.planner.logic_engine import LogicEngine
-from src.core.job.jobs import BuildJob
+from src.core.job import BuildJob
 
 
 def make_village(**overrides: object) -> Village:

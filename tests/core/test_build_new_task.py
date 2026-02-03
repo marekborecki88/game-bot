@@ -1,5 +1,5 @@
 from datetime import datetime
-from src.core.job.jobs import BuildNewJob
+from src.core.job import BuildNewJob
 
 
 def test_build_new_task_places_contract(fake_driver_factory) -> None:

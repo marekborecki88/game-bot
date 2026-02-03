@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from src.core.job.jobs import HeroAdventureJob
+from src.core.job import HeroAdventureJob
 
 
 @pytest.mark.parametrize(
