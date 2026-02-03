@@ -1,9 +1,11 @@
-from src.core.task.tasks import BuildNewTask
+from datetime import datetime
+from src.core.job.jobs import BuildNewJob
 
 
 def test_build_new_task_places_contract(fake_driver_factory) -> None:
     driver = fake_driver_factory(contract_gid_match=7)
-    task = BuildNewTask(success_message='ok', failure_message='err', village_name='V', village_id=1, building_id=5, building_gid=7, target_name='S')
+    now = datetime.now()
+    task = BuildNewJob(success_message='ok', failure_message='err', village_name='V', village_id=1, building_id=5, building_gid=7, target_name='S', scheduled_time=now, expires_at=now)
 
     result = task.execute(driver)
 

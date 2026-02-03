@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus
 from src.core.strategy.Strategy import Strategy
-from src.core.task.job import Job
-from src.core.task.tasks import HeroAdventureTask, AllocateAttributesTask, CollectDailyQuestsTask, \
-    CollectQuestmasterTask, BuildNewTask, BuildTask
+from src.core.job.job import Job
+from src.core.job.jobs import HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, \
+    CollectQuestmasterJob, BuildNewJob, BuildJob
 
 logger = logging.getLogger(__name__)
 
@@ -49,24 +49,20 @@ class BalancedEconomicGrowth(Strategy):
         now = datetime.now()
 
         if hero_info.can_go_on_adventure():
-            jobs.append(Job(
-                task=HeroAdventureTask(
-                    success_message="hero adventure scheduled",
-                    failure_message="hero adventure failed",
-                    hero_info=hero_info,
-                ),
+            jobs.append(HeroAdventureJob(
+                success_message="hero adventure scheduled",
+                failure_message="hero adventure failed",
+                hero_info=hero_info,
                 scheduled_time=now,
                 expires_at=now + timedelta(hours=1)
             ))
 
         points = hero_info.points_available
         if points > 0:
-            jobs.append(Job(
-                task=AllocateAttributesTask(
-                    success_message="attribute points allocated ",
-                    failure_message="attribute points allocation failed",
-                    points=points,
-                ),
+            jobs.append(AllocateAttributesJob(
+                success_message="attribute points allocated ",
+                failure_message="attribute points allocation failed",
+                points=points,
                 scheduled_time=now,
                 expires_at=now + timedelta(hours=1)
             ))
@@ -80,23 +76,19 @@ class BalancedEconomicGrowth(Strategy):
 
     def _create_collect_daily_quests_job(self) -> Job:
         now = datetime.now()
-        return Job(
-            task=CollectDailyQuestsTask(
-                success_message="daily quests collected",
-                failure_message="daily quests collection failed",
-            ),
+        return CollectDailyQuestsJob(
+            success_message="daily quests collected",
+            failure_message="daily quests collection failed",
             scheduled_time=now,
             expires_at=now + timedelta(hours=1)
         )
 
     def _create_collect_questmaster_job(self, village: Village) -> Job:
         now = datetime.now()
-        return Job(
-            task=CollectQuestmasterTask(
-                success_message="reward from quest master collected",
-                failure_message="reward from quest master collection failed",
-                village=village,
-            ),
+        return CollectQuestmasterJob(
+            success_message="reward from quest master collected",
+            failure_message="reward from quest master collection failed",
+            village=village,
             scheduled_time=now,
             expires_at=now + timedelta(hours=1)
         )
@@ -105,19 +97,16 @@ class BalancedEconomicGrowth(Strategy):
         for id in range(19, 39):
             if not any(b for b in village.buildings if b.id == id):
                 now = datetime.now()
-                return Job(
-                    task=BuildNewTask(
-                        village_name=village.name,
-                        village_id=village.id,
-                        building_id=id,
-                        building_gid=gid,
-                        target_name=name,
-                        success_message="construction of new building started",
-                        failure_message="construction of new building failed",
-                    ),
+                return BuildNewJob(
+                    village_name=village.name,
+                    village_id=village.id,
+                    building_id=id,
+                    building_gid=gid,
+                    target_name=name,
+                    success_message="construction of new building started",
+                    failure_message="construction of new building failed",
                     scheduled_time=now,
-                    expires_at=now + timedelta(hours=1),
-                    metadata={"action": "build_new", "village_id": village.id}
+                    expires_at=now + timedelta(hours=1)
                 )
         return None
 
@@ -204,13 +193,6 @@ class BalancedEconomicGrowth(Strategy):
 
         support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
 
-        build_task = BuildTask(success_message=f"construction of {target_name} level {target_level} in {village.name} started",
-                               failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
-                               village_name=village.name, village_id=village.id, building_id=building_id,
-                               building_gid=building_gid, target_name=target_name, target_level=target_level,
-                               support=support
-                               )
-
         # TODO: FOR ACCAPETED AND PARTIALLY_ACCEPTED, there is need to create separate task because we need to transfer resources from hero to village
         if response.status is not ReservationStatus.ACCEPTED:
             shortage = reservation_request - response.provided_resources
@@ -225,21 +207,27 @@ class BalancedEconomicGrowth(Strategy):
             logger.info(
                 f"Scheduled delayed build for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue")
 
-            return Job(
-                task=build_task,
+            return BuildJob(
+                success_message=f"construction of {target_name} level {target_level} in {village.name} started",
+                failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
+                village_name=village.name, village_id=village.id, building_id=building_id,
+                building_gid=building_gid, target_name=target_name, target_level=target_level,
+                support=support,
                 scheduled_time=scheduled,
                 expires_at=expires,
-                metadata={"action": "build", "village_id": village.id}
             )
 
         # No shortages -> immediate job
         scheduled = now
         expires = now + timedelta(hours=1)
-        return Job(
-            task=build_task,
+        return BuildJob(
+            success_message=f"construction of {target_name} level {target_level} in {village.name} started",
+            failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
+            village_name=village.name, village_id=village.id, building_id=building_id,
+            building_gid=building_gid, target_name=target_name, target_level=target_level,
+            support=support,
             scheduled_time=scheduled,
             expires_at=expires,
-            metadata={"action": "build", "village_id": village.id}
         )
 
     def calculate_delay(self, shortage: Resources, village: Village) -> int:

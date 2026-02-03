@@ -15,7 +15,7 @@ from src.core.model.model import (
     HeroInfo,
     Resources,
 )
-from src.core.task.tasks import BuildTask, HeroAdventureTask, AllocateAttributesTask
+from src.core.job.jobs import BuildJob, HeroAdventureJob, AllocateAttributesJob
 
 
 def make_village(**overrides) -> Village:
@@ -75,7 +75,7 @@ def test_skip_village_with_non_empty_building_queue(
     engine = LogicEngine(config)
     jobs = engine.plan(game_state)
 
-    build_jobs = [j for j in jobs if j.metadata and j.metadata.get("action") in ("build", "build_new")]
+    build_jobs = [j for j in jobs if j.action in ("build", "build_new")]
     assert build_jobs == []
 
 
@@ -98,18 +98,17 @@ def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
     engine = LogicEngine(config)
-    jobs = engine.plan(game_state)
-    build_jobs = [j for j in jobs if j.metadata and j.metadata.get("action") == "build"]
+    build_jobs = engine.plan(game_state)
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert isinstance(task, BuildTask)
-    assert task.village_name == "WarehouseTest"
-    assert task.village_id == 999
-    assert task.building_id == 10
-    assert task.building_gid == BuildingType.WAREHOUSE.gid
-    assert task.target_name == BuildingType.WAREHOUSE.name
-    assert task.target_level == 2
+    job = build_jobs[0]
+    assert isinstance(job, BuildJob)
+    assert job.village_name == "WarehouseTest"
+    assert job.village_id == 999
+    assert job.building_id == 10
+    assert job.building_gid == BuildingType.WAREHOUSE.gid
+    assert job.target_name == BuildingType.WAREHOUSE.name
+    assert job.target_level == 2
 
 
 def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(
@@ -131,18 +130,18 @@ def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
     engine = LogicEngine(config)
-    jobs = engine.plan(game_state)
-    build_jobs = [j for j in jobs if j.metadata and j.metadata.get("action") == "build"]
+    build_jobs = engine.plan(game_state)
+    
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert isinstance(task, BuildTask)
-    assert task.village_name == "GranaryTest"
-    assert task.village_id == 999
-    assert task.building_id == 11
-    assert task.building_gid == BuildingType.GRANARY.gid
-    assert task.target_name == BuildingType.GRANARY.name
-    assert task.target_level == 2
+    job = build_jobs[0]
+    assert isinstance(job, BuildJob)
+    assert job.village_name == "GranaryTest"
+    assert job.village_id == 999
+    assert job.building_id == 11
+    assert job.building_gid == BuildingType.GRANARY.gid
+    assert job.target_name == BuildingType.GRANARY.name
+    assert job.target_level == 2
 
 
 def test_prioritize_storage_with_lower_ratio(
@@ -167,18 +166,17 @@ def test_prioritize_storage_with_lower_ratio(
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
     engine = LogicEngine(config)
-    jobs = engine.plan(game_state)
-    build_jobs = [j for j in jobs if j.metadata and j.metadata.get("action") == "build"]
+    build_jobs = engine.plan(game_state)
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert isinstance(task, BuildTask)
-    assert task.village_name == "PriorityTest"
-    assert task.village_id == 999
-    assert task.building_id == 11
-    assert task.building_gid == BuildingType.GRANARY.gid
-    assert task.target_name == BuildingType.GRANARY.name
-    assert task.target_level == 2
+    job = build_jobs[0]
+    assert isinstance(job, BuildJob)
+    assert job.village_name == "PriorityTest"
+    assert job.village_id == 999
+    assert job.building_id == 11
+    assert job.building_gid == BuildingType.GRANARY.gid
+    assert job.target_name == BuildingType.GRANARY.name
+    assert job.target_level == 2
 
 
 def test_upgrade_source_pit_when_storage_is_sufficient(
@@ -205,18 +203,17 @@ def test_upgrade_source_pit_when_storage_is_sufficient(
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
     engine = LogicEngine(config)
-    jobs = engine.plan(game_state)
-    build_jobs = [j for j in jobs if j.metadata and j.metadata.get("action") == "build"]
+    build_jobs = engine.plan(game_state)
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert isinstance(task, BuildTask)
-    assert task.village_name == "SourcePitTest"
-    assert task.village_id == 999
-    assert task.building_id == 2
-    assert task.building_gid == ResourceType.LUMBER.gid
-    assert task.target_name == ResourceType.LUMBER.name
-    assert task.target_level == 2
+    job = build_jobs[0]
+    assert isinstance(job, BuildJob)
+    assert job.village_name == "SourcePitTest"
+    assert job.village_id == 999
+    assert job.building_id == 2
+    assert job.building_gid == ResourceType.LUMBER.gid
+    assert job.target_name == ResourceType.LUMBER.name
+    assert job.target_level == 2
 
 
 def test_skip_village_when_all_source_pits_at_max_level(
@@ -245,7 +242,7 @@ def test_skip_village_when_all_source_pits_at_max_level(
     engine = LogicEngine(config)
     jobs = engine.plan(game_state)
 
-    build_jobs = [j for j in jobs if j.metadata and j.metadata.get("action") == "build"]
+    build_jobs = [j for j in jobs if isinstance(j, BuildJob)]
     assert build_jobs == []
 
 
@@ -277,8 +274,7 @@ def test_skip_storage_upgrade_when_at_max_level(
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
     engine = LogicEngine(config)
-    jobs = engine.plan(game_state)
-    build_jobs = [j for j in jobs if j.metadata and j.metadata.get("action") in ("build", "build_new")]
+    build_jobs = engine.plan(game_state)
     assert build_jobs == []
 
 
@@ -290,13 +286,12 @@ def test_plan_hero_adventure_when_hero_available(
     game_state = GameState(account=account_info, villages=[], hero_info=hero_info)
 
     engine = LogicEngine(config)
-    jobs = engine.plan(game_state)
+    hero_jobs = engine.plan(game_state)
 
-    hero_jobs = [j for j in jobs if isinstance(j.task, HeroAdventureTask)]
     assert len(hero_jobs) == 1
 
     hero_adventure_job = hero_jobs[0]
-    assert isinstance(hero_adventure_job.task, HeroAdventureTask)
+    assert isinstance(hero_adventure_job, HeroAdventureJob)
 
 
 def test_skip_hero_adventure_when_hero_unavailable(
@@ -309,7 +304,7 @@ def test_skip_hero_adventure_when_hero_unavailable(
     engine = LogicEngine(config)
     jobs = engine.plan(game_state)
 
-    hero_jobs = [j for j in jobs if isinstance(j.task, HeroAdventureTask)]
+    hero_jobs = [j for j in jobs if isinstance(j, HeroAdventureJob)]
     assert hero_jobs == []
 
 
@@ -329,4 +324,4 @@ def test_allocate_attributes_job_when_points_available(
     engine = LogicEngine(config)
     jobs = engine.plan(game_state)
 
-    assert any(isinstance(j.task, AllocateAttributesTask) and j.task.points == 4 for j in jobs)
+    assert any(isinstance(j, AllocateAttributesJob) and j.points == 4 for j in jobs)

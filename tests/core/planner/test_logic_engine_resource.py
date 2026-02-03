@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.config.config import Config, Strategy
+from src.core.job.jobs import BuildJob
 from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village
 from src.core.planner.logic_engine import LogicEngine
 
@@ -47,13 +48,12 @@ def test_lowest_resource_type_basic() -> None:
         hero_info=hero,
     )
 
-    jobs = LogicEngine(config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
-    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert task.target_name == ResourceType.LUMBER.name
+    job = build_jobs[0]
+    assert job.target_name == ResourceType.LUMBER.name
 
 
 def test_lowest_resource_type_with_hero_inventory() -> None:
@@ -105,13 +105,12 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
         hero_info=hero,
     )
 
-    jobs = LogicEngine(config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
-    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert task.target_name == ResourceType.CLAY.name
+    job = build_jobs[0]
+    assert job.target_name == ResourceType.CLAY.name
 
 
 def test_lowest_resource_type_balanced() -> None:
@@ -155,15 +154,14 @@ def test_lowest_resource_type_balanced() -> None:
         hero_info=hero,
     )
 
-    jobs = LogicEngine(config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
     # In the current implementation, even when global-lowest is "None", the planner
     # still picks an upgradable pit (fallback). For this test data it becomes LUMBER.
-    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert task.target_name == ResourceType.LUMBER.name
+    job = build_jobs[0]
+    assert job.target_name == ResourceType.LUMBER.name
 
 
 def test_lowest_resource_type_with_multiple_villages() -> None:
@@ -231,13 +229,12 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         hero_info=hero,
     )
 
-    jobs = LogicEngine(config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
-    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
     assert len(build_jobs) == 2
 
     # Ensure at least one scheduled build targets LUMBER.
-    assert any(job.task.target_name == ResourceType.LUMBER.name for job in build_jobs)
+    assert any(job.target_name == ResourceType.LUMBER.name for job in build_jobs)
 
 
 def test_lowest_resource_type_with_hero_inventory_only() -> None:
@@ -288,11 +285,9 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         hero_info=hero,
     )
 
-    jobs = LogicEngine(config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
-    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
     assert len(build_jobs) == 1
 
-    task = build_jobs[0].task
-    assert task.target_name == ResourceType.CLAY.name
-
+    job = build_jobs[0]
+    assert job.target_name == ResourceType.CLAY.name

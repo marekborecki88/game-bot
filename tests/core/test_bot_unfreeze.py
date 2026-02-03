@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from src.config.config import Config, Strategy
 from src.core.bot import Bot
 from src.core.protocols.driver_protocol import DriverProtocol
-from src.core.task.job import Job, JobStatus
+from src.core.job.job import Job, JobStatus
 from src.core.model.model import (
     Village,
     SourcePit,
@@ -16,7 +16,7 @@ from src.core.model.model import (
     Building,
     Resources,
 )
-from src.core.task.tasks import BuildTask
+from src.core.job.jobs import BuildJob
 from src.scan_adapter.scanner_adapter import Scanner
 
 
@@ -113,21 +113,18 @@ def test_unfreeze_on_expired_job_cleanup() -> None:
     bot.logic_engine.game_state = game_state
 
     now = datetime.now()
-    expired_job = Job(
-        task=BuildTask(
-            success_message="build started",
-            failure_message="build failed",
-            village_name=village.name,
-            village_id=village.id,
-            building_id=1,
-            building_gid=1,
-            target_name="",
-            target_level=1,
-        ),
+    expired_job = BuildJob(
+        success_message="build started",
+        failure_message="build failed",
+        village_name=village.name,
+        village_id=village.id,
+        building_id=1,
+        building_gid=1,
+        target_name="",
+        target_level=1,
         scheduled_time=now - timedelta(hours=2),
         expires_at=now - timedelta(hours=1),
         status=JobStatus.PENDING,
-        metadata={"action": "build", "village_id": village.id},
     )
 
     village.is_queue_building_freeze = True

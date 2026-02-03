@@ -8,10 +8,10 @@ import schedule
 from src.config.config import Config
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
-from src.core.task.job import Job, JobStatus
+from src.core.job.job import Job, JobStatus
 from src.core.model.model import Village, GameState
 from src.core.planner.logic_engine import LogicEngine
-from src.core.task.tasks import BuildTask, BuildNewTask
+from src.core.job.jobs import BuildJob, BuildNewJob
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
 CLOSE_CONTENT_BUTTON_SELECTOR = "#closeContentButton"
@@ -178,14 +178,14 @@ class Bot:
         # For any removed build-related jobs, attempt to unfreeze the respective village
         for j in removed:
             try:
-                if j.metadata and j.metadata.get('action') in ("build", "build_new") and j.metadata.get('village_id'):
+                if isinstance(j, (BuildJob, BuildNewJob)) and hasattr(j, 'village_id'):
                     try:
-                        self.logic_engine.unfreeze_village_queue(j.metadata.get('village_id'))
+                        self.logic_engine.unfreeze_village_queue(j.village_id)
                         logger.debug(
-                            f"Unfroze village queue for village id {j.metadata.get('village_id')} during cleanup")
+                            f"Unfroze village queue for village id {j.village_id} during cleanup")
                     except Exception:
                         logger.debug(
-                            f"Failed to unfreeze village queue for id {j.metadata.get('village_id')} during cleanup")
+                            f"Failed to unfreeze village queue for id {j.village_id} during cleanup")
             except Exception:
                 pass
 
@@ -220,10 +220,10 @@ class Bot:
             # Ensure that if we scheduled a future build and froze the queue, we unfreeze it now
             try:
                 vid = None
-                if isinstance(job.task, BuildTask) or isinstance(job.task, BuildNewTask):
-                    vid = job.task.village_id
-                elif hasattr(job.task, 'village'):
-                    vid = getattr(job.task, 'village', None).id if getattr(job.task, 'village', None) else None
+                if isinstance(job, BuildJob) or isinstance(job, BuildNewJob):
+                    vid = job.village_id
+                elif hasattr(job, 'village'):
+                    vid = getattr(job, 'village', None).id if getattr(job, 'village', None) else None
 
                 if vid:
                     try:
@@ -235,25 +235,22 @@ class Bot:
                 pass
 
     def _handle_task(self, job: Job) -> str:
-        """Generic task handler: run the Task and return a summary.
+        """Generic task handler: run the Job and return a summary.
 
-        Assumes `job.task` is a Task instance implementing execute() and
-        providing success_message/failure_message. Legacy callable jobs were
-        removed from planning; if a non-Task is encountered we raise.
+        Assumes `job` implements execute() and
+        providing success_message/failure_message.
         """
-        task = job.task
-
         try:
-            succeeded = task.execute(self.driver)
+            succeeded = job.execute(self.driver)
         except Exception:
             succeeded = False
 
         if not succeeded:
             job.status = JobStatus.EXPIRED
-            return task.failure_message
+            return job.failure_message
 
         job.status = JobStatus.COMPLETED
-        return task.success_message
+        return job.success_message
 
     def create_game_state(self):
         # Clear previous run cache

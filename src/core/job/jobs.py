@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.core.model.model import Village, Resources
-from src.core.task.task import Task
+from src.core.job.job import Job
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.model.model import DEFAULT_ATTRIBUTE_POINT_TYPE
 
@@ -15,8 +15,8 @@ CONFIRM_COLLECT_REWARDS_BUTTON_SELECTOR = ".textButtonV2.buttonFramed.collect.co
 COLLECT_REWARDS_BUTTON_SELECTOR = ".textButtonV2.buttonFramed.collectRewards.rectangle.withText.green"
 
 
-@dataclass(frozen=True)
-class BuildTask(Task):
+@dataclass(kw_only=True)
+class BuildJob(Job):
     village_name: str
     village_id: int
     building_id: int
@@ -47,8 +47,8 @@ class BuildTask(Task):
         return driver.click(upgrade_selector)
 
 
-@dataclass(frozen=True)
-class BuildNewTask(Task):
+@dataclass(kw_only=True)
+class BuildNewJob(Job):
     village_name: str
     village_id: int
     building_id: int
@@ -89,8 +89,8 @@ class BuildNewTask(Task):
             return False
 
 
-@dataclass(frozen=True)
-class HeroAdventureTask(Task):
+@dataclass(kw_only=True)
+class HeroAdventureJob(Job):
     hero_info: Any
 
     def execute(self, driver: DriverProtocol) -> bool:
@@ -139,8 +139,8 @@ class HeroAdventureTask(Task):
             return False
 
 
-@dataclass(frozen=True)
-class AllocateAttributesTask(Task):
+@dataclass(kw_only=True)
+class AllocateAttributesJob(Job):
     points: int
 
     def execute(self, driver: DriverProtocol) -> bool:
@@ -171,8 +171,8 @@ class AllocateAttributesTask(Task):
             return False
 
 
-@dataclass(frozen=True)
-class CollectDailyQuestsTask(Task):
+@dataclass(kw_only=True)
+class CollectDailyQuestsJob(Job):
     def execute(self, driver: DriverProtocol) -> bool:
         """Click the daily quests anchor and collect rewards using driver primitives.
 
@@ -188,8 +188,8 @@ class CollectDailyQuestsTask(Task):
             return False
 
 
-@dataclass(frozen=True)
-class CollectQuestmasterTask(Task):
+@dataclass(kw_only=True)
+class CollectQuestmasterJob(Job):
     village: Village
 
     def execute(self, driver: DriverProtocol) -> bool:

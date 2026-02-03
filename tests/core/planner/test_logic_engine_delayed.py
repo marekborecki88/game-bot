@@ -1,10 +1,11 @@
 import pytest
+
 from datetime import datetime, timedelta
 
 from src.config.config import Config, Strategy
 from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village
 from src.core.planner.logic_engine import LogicEngine
-from src.core.task.tasks import BuildTask
+from src.core.job.jobs import BuildJob
 
 
 def make_village(**overrides: object) -> Village:
@@ -72,14 +73,14 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
     jobs = engine.plan(game_state)
     assert len(jobs) == 1
     job = jobs[0]
-    assert job.metadata is not None
-    assert job.metadata.get("action") == "build"
 
     now = datetime.now()
     assert job.scheduled_time > now
     assert village.is_queue_building_freeze is True
 
-    expected = BuildTask(
+    expected = BuildJob(
+        scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and
+        expires_at=job.expires_at,      # expires_at values
         success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
         failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
@@ -90,7 +91,7 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
         target_level=2,
     )
 
-    assert expected == job.task
+    assert expected == job
 
 
 def test_create_build_job_uses_hero_inventory_to_build_immediately(
@@ -116,14 +117,14 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
     jobs = engine.plan(game_state)
     assert len(jobs) == 1
     job = jobs[0]
-    assert job.metadata is not None
-    assert job.metadata.get("action") == "build"
 
     assert now - timedelta(seconds=1) <= job.scheduled_time <= now + timedelta(seconds=1)
     assert village.is_queue_building_freeze is False
 
 
-    expected = BuildTask(
+    expected = BuildJob(
+        scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and
+        expires_at=job.expires_at,      # expires_at values
         success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
         failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
@@ -135,4 +136,4 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
         support=Resources(lumber=65, clay=165, iron=85, crop=100),
     )
 
-    assert expected == job.task
+    assert expected == job

@@ -1,9 +1,10 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Dict
 
-from src.core.task.task import Task
+from src.core.protocols.driver_protocol import DriverProtocol
 
 
 class JobStatus(Enum):
@@ -13,15 +14,18 @@ class JobStatus(Enum):
     TERMINATED = "terminated"
     EXPIRED = "expired"
 
-#TODO: need refactor, different kind of jobs should extend Job class
-@dataclass
-class Job:
-    task: Task
+
+@dataclass(kw_only=True)
+class Job(ABC):
     scheduled_time: datetime
     expires_at: datetime
+    success_message: str
+    failure_message: str
     status: JobStatus = JobStatus.PENDING
-    # Optional metadata to carry auxiliary information (e.g. village_id) for executor/cleanup
-    metadata: Optional[Dict[str, Any]] = None
+
+    @abstractmethod
+    def execute(self, driver: DriverProtocol) -> bool:
+        pass
 
     def is_expired(self) -> bool:
         return datetime.now() > self.expires_at

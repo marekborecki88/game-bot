@@ -2,7 +2,7 @@ from typing import Protocol
 
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import GameState
-from src.core.task.job import Job
+from src.core.job.job import Job
 
 
 class Strategy(Protocol):
