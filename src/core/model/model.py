@@ -55,12 +55,12 @@ class Resources:
     def max(self):
         return max(self.lumber, self.clay, self.iron, self.crop)
 
-    def min_type(self) -> SourceType:
+    def min_type(self) -> ResourceType:
         resource_dict = {
-            SourceType.LUMBER: self.lumber,
-            SourceType.CLAY: self.clay,
-            SourceType.IRON: self.iron,
-            SourceType.CROP: self.crop,
+            ResourceType.LUMBER: self.lumber,
+            ResourceType.CLAY: self.clay,
+            ResourceType.IRON: self.iron,
+            ResourceType.CROP: self.crop,
         }
         return min(resource_dict, key=resource_dict.get)
 
@@ -232,17 +232,17 @@ class Village:
         # planner from scheduling another action while a future build is planned.
         return len(self.building_queue) == 0 and not self.is_queue_building_freeze
 
-    def lowest_source(self) -> "SourceType":
+    def lowest_source(self) -> "ResourceType":
         source_dict = {
-            SourceType.LUMBER: self.resources.lumber,
-            SourceType.CLAY: self.resources.clay,
-            SourceType.IRON: self.resources.iron,
-            SourceType.CROP: self.resources.crop,
+            ResourceType.LUMBER: self.resources.lumber,
+            ResourceType.CLAY: self.resources.clay,
+            ResourceType.IRON: self.resources.iron,
+            ResourceType.CROP: self.resources.crop,
         }
 
         return min(source_dict, key=source_dict.get)
 
-    def pit_with_lowest_level_building(self, lowest_source: "SourceType"):
+    def pit_with_lowest_level_building(self, lowest_source: "ResourceType"):
         pits_with_given_type = [pit for pit in self.source_pits if pit.type == lowest_source]
         return min(pits_with_given_type, key=lambda p: p.level)
 
@@ -291,7 +291,7 @@ class Village:
     # TODO: better would be return particular id to upgrade
     def any_crop_is_upgradable(self):
         self_source_pits = [p for p in self.source_pits if
-                            p.type == SourceType.CROP and p.level < self.max_source_pit_level()]
+                            p.type == ResourceType.CROP and p.level < self.max_source_pit_level()]
         return len(self_source_pits) > 0
 
     def create_reservation_request(self, building_cost: BuildingCost) -> Resources:
@@ -384,7 +384,7 @@ class BuildingType(Enum):
         raise ValueError(f"No {cls.__name__} with gid {gid}")
 
 
-class SourceType(Enum):
+class ResourceType(Enum):
     # (gid, max_level)
     LUMBER = (1, 10)
     CLAY = (2, 10)
@@ -406,7 +406,7 @@ class Building:
 @dataclass
 class SourcePit:
     id: int
-    type: SourceType
+    type: ResourceType
     level: int
 
 

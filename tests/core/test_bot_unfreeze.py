@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from src.core.bot import Bot
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.task.job import Job, JobStatus
-from src.core.model.model import Village, SourcePit, SourceType, BuildingType, Tribe, GameState, \
+from src.core.model.model import Village, SourcePit, ResourceType, BuildingType, Tribe, GameState, \
     Account, HeroInfo, Building, Resources
 from src.core.task.tasks import BuildTask
 from src.scan_adapter.scanner_adapter import Scanner
@@ -71,7 +71,7 @@ def make_village(**overrides) -> Village:
         "tribe": Tribe.ROMANS,
         "resources": Resources(lumber=0, clay=0, iron=0, crop=0),
         "free_crop": 0,
-        "source_pits": [SourcePit(id=1, type=SourceType.LUMBER, level=1)],
+        "source_pits": [SourcePit(id=1, type=ResourceType.LUMBER, level=1)],
         "buildings": [Building(id=10, level=1, type=BuildingType.WAREHOUSE)],
         "warehouse_capacity": 50000,
         "granary_capacity": 50000,

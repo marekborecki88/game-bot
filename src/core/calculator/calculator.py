@@ -1,5 +1,4 @@
 import math
-from dataclasses import dataclass
 
 from src.core.model.model import Resources, BuildingCost
 

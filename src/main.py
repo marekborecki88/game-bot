@@ -29,7 +29,7 @@ def main() -> None:
         # Use a context manager or try/finally for the driver
         driver = Driver(playwright=playwright, config=config)
         try:
-            bot = Bot(driver=driver, scanner=Scanner())
+            bot = Bot(driver=driver, scanner=Scanner(), config=config)
             bot.run()
         finally:
             # Ensure the browser is closed even on error

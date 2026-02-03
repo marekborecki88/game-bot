@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime, timedelta
 
 from src.core.planner.logic_engine import LogicEngine
-from src.core.model.model import Village, SourcePit, SourceType, Tribe, GameState, Account, HeroInfo, Resources
+from src.core.model.model import Village, SourcePit, ResourceType, Tribe, GameState, Account, HeroInfo, Resources
 from src.core.task.tasks import BuildTask
 
 
@@ -13,7 +13,7 @@ def make_village(**overrides) -> Village:
         "tribe": Tribe.ROMANS,
         "resources": Resources(lumber=0, clay=0, iron=0, crop=0),
         "free_crop": 0,
-        "source_pits": [SourcePit(id=1, type=SourceType.LUMBER, level=1)],
+        "source_pits": [SourcePit(id=1, type=ResourceType.LUMBER, level=1)],
         "buildings": [],
         "warehouse_capacity": 1000,
         "granary_capacity": 1000,
@@ -42,14 +42,14 @@ def test_create_build_job_schedules_future_when_insufficient_resources(account_i
     village = make_village(
         resources=Resources(lumber=0, clay=0, iron=0, crop=0),
         lumber_hourly_production=5, clay_hourly_production=5, iron_hourly_production=5, crop_hourly_production=5,
-        source_pits=[SourcePit(id=2, type=SourceType.LUMBER, level=1)],
+        source_pits=[SourcePit(id=2, type=ResourceType.LUMBER, level=1)],
     )
 
     gs = GameState(account=account_info, villages=[village], hero_info=hero_info)
     engine = LogicEngine(game_state=gs)
 
     # Choose a building gid that is a basic resource pit (Woodcutter gid=1)
-    job = engine._create_build_job(village, building_id=2, building_gid=1, target_name=SourceType.LUMBER.name, target_level=2)
+    job = engine._create_build_job(village, building_id=2, building_gid=1, target_name=ResourceType.LUMBER.name, target_level=2)
 
     assert job is not None, "Expected a Job to be returned"
     now = datetime.now()
@@ -62,13 +62,13 @@ def test_create_build_job_schedules_future_when_insufficient_resources(account_i
     assert getattr(village, 'is_queue_building_freeze', False) is True
 
     expected = BuildTask(
-        success_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} started",
-        failure_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} failed",
+        success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
+        failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
         village_id=village.id,
         building_id=2,
         building_gid=1,
-        target_name=SourceType.LUMBER.name,
+        target_name=ResourceType.LUMBER.name,
         target_level=2,
     )
 
@@ -81,7 +81,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info,
     village = make_village(
         resources=Resources(lumber=0, clay=0, iron=0, crop=0),
         lumber_hourly_production=0, clay_hourly_production=0, iron_hourly_production=0, crop_hourly_production=0,
-        source_pits=[SourcePit(id=3, type=SourceType.LUMBER, level=1)],
+        source_pits=[SourcePit(id=3, type=ResourceType.LUMBER, level=1)],
     )
 
     # Give hero enough resources (generous amounts to be sure)
@@ -91,7 +91,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info,
     engine = LogicEngine(game_state=gs)
 
     now = datetime.now()
-    job = engine._create_build_job(village, building_id=3, building_gid=1, target_name=SourceType.LUMBER.name, target_level=2)
+    job = engine._create_build_job(village, building_id=3, building_gid=1, target_name=ResourceType.LUMBER.name, target_level=2)
 
     assert job is not None
 
@@ -107,13 +107,13 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(account_info,
     assert job.metadata.get('action') == 'build'
 
     expected = BuildTask(
-        success_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} started",
-        failure_message=f"construction of {SourceType.LUMBER.name} level 2 in {village.name} failed",
+        success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
+        failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
         village_id=village.id,
         building_id=3,
         building_gid=1,
-        target_name=SourceType.LUMBER.name,
+        target_name=ResourceType.LUMBER.name,
         target_level=2,
         support=Resources(lumber=65, clay=165, iron=85, crop=100)
     )

@@ -4,3 +4,4 @@ user_login: ${USER_LOGIN}
 user_password: ${USER_PASSWORD}
 headless: ${HEADLESS}
 log_level: INFO
+strategy: balanced_economic_growth

@@ -22,7 +22,7 @@ from src.core.model.model import (
     BuildingJob,
     BuildingContract,
     Resources,
-    Tribe, BuildingType, SourceType,
+    Tribe, BuildingType, ResourceType,
 )
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
@@ -327,7 +327,7 @@ class Scanner(ScannerProtocol):
             gid = int(self._extract_by_regex(r'gid(\d+)', class_str))
 
             # Map gid to SourceType
-            source_type = next((st for st in SourceType if st.gid == gid), None)
+            source_type = next((st for st in ResourceType if st.gid == gid), None)
 
             # Extract buildingSlot (field id)
             field_id = int(self._extract_by_regex(r'buildingSlot(\d+)', class_str))

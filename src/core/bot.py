@@ -5,6 +5,7 @@ from types import FrameType
 
 import schedule
 
+from src.config.config import Config
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
 from src.core.task.job import Job, JobStatus
@@ -43,12 +44,12 @@ class Bot:
     PLANNING_INTERVAL: int = 300  # seconds (fallback)
     JOB_CHECK_INTERVAL: int = 1  # seconds
 
-    def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol) -> None:
+    def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol, config: Config) -> None:
         self.driver: DriverProtocol = driver
         self.scanner: ScannerProtocol = scanner
         # Do not perform expensive scans during construction. The LogicEngine may receive
         # a fresh GameState at planning time via create_plan_for_village(game_state).
-        self.logic_engine: LogicEngine = LogicEngine(game_state=None)
+        self.logic_engine: LogicEngine = LogicEngine(game_state=None, config=config)
         self.jobs: list[Job] = []
         self._running: bool = False
         # handle to the scheduled planning job (so we can cancel/reschedule dynamically)
@@ -88,19 +89,15 @@ class Bot:
         across all villages. If there are no villages or the computed delay is invalid, a
         fallback interval (PLANNING_INTERVAL) will be used.
         """
-        logger.info("Running planning phase...")
+        logger.debug("Running planning phase...")
 
-        new_jobs = []
 
         try:
             # Build fresh game state so we can both plan and compute next planning time
             game_state = self.create_game_state()
-            new_jobs.extend(self.logic_engine.create_plan_for_village(game_state))
-            # Also plan hero adventure (if applicable)
-            hero_jobs = self.logic_engine.create_plan_for_hero(game_state.hero_info)
-            new_jobs.extend(hero_jobs)
-            self.jobs.extend(new_jobs)
-            logger.info(f"Planning complete: added {len(new_jobs)} new jobs. Total pending: {len(self.jobs)}")
+            jobs = self.logic_engine.plan(game_state)
+            self.jobs.extend(jobs)
+            logger.info(f"Planning complete: added {len(jobs)} new jobs. Total pending: {len(self.jobs)}")
 
             self._schedule_planning(game_state)
 

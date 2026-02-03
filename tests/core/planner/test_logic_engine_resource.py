@@ -1,6 +1,6 @@
 import pytest
 
-from src.core.model.model import Village, SourceType, GameState, HeroInfo, Tribe, Account, Resources
+from src.core.model.model import Village, ResourceType, GameState, HeroInfo, Tribe, Account, Resources
 from src.core.planner.logic_engine import LogicEngine
 
 
@@ -40,7 +40,7 @@ def base_village():
 def test_lowest_resource_type_basic(account_info, empty_hero, base_village):
     game_state = GameState(account=account_info, villages=[base_village], hero_info=empty_hero)
     engine = LogicEngine(game_state=game_state)
-    assert engine.determine_next_resoure_to_develop(game_state) == SourceType.LUMBER
+    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.LUMBER
 
 
 def test_lowest_resource_type_with_hero_inventory(account_info, base_village):
@@ -53,7 +53,7 @@ def test_lowest_resource_type_with_hero_inventory(account_info, base_village):
     game_state = GameState(account=account_info, villages=[base_village], hero_info=hero)
     engine = LogicEngine(game_state)
     # Now lumber is 100+500=600, so clay is lowest
-    assert engine.determine_next_resoure_to_develop(game_state) == SourceType.CLAY
+    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.CLAY
 
 
 def test_lowest_resource_type_balanced(account_info, empty_hero):
@@ -103,7 +103,7 @@ def test_lowest_resource_type_with_multiple_villages(account_info, empty_hero):
     game_state = GameState(account=account_info, villages=[v1, v2], hero_info=empty_hero)
     engine = LogicEngine(game_state=game_state)
     # lumber: 150, clay: 250, iron: 350, crop: 450
-    assert engine.determine_next_resoure_to_develop(game_state) == SourceType.LUMBER
+    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.LUMBER
 
 
 def test_lowest_resource_type_with_hero_inventory_only(account_info):
@@ -115,5 +115,5 @@ def test_lowest_resource_type_with_hero_inventory_only(account_info):
     })
     game_state = GameState(account=account_info, villages=[], hero_info=hero)
     engine = LogicEngine(game_state=game_state)
-    assert engine.determine_next_resoure_to_develop(game_state) == SourceType.CLAY
+    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.CLAY
 

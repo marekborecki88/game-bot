@@ -1,6 +1,7 @@
 import os
 import re
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +11,11 @@ from dotenv import load_dotenv
 CONFIG_FILENAME = "config.yaml"
 
 
+class Strategy(Enum):
+    BALANCED_ECONOMIC_GROWTH = "balanced_economic_growth"
+    DEFEND_ARMY = "defend_army"
+
+
 @dataclass
 class Config:
     server_url: str
@@ -17,6 +23,7 @@ class Config:
     user_login: str
     user_password: str
     headless: bool
+    strategy: Strategy | None
     log_level: str = "INFO"
 
     @classmethod
@@ -106,6 +113,7 @@ class Config:
             user_login=data['user_login'],
             user_password=data['user_password'],
             headless=bool(data['headless']),
+            strategy=Strategy(data['strategy']) if 'strategy' in data else None,
             log_level=data.get('log_level', 'INFO')
         )
 
