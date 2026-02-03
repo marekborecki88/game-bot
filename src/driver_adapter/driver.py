@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Iterable, Tuple
+from typing import Iterable
 
 from playwright.sync_api import Playwright, Locator
 
@@ -19,16 +19,16 @@ logger = logging.getLogger(__name__)
 class Driver(DriverProtocol):
     def __init__(self, playwright: Playwright, driver_config: DriverConfig):
         self.playwright = playwright
-        self.driver_config = driver_config
-        self.browser = self.playwright.chromium.launch(headless=self.driver_config.headless)
+        self.config = driver_config
+        self.browser = self.playwright.chromium.launch(headless=self.config.headless)
         self.page = self.browser.new_page()
         self.login()
 
     def login(self) -> None:
-        self.page.goto(self.driver_config.server_url)
+        self.page.goto(self.config.server_url)
 
-        self.page.fill('input[name="name"]', self.driver_config.user_login)
-        self.page.fill('input[name="password"]', self.driver_config.user_password)
+        self.page.fill('input[name="name"]', self.config.user_login)
+        self.page.fill('input[name="password"]', self.config.user_password)
 
         # move mouse to random position within login button and click
         login_button: Locator = self.page.locator('button[type="submit"]').first
@@ -68,7 +68,7 @@ class Driver(DriverProtocol):
     def refresh(self) -> None:
         self.page.reload()
 
-    def get_village_inner_html(self, village_id: int) -> Tuple[str, str]:
+    def get_village_inner_html(self, village_id: int) -> tuple[str, str]:
         self.navigate_to_village(village_id)
         dorf1: str = self.get_html("/dorf1.php")
         dorf2: str = self.get_html("/dorf2.php")
@@ -190,3 +190,10 @@ class Driver(DriverProtocol):
 
     def sleep(self, seconds: int) -> None:
         self.page.wait_for_timeout(seconds * 1000)
+
+    def is_visible(self, selector: str) -> bool:
+        try:
+            locator = self.page.locator(selector).first
+            return locator.count() > 0 and locator.is_visible()
+        except Exception:
+            return False

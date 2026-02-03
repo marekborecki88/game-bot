@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol, Iterable, Tuple
+from typing import Protocol, Iterable
 
 from src.core.model.model import Resources
 
@@ -22,7 +22,7 @@ class DriverProtocol(Protocol):
         load state before returning.
         """
 
-    def get_village_inner_html(self, village_id: int) -> Tuple[str, str]:
+    def get_village_inner_html(self, village_id: int) -> tuple[str, str]:
         """
         Return the inner HTML's of dorf1 and dorf2 for the given village ID.
         :param village_id:
@@ -79,3 +79,6 @@ class DriverProtocol(Protocol):
 
     def sleep(self, seconds: int) -> None:
         """Sleep for the given number of seconds."""
+
+    def is_visible(self, selector: str) -> bool:
+        """Return True if the element matching the selector is visible."""

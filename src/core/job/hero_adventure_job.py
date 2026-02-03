@@ -21,6 +21,24 @@ class HeroAdventureJob(Job):
             # Navigate to hero adventures view
             driver.navigate("/hero/adventures")
 
+            # Watch video to unlock additional adventure difficulty levels
+            watch_video_button = "button.textButtonV2.buttonFramed.withTextAndIcon.rectangle.withText.purple"
+            if driver.is_visible(watch_video_button):
+                driver.click(watch_video_button)
+                driver.wait_for_load_state()
+
+                # Click confirmation dialog button
+                confirmation_button = "button.textButtonV2.buttonFramed.dialogButtonOk.rectangle.withText.green"
+                driver.click(confirmation_button)
+                driver.wait_for_load_state()
+
+                # Wait for video player to load
+                driver.sleep(3)
+                driver.wait_for_selector_and_click("#videoArea")
+
+                # Wait for advertisement to finish
+                driver.wait_for_load_state()
+
             # Exact selector where the green Explore button typically lives
             explore_selector = "button.textButtonV2.buttonFramed.rectangle.withText.green"
             clicked = driver.click(explore_selector)
