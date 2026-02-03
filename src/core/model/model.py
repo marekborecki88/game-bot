@@ -55,7 +55,7 @@ class Resources:
     def max(self):
         return max(self.lumber, self.clay, self.iron, self.crop)
 
-    def min_type(self) -> ResourceType:
+    def min_type(self) -> "ResourceType":
         resource_dict = {
             ResourceType.LUMBER: self.lumber,
             ResourceType.CLAY: self.clay,
