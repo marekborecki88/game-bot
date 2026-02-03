@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from src.config.config import Config, Strategy
+from src.config.config import LogicConfig, Strategy
 from src.core.bot import Bot
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.job.job import Job, JobStatus
@@ -95,15 +95,11 @@ def make_village(**overrides: object) -> Village:
 
 def test_unfreeze_on_expired_job_cleanup() -> None:
     driver = FakeDriver()
-    config = Config(
+    logic_config = LogicConfig(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
-        server_url="",
         speed=1,
-        user_login="",
-        user_password="",
-        headless=True,
     )
-    bot = Bot(driver, scanner=Scanner(), config=config)
+    bot = Bot(driver, scanner=Scanner(), logic_config=logic_config)
 
     village = make_village()
     account = Account(server_speed=1.0)

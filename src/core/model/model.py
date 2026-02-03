@@ -4,7 +4,7 @@ from enum import Enum
 
 from playwright.sync_api import Page
 
-from src.config.config import Config
+from src.config.config import DriverConfig
 
 logger = logging.getLogger(__name__)
 
@@ -209,12 +209,12 @@ class Village:
     # we already scheduled a future building job that will consume the queue.
     is_queue_building_freeze: bool = False
 
-    def build(self, page: Page, config: Config, id: int):
+    def build(self, page: Page, driver_config: DriverConfig, id: int):
         source_pit = next((s for s in self.source_pits if s.id == id), None)
         if not source_pit:
             return
 
-        page.goto(f"{config.server_url}/build.php?id={id}&gid={source_pit.type.value}")
+        page.goto(f"{driver_config.server_url}/build.php?id={id}&gid={source_pit.type.value}")
         page.wait_for_selector("#contract ")
 
         logger.info("Scanning building contract...")

@@ -1,10 +1,10 @@
 # MAJOR TODOs
 1. There should be defined policies for developing villages:
-    - Balanced
-    - Resource oriented
-    - Military oriented (Defense/Offense)
-    - Supporter (just support other account)
-    - Would be great to be able to define custom policies in configuration
+    - [ ] Balanced policy
+    - [x] Resource oriented policy
+    - [ ] Military oriented policy (Defense/Offense)
+    - [ ] Supporter policy (just support other account)
+    - [ ] Custom policies definition in configuration
 
 
 # MINOR TODOs

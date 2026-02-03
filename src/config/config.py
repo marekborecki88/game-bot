@@ -16,15 +16,28 @@ class Strategy(Enum):
     DEFEND_ARMY = "defend_army"
 
 
-@dataclass
-class Config:
+@dataclass(frozen=True)
+class DriverConfig:
+    """Configuration for the browser driver and login."""
     server_url: str
-    speed: int
     user_login: str
     user_password: str
     headless: bool
+
+
+@dataclass(frozen=True)
+class LogicConfig:
+    """Configuration for the bot logic and planning."""
+    speed: int
     strategy: Strategy | None
-    log_level: str = "INFO"
+
+
+@dataclass
+class Config:
+    """Main configuration containing log level and nested config objects."""
+    log_level: str
+    driver_config: DriverConfig
+    logic_config: LogicConfig
 
     @classmethod
     def find_config_path(cls, config_path: Optional[str] = None) -> str:
@@ -107,14 +120,22 @@ class Config:
         if not isinstance(data, dict):
             raise ValueError(f"Parsed config file {config_file} does not contain a mapping")
 
-        return cls(
+        driver_config = DriverConfig(
             server_url=data['server_url'],
-            speed=int(data['speed']),
             user_login=data['user_login'],
             user_password=data['user_password'],
             headless=bool(data['headless']),
+        )
+
+        logic_config = LogicConfig(
+            speed=int(data['speed']),
             strategy=Strategy(data['strategy']) if 'strategy' in data else None,
-            log_level=data.get('log_level', 'INFO')
+        )
+
+        return cls(
+            log_level=data.get('log_level', 'INFO'),
+            driver_config=driver_config,
+            logic_config=logic_config,
         )
 
 

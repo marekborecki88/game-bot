@@ -1,6 +1,6 @@
 import pytest
 
-from src.config.config import Config, Strategy
+from src.config.config import LogicConfig, Strategy
 from src.core.planner.logic_engine import LogicEngine
 from src.core.model.model import (
     Village,
@@ -47,21 +47,17 @@ def hero_info() -> HeroInfo:
 
 
 @pytest.fixture
-def config() -> Config:
-    return Config(
+def config() -> LogicConfig:
+    return LogicConfig(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
-        server_url="",
         speed=1,
-        user_login="",
-        user_password="",
-        headless=True,
     )
 
 
 def test_skip_village_with_non_empty_building_queue(
     account_info: Account,
     hero_info: HeroInfo,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     village = make_village(
         name="Test Village",
@@ -82,7 +78,7 @@ def test_skip_village_with_non_empty_building_queue(
 def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(
     account_info: Account,
     hero_info: HeroInfo,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     village = make_village(
         name="WarehouseTest",
@@ -114,7 +110,7 @@ def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(
 def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(
     account_info: Account,
     hero_info: HeroInfo,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     village = make_village(
         name="GranaryTest",
@@ -147,7 +143,7 @@ def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(
 def test_prioritize_storage_with_lower_ratio(
     account_info: Account,
     hero_info: HeroInfo,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     village = make_village(
         name="PriorityTest",
@@ -182,7 +178,7 @@ def test_prioritize_storage_with_lower_ratio(
 def test_upgrade_source_pit_when_storage_is_sufficient(
     account_info: Account,
     hero_info: HeroInfo,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     village = make_village(
         name="SourcePitTest",
@@ -219,7 +215,7 @@ def test_upgrade_source_pit_when_storage_is_sufficient(
 def test_skip_village_when_all_source_pits_at_max_level(
     account_info: Account,
     hero_info: HeroInfo,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     village = make_village(
         name="MaxedPitsTest",
@@ -249,7 +245,7 @@ def test_skip_village_when_all_source_pits_at_max_level(
 def test_skip_storage_upgrade_when_at_max_level(
     account_info: Account,
     hero_info: HeroInfo,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     village = make_village(
         name="MaxedStorageTest",
@@ -280,7 +276,7 @@ def test_skip_storage_upgrade_when_at_max_level(
 
 def test_plan_hero_adventure_when_hero_available(
     account_info: Account,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     hero_info = HeroInfo(health=90, experience=1000, adventures=83, is_available=True)
     game_state = GameState(account=account_info, villages=[], hero_info=hero_info)
@@ -296,7 +292,7 @@ def test_plan_hero_adventure_when_hero_available(
 
 def test_skip_hero_adventure_when_hero_unavailable(
     account_info: Account,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     hero_info = HeroInfo(health=50, experience=500, adventures=10, is_available=False)
     game_state = GameState(account=account_info, villages=[], hero_info=hero_info)
@@ -310,7 +306,7 @@ def test_skip_hero_adventure_when_hero_unavailable(
 
 def test_allocate_attributes_job_when_points_available(
     account_info: Account,
-    config: Config,
+    config: LogicConfig,
 ) -> None:
     hero_info = HeroInfo(
         health=80,

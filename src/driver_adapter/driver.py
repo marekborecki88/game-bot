@@ -4,7 +4,7 @@ from typing import Iterable, Tuple
 
 from playwright.sync_api import Playwright, Locator
 
-from src.config.config import Config
+from src.config.config import DriverConfig
 from src.core.bot import HERO_INVENTORY, CLOSE_CONTENT_BUTTON_SELECTOR, RESOURCE_TO_CLASS_MAP
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.model.model import Resources
@@ -17,18 +17,18 @@ logger = logging.getLogger(__name__)
 
 
 class Driver(DriverProtocol):
-    def __init__(self, playwright: Playwright, config: Config):
+    def __init__(self, playwright: Playwright, driver_config: DriverConfig):
         self.playwright = playwright
-        self.config = config
-        self.browser = self.playwright.chromium.launch(headless=self.config.headless)
+        self.driver_config = driver_config
+        self.browser = self.playwright.chromium.launch(headless=self.driver_config.headless)
         self.page = self.browser.new_page()
         self.login()
 
     def login(self) -> None:
-        self.page.goto(self.config.server_url)
+        self.page.goto(self.driver_config.server_url)
 
-        self.page.fill('input[name="name"]', self.config.user_login)
-        self.page.fill('input[name="password"]', self.config.user_password)
+        self.page.fill('input[name="name"]', self.driver_config.user_login)
+        self.page.fill('input[name="password"]', self.driver_config.user_password)
 
         # move mouse to random position within login button and click
         login_button: Locator = self.page.locator('button[type="submit"]').first

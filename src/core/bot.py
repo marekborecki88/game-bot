@@ -5,7 +5,7 @@ from types import FrameType
 
 import schedule
 
-from src.config.config import Config
+from src.config.config import LogicConfig
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
 from src.core.job.job import Job, JobStatus
@@ -44,12 +44,12 @@ class Bot:
     PLANNING_INTERVAL: int = 300  # seconds (fallback)
     JOB_CHECK_INTERVAL: int = 1  # seconds
 
-    def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol, config: Config) -> None:
+    def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol, logic_config: LogicConfig) -> None:
         self.driver: DriverProtocol = driver
         self.scanner: ScannerProtocol = scanner
         # Do not perform expensive scans during construction. The LogicEngine may receive
         # a fresh GameState at planning time via create_plan_for_village(game_state).
-        self.logic_engine: LogicEngine = LogicEngine(game_state=None, config=config)
+        self.logic_engine: LogicEngine = LogicEngine(game_state=None, logic_config=logic_config)
         self.jobs: list[Job] = []
         self._running: bool = False
         # handle to the scheduled planning job (so we can cancel/reschedule dynamically)

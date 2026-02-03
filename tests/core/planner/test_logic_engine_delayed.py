@@ -2,7 +2,7 @@ import pytest
 
 from datetime import datetime, timedelta
 
-from src.config.config import Config, Strategy
+from src.config.config import LogicConfig, Strategy
 from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village
 from src.core.planner.logic_engine import LogicEngine
 from src.core.job import BuildJob
@@ -42,14 +42,10 @@ def hero_info() -> HeroInfo:
 
 
 @pytest.fixture
-def config() -> Config:
-    return Config(
+def config() -> LogicConfig:
+    return LogicConfig(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
-        server_url="",
         speed=1,
-        user_login="",
-        user_password="",
-        headless=True,
     )
 
 

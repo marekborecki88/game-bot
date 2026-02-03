@@ -45,17 +45,12 @@ def test_lowest_resource_type_basic() -> None:
     )
 
     build_jobs = LogicEngine(logic_config).plan(game_state)
-
-    assert len(build_jobs) == 1
-
-    job = build_jobs[0]
-    assert job.target_name == ResourceType.LUMBER.name
-
-
-def test_lowest_resource_type_with_hero_inventory() -> None:
-    logic_config = LogicConfig(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
         speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
     )
 
     # Village resources: L=100, C=200, I=300, Cr=400
@@ -97,7 +92,7 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
     assert len(build_jobs) == 1
 
@@ -106,9 +101,13 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
 
 
 def test_lowest_resource_type_balanced() -> None:
-    logic_config = LogicConfig(
+    config = Config(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
         speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
     )
 
     # Village resources: all equal
@@ -142,7 +141,7 @@ def test_lowest_resource_type_balanced() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
     # In the current implementation, even when global-lowest is "None", the planner
     # still picks an upgradable pit (fallback). For this test data it becomes LUMBER.
@@ -153,9 +152,13 @@ def test_lowest_resource_type_balanced() -> None:
 
 
 def test_lowest_resource_type_with_multiple_villages() -> None:
-    logic_config = LogicConfig(
+    config = Config(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
         speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
     )
 
     # Village V1 resources: L=100, C=200, I=300, Cr=400
@@ -213,7 +216,7 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
     assert len(build_jobs) == 2
 
@@ -222,9 +225,13 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
 
 
 def test_lowest_resource_type_with_hero_inventory_only() -> None:
-    logic_config = LogicConfig(
+    config = Config(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
         speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
     )
 
     # Village resources: all zero
@@ -265,7 +272,7 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(config).plan(game_state)
 
     assert len(build_jobs) == 1
 
