@@ -27,6 +27,8 @@ class Driver(DriverProtocol):
     def login(self) -> None:
         self.page.goto(self.config.server_url)
 
+        self.page.wait_for_load_state('networkidle')
+
         self.page.fill('input[name="name"]', self.config.user_login)
         self.page.fill('input[name="password"]', self.config.user_password)
 
@@ -38,6 +40,10 @@ class Driver(DriverProtocol):
             y = box["y"] + random.uniform(0, box["height"])
             self.page.mouse.move(x, y)
             self.page.mouse.click(x, y)
+
+        #wait
+        self.sleep(5)
+
         self.page.wait_for_load_state('networkidle')
 
         logger.info("Successfully logged in.")
