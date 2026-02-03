@@ -1,119 +1,298 @@
-import pytest
+from __future__ import annotations
 
-from src.core.model.model import Village, ResourceType, GameState, HeroInfo, Tribe, Account, Resources
+from src.config.config import Config, Strategy
+from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village
 from src.core.planner.logic_engine import LogicEngine
 
 
-class DummyBuilding:
-    def __init__(self):
-        self.level = 1
-        self.type = None
-        self.id = 1
-
-
-@pytest.fixture
-def account_info():
-    return Account(server_speed=1.0, when_beginners_protection_expires=0)
-
-
-@pytest.fixture
-def empty_hero():
-    return HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={})
-
-
-@pytest.fixture
-def base_village():
-    return Village(
-        id=1,
-        name="TestVillage",
-        tribe=Tribe.ROMANS,
-        resources=Resources(lumber=100, clay=200, iron=300, crop=400),
-        free_crop=0,
-        source_pits=[],
-        buildings=[],
-        warehouse_capacity=1000,
-        granary_capacity=1000,
-        building_queue=[],
+def test_lowest_resource_type_basic() -> None:
+    config = Config(
+        strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
+        speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
     )
 
+    # Village resources: L=100, C=200, I=300, Cr=400 (lowest: LUMBER)
+    village = Village(
+        id=1,
+        name="V1",
+        tribe=Tribe.ROMANS,
+        resources=Resources(lumber=100, clay=200, iron=300, crop=400),
+        free_crop=100,
+        source_pits=[
+            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            SourcePit(id=2, type=ResourceType.CLAY, level=1),
+            SourcePit(id=3, type=ResourceType.IRON, level=1),
+            SourcePit(id=4, type=ResourceType.CROP, level=1),
+        ],
+        buildings=[],
+        warehouse_capacity=100000,
+        granary_capacity=100000,
+        building_queue=[],
+        lumber_hourly_production=10,
+        clay_hourly_production=10,
+        iron_hourly_production=10,
+        crop_hourly_production=10,
+    )
 
-def test_lowest_resource_type_basic(account_info, empty_hero, base_village):
-    game_state = GameState(account=account_info, villages=[base_village], hero_info=empty_hero)
-    engine = LogicEngine(game_state=game_state)
-    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.LUMBER
+    # Hero inventory: empty
+    hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={})
+
+    game_state = GameState(
+        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        villages=[village],
+        hero_info=hero,
+    )
+
+    jobs = LogicEngine(config).plan(game_state)
+
+    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
+    assert len(build_jobs) == 1
+
+    task = build_jobs[0].task
+    assert task.target_name == ResourceType.LUMBER.name
 
 
-def test_lowest_resource_type_with_hero_inventory(account_info, base_village):
-    hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={
-        'lumber': 500,
-        'clay': 0,
-        'iron': 0,
-        'crop': 0
-    })
-    game_state = GameState(account=account_info, villages=[base_village], hero_info=hero)
-    engine = LogicEngine(game_state)
-    # Now lumber is 100+500=600, so clay is lowest
-    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.CLAY
+def test_lowest_resource_type_with_hero_inventory() -> None:
+    config = Config(
+        strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
+        speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
+    )
+
+    # Village resources: L=100, C=200, I=300, Cr=400
+    village = Village(
+        id=1,
+        name="V1",
+        tribe=Tribe.ROMANS,
+        resources=Resources(lumber=100, clay=200, iron=300, crop=400),
+        free_crop=100,
+        source_pits=[
+            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            SourcePit(id=2, type=ResourceType.CLAY, level=1),
+            SourcePit(id=3, type=ResourceType.IRON, level=1),
+            SourcePit(id=4, type=ResourceType.CROP, level=1),
+        ],
+        buildings=[],
+        warehouse_capacity=100000,
+        granary_capacity=100000,
+        building_queue=[],
+        lumber_hourly_production=10,
+        clay_hourly_production=10,
+        iron_hourly_production=10,
+        crop_hourly_production=10,
+    )
+
+    # Hero inventory adds lumber only: L=500
+    # Combined totals: L=600, C=200, I=300, Cr=400 -> lowest: CLAY
+    hero = HeroInfo(
+        health=100,
+        experience=0,
+        adventures=0,
+        is_available=True,
+        inventory={"lumber": 500, "clay": 0, "iron": 0, "crop": 0},
+    )
+
+    game_state = GameState(
+        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        villages=[village],
+        hero_info=hero,
+    )
+
+    jobs = LogicEngine(config).plan(game_state)
+
+    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
+    assert len(build_jobs) == 1
+
+    task = build_jobs[0].task
+    assert task.target_name == ResourceType.CLAY.name
 
 
-def test_lowest_resource_type_balanced(account_info, empty_hero):
-    v1 = Village(
+def test_lowest_resource_type_balanced() -> None:
+    config = Config(
+        strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
+        speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
+    )
+
+    # Village resources: all equal
+    village = Village(
         id=1,
         name="V1",
         tribe=Tribe.ROMANS,
         resources=Resources(lumber=100, clay=100, iron=100, crop=100),
-        free_crop=0,
-        source_pits=[],
+        free_crop=100,
+        source_pits=[
+            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            SourcePit(id=2, type=ResourceType.CLAY, level=1),
+            SourcePit(id=3, type=ResourceType.IRON, level=1),
+            SourcePit(id=4, type=ResourceType.CROP, level=1),
+        ],
         buildings=[],
-        warehouse_capacity=1000,
-        granary_capacity=1000,
+        warehouse_capacity=100000,
+        granary_capacity=100000,
         building_queue=[],
+        lumber_hourly_production=10,
+        clay_hourly_production=10,
+        iron_hourly_production=10,
+        crop_hourly_production=10,
     )
-    game_state = GameState(account=account_info, villages=[v1], hero_info=empty_hero)
-    engine = LogicEngine(game_state=game_state)
-    # All resources equal, should return None
-    assert engine.determine_next_resoure_to_develop(game_state) is None
+
+    hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={})
+
+    game_state = GameState(
+        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        villages=[village],
+        hero_info=hero,
+    )
+
+    jobs = LogicEngine(config).plan(game_state)
+
+    # In the current implementation, even when global-lowest is "None", the planner
+    # still picks an upgradable pit (fallback). For this test data it becomes LUMBER.
+    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
+    assert len(build_jobs) == 1
+
+    task = build_jobs[0].task
+    assert task.target_name == ResourceType.LUMBER.name
 
 
-def test_lowest_resource_type_with_multiple_villages(account_info, empty_hero):
+def test_lowest_resource_type_with_multiple_villages() -> None:
+    config = Config(
+        strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
+        speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
+    )
+
+    # Village V1 resources: L=100, C=200, I=300, Cr=400
     v1 = Village(
         id=1,
         name="V1",
         tribe=Tribe.ROMANS,
         resources=Resources(lumber=100, clay=200, iron=300, crop=400),
-        free_crop=0,
-        source_pits=[],
+        free_crop=100,
+        source_pits=[
+            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            SourcePit(id=2, type=ResourceType.CLAY, level=1),
+            SourcePit(id=3, type=ResourceType.IRON, level=1),
+            SourcePit(id=4, type=ResourceType.CROP, level=1),
+        ],
         buildings=[],
-        warehouse_capacity=1000,
-        granary_capacity=1000,
+        warehouse_capacity=100000,
+        granary_capacity=100000,
         building_queue=[],
+        lumber_hourly_production=10,
+        clay_hourly_production=10,
+        iron_hourly_production=10,
+        crop_hourly_production=10,
     )
+
+    # Village V2 resources: all 50
     v2 = Village(
         id=2,
         name="V2",
         tribe=Tribe.ROMANS,
         resources=Resources(lumber=50, clay=50, iron=50, crop=50),
-        free_crop=0,
-        source_pits=[],
+        free_crop=100,
+        source_pits=[
+            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            SourcePit(id=2, type=ResourceType.CLAY, level=1),
+            SourcePit(id=3, type=ResourceType.IRON, level=1),
+            SourcePit(id=4, type=ResourceType.CROP, level=1),
+        ],
         buildings=[],
-        warehouse_capacity=1000,
-        granary_capacity=1000,
+        warehouse_capacity=100000,
+        granary_capacity=100000,
         building_queue=[],
+        lumber_hourly_production=10,
+        clay_hourly_production=10,
+        iron_hourly_production=10,
+        crop_hourly_production=10,
     )
-    game_state = GameState(account=account_info, villages=[v1, v2], hero_info=empty_hero)
-    engine = LogicEngine(game_state=game_state)
-    # lumber: 150, clay: 250, iron: 350, crop: 450
-    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.LUMBER
+
+    # Combined totals: L=150, C=250, I=350, Cr=450 -> lowest: LUMBER
+    hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={})
+
+    game_state = GameState(
+        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        villages=[v1, v2],
+        hero_info=hero,
+    )
+
+    jobs = LogicEngine(config).plan(game_state)
+
+    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
+    assert len(build_jobs) == 2
+
+    # Ensure at least one scheduled build targets LUMBER.
+    assert any(job.task.target_name == ResourceType.LUMBER.name for job in build_jobs)
 
 
-def test_lowest_resource_type_with_hero_inventory_only(account_info):
-    hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={
-        'lumber': 10,
-        'clay': 5,
-        'iron': 20,
-        'crop': 30
-    })
-    game_state = GameState(account=account_info, villages=[], hero_info=hero)
-    engine = LogicEngine(game_state=game_state)
-    assert engine.determine_next_resoure_to_develop(game_state) == ResourceType.CLAY
+def test_lowest_resource_type_with_hero_inventory_only() -> None:
+    config = Config(
+        strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
+        server_url="",
+        speed=1,
+        user_login="",
+        user_password="",
+        headless=True,
+    )
+
+    # Village resources: all zero
+    village = Village(
+        id=1,
+        name="V1",
+        tribe=Tribe.ROMANS,
+        resources=Resources(lumber=0, clay=0, iron=0, crop=0),
+        free_crop=100,
+        source_pits=[
+            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            SourcePit(id=2, type=ResourceType.CLAY, level=1),
+            SourcePit(id=3, type=ResourceType.IRON, level=1),
+            SourcePit(id=4, type=ResourceType.CROP, level=1),
+        ],
+        buildings=[],
+        warehouse_capacity=100000,
+        granary_capacity=100000,
+        building_queue=[],
+        lumber_hourly_production=10,
+        clay_hourly_production=10,
+        iron_hourly_production=10,
+        crop_hourly_production=10,
+    )
+
+    # Hero inventory only: L=10, C=5, I=20, Cr=30 -> lowest: CLAY
+    hero = HeroInfo(
+        health=100,
+        experience=0,
+        adventures=0,
+        is_available=True,
+        inventory={"lumber": 10, "clay": 5, "iron": 20, "crop": 30},
+    )
+
+    game_state = GameState(
+        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        villages=[village],
+        hero_info=hero,
+    )
+
+    jobs = LogicEngine(config).plan(game_state)
+
+    build_jobs = [job for job in jobs if job.metadata and job.metadata.get("action") == "build"]
+    assert len(build_jobs) == 1
+
+    task = build_jobs[0].task
+    assert task.target_name == ResourceType.CLAY.name
 
