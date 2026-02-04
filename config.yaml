@@ -3,6 +3,6 @@ speed: 10
 user_login: ${USER_LOGIN}
 user_password: ${USER_PASSWORD}
 headless: ${HEADLESS}
-log_level: DEBUG
+log_level: INFO
 strategy: balanced_economic_growth
 minimum_storage_capacity_in_hours: 2
