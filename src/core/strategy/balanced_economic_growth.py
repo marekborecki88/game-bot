@@ -136,22 +136,19 @@ class BalancedEconomicGrowth(Strategy):
         return total.min_type()
 
     def _plan_village(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> list[Job]:
-        if not village.can_build():
-            return []
-
         jobs = []
         if village.needs_more_free_crop():
             upgrade_crop = self._plan_source_pit_upgrade(village=village, game_state=game_state,global_lowest=ResourceType.CROP)
-            if upgrade_crop:
+            if upgrade_crop and village.building_queue.can_build_outside():
                 jobs.append(upgrade_crop)
         else:
             upgrade = self._plan_storage_upgrade(village=village, hero_info=game_state.hero_info)
-            if upgrade:
+            if upgrade and village.building_queue.can_build_inside():
                 jobs.append(upgrade)
 
         if len(jobs) == 0 or village.building_queue.parallel_building_allowed:
             upgrade =self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=global_lowest)
-            if upgrade:
+            if upgrade and village.building_queue.can_build_outside():
                 jobs.append(upgrade)
 
         for job in jobs:

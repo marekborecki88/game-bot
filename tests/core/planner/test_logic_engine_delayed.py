@@ -77,7 +77,7 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
 
     now = datetime.now()
     assert job.scheduled_time > now
-    assert village.can_build() is False
+    assert village.building_queue.can_build_outside() is False
 
     expected = BuildJob(
         scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and
@@ -120,7 +120,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
     job = jobs[0]
 
     assert now - timedelta(seconds=1) <= job.scheduled_time <= now + timedelta(seconds=1)
-    assert village.can_build() is False
+    assert village.building_queue.can_build_outside() is False
 
     expected = BuildJob(
         scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and

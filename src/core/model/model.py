@@ -205,9 +205,16 @@ class BuildingQueue:
     def _building_in_center(self, building_name: str) -> bool:
         return building_name not in ["Woodcutter", "Clay Pit", "Iron Mine", "Cropland"]
 
-    def has_empty_slot(self):
+    def can_build_inside(self) -> bool:
+        """Check if a building can be started in the center (inside)."""
         if self.parallel_building_allowed:
-            return len(self.in_jobs) == 0 or len(self.out_jobs) == 0
+            return len(self.in_jobs) == 0
+        return len(self.in_jobs) + len(self.out_jobs) == 0
+
+    def can_build_outside(self) -> bool:
+        """Check if a building can be started outside (source pits)."""
+        if self.parallel_building_allowed:
+            return len(self.out_jobs) == 0
         return len(self.in_jobs) + len(self.out_jobs) == 0
 
     def freeze_until(self, until, building_id):
@@ -255,9 +262,6 @@ class Village:
         upgrade_button = page.locator("button.textButtonV1.green.build").first
         upgrade_button.click()
         logger.info("Clicked upgrade button")
-
-    def can_build(self):
-        return self.building_queue.has_empty_slot()
 
     def lowest_source(self) -> "ResourceType":
         source_dict = {
