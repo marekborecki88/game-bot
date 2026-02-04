@@ -10,7 +10,6 @@ import json
 import re
 
 from bs4 import Tag, BeautifulSoup
-from coverage.inorout import name_for_module
 
 from src.core.bot import CLASS_TO_RESOURCE_MAP
 from src.core.model.model import (
