@@ -71,7 +71,7 @@ class Bot:
                 except Exception as e:
                     logger.error(f"Job execution failed: {e}", exc_info=True)
 
-            delay = self._calculate_next_delay(game_state)
+            delay = int(self._calculate_next_delay(game_state))
             self._planning_job = schedule.every(delay).seconds.do(self._run_planning)
             logger.info(f"Next planning scheduled in {delay} seconds")
         except Exception as e:
@@ -129,9 +129,6 @@ class Bot:
         exception handling and final cleanup) and delegates the task-specific
         execution to the `_handle_task` method which runs Task instances.
         """
-        if job.is_expired():
-            job.status = JobStatus.EXPIRED
-            return f"Job expired (scheduled for {job.scheduled_time})"
 
         job.status = JobStatus.RUNNING
         try:

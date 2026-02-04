@@ -6,7 +6,7 @@ def test_build_task_attempts_upgrade_click(fake_driver_factory) -> None:
     driver = fake_driver_factory(upgrade_click_selectors=["button.textButtonV1.green.build"])
     now = datetime.now()
     task = BuildJob(success_message='ok', failure_message='err', village_name='V', village_id=1, building_id=42, building_gid=7, target_name='S', target_level=1,
-                    scheduled_time=now, expires_at=now)
+                    scheduled_time=now)
 
     result = task.execute(driver)
 

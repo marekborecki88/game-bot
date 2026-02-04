@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 
 from playwright.sync_api import Page
@@ -116,7 +117,6 @@ def scan_contract(page: Page) -> BuildingContract:
 
 @dataclass
 class Account:
-    server_speed: float
     when_beginners_protection_expires: int = 0
 
 
@@ -197,15 +197,23 @@ class BuildingQueue:
         # min from in_jobs and out_jobs
         in_duration = sum(job.time_remaining for job in self.in_jobs)
         out_duration = sum(job.time_remaining for job in self.out_jobs)
-        return max(in_duration, out_duration) if self.parallel_building_allowed else min(in_duration, out_duration)
+        return min(in_duration, out_duration) if self.parallel_building_allowed else max(in_duration, out_duration)
 
     def add_job(self, job: BuildingJob) -> None:
-        self.in_jobs.append(job) if job.building_id >= 19 else self.out_jobs.append(job)
+        self.in_jobs.append(job) if self._building_in_center(job.building_name) else self.out_jobs.append(job)
+
+    def _building_in_center(self, building_name: str) -> bool:
+        return building_name not in ["Woodcutter", "Clay Pit", "Iron Mine", "Cropland"]
 
     def has_empty_slot(self):
         if self.parallel_building_allowed:
             return len(self.in_jobs) == 0 or len(self.out_jobs) == 0
         return len(self.in_jobs) + len(self.out_jobs) == 0
+
+    def freeze_until(self, until, building_id):
+        queue = self.in_jobs if self._building_in_center(building_id) else self.out_jobs
+        # freeze by adding a dummy job that lasts until the given time
+        queue.append(BuildingJob(building_name="Freeze queue", target_level=0, time_remaining=int((until - datetime.now()).total_seconds())))
 
 
 @dataclass
@@ -268,25 +276,6 @@ class Village:
     def building_queue_duration(self) -> int:
         return self.building_queue.duration
 
-    def lumber_24h_ratio(self) -> float:
-        return self.warehouse_capacity / (self.lumber_hourly_production * 24)
-
-    def clay_24h_ratio(self) -> float:
-        return self.warehouse_capacity / (self.clay_hourly_production * 24)
-
-    def iron_24h_ratio(self) -> float:
-        return self.warehouse_capacity / (self.iron_hourly_production * 24)
-
-    def crop_24h_ratio(self) -> float:
-        return self.granary_capacity / (self.crop_hourly_production * 24)
-
-    def warehouse_min_ratio(self) -> float:
-        """Lowest ratio among warehouse resources - the bottleneck."""
-        return min(self.lumber_24h_ratio(), self.clay_24h_ratio(), self.iron_24h_ratio())
-
-    def granary_min_ratio(self) -> float:
-        return self.crop_24h_ratio()
-
     def get_building(self, building_type: "BuildingType") -> "Building | None":
         return next((b for b in self.buildings if b.type == building_type), None)
 
@@ -332,6 +321,9 @@ class Village:
             iron=self.iron_hourly_production,
             crop=self.crop_hourly_production,
         )
+
+    def freeze_building_queue_until(self, until: datetime, building_id: int) -> None:
+        self.building_queue.freeze_until(until=until, building_id=building_id)
 
 
 class BuildingType(Enum):
@@ -439,7 +431,7 @@ class Tribe(Enum):
 
 @dataclass
 class BuildingJob:
-    building_id: int
+    building_name: str
     target_level: int
     time_remaining: int
 

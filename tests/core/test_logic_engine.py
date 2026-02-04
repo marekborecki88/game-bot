@@ -13,7 +13,7 @@ from src.core.model.model import (
     GameState,
     Account,
     HeroInfo,
-    Resources,
+    Resources, BuildingQueue,
 )
 from src.core.job import BuildJob, HeroAdventureJob, AllocateAttributesJob
 
@@ -38,7 +38,7 @@ def make_village(**overrides) -> Village:
 
 @pytest.fixture
 def account_info() -> Account:
-    return Account(server_speed=1.0, when_beginners_protection_expires=0)
+    return Account(when_beginners_protection_expires=0)
 
 
 @pytest.fixture
@@ -64,7 +64,13 @@ def test_skip_village_with_non_empty_building_queue(
         buildings=[Building(id=19, level=1, type=BuildingType.WAREHOUSE)],
         warehouse_capacity=50000,
         granary_capacity=50000,
-        building_queue=[BuildingJob(building_id=1, target_level=2, time_remaining=3600)],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[
+                BuildingJob(building_name="0", target_level=2, time_remaining=3600)
+            ],
+            out_jobs=[],
+        ),
     )
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
@@ -89,7 +95,11 @@ def test_upgrade_warehouse_when_capacity_insufficient_for_24h_production(
         clay_hourly_production=10000,
         iron_hourly_production=10000,
         crop_hourly_production=10000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
     )
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
@@ -121,7 +131,11 @@ def test_upgrade_granary_when_capacity_insufficient_for_24h_crop_production(
         clay_hourly_production=10000,
         iron_hourly_production=10000,
         crop_hourly_production=10000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
     )
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
@@ -157,7 +171,11 @@ def test_prioritize_storage_with_lower_ratio(
         crop_hourly_production=10000,
         warehouse_capacity=24000,
         granary_capacity=14400,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
     )
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
@@ -194,7 +212,11 @@ def test_upgrade_source_pit_when_storage_is_sufficient(
         crop_hourly_production=1000,
         warehouse_capacity=50000,
         granary_capacity=50000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
     )
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
@@ -231,7 +253,11 @@ def test_skip_village_when_all_source_pits_at_max_level(
         crop_hourly_production=1000,
         warehouse_capacity=50000,
         granary_capacity=50000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
     )
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 
@@ -265,7 +291,11 @@ def test_skip_storage_upgrade_when_at_max_level(
             SourcePit(id=3, type=ResourceType.IRON, level=10),
             SourcePit(id=4, type=ResourceType.CROP, level=10),
         ],
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
     )
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
 

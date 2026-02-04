@@ -30,6 +30,7 @@ class LogicConfig:
     """Configuration for the bot logic and planning."""
     speed: int
     strategy: Strategy | None
+    minimum_storage_capacity_in_hours: int = 24  # Default value if not specified
 
 
 @dataclass
@@ -130,6 +131,7 @@ class Config:
         logic_config = LogicConfig(
             speed=int(data['speed']),
             strategy=Strategy(data['strategy']) if 'strategy' in data else None,
+            minimum_storage_capacity_in_hours=int(data.get('minimum_storage_capacity_in_hours', 24)),
         )
 
         return cls(

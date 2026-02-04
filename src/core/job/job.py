@@ -17,7 +17,6 @@ class JobStatus(Enum):
 @dataclass(kw_only=True)
 class Job(ABC):
     scheduled_time: datetime
-    expires_at: datetime
     success_message: str
     failure_message: str
     status: JobStatus = JobStatus.PENDING
@@ -27,12 +26,8 @@ class Job(ABC):
     def execute(self, driver: DriverProtocol) -> bool:
         pass
 
-    def is_expired(self) -> bool:
-        return datetime.now() > self.expires_at
-
     def should_execute(self) -> bool:
         return (
             self.status == JobStatus.PENDING
-            and not self.is_expired()
             and datetime.now() >= self.scheduled_time
         )

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def choose_strategy(logic_config: LogicConfig) -> Strategy:
     match logic_config.strategy:
         case StrategyType.BALANCED_ECONOMIC_GROWTH:
-            return BalancedEconomicGrowth()
+            return BalancedEconomicGrowth(logic_config.minimum_storage_capacity_in_hours)
         case StrategyType.DEFEND_ARMY:
             raise ValueError("Not implemented yet: Strategy.DEFEND_ARMY")
         case _:
@@ -24,7 +24,7 @@ class LogicEngine:
     def __init__(self, logic_config: LogicConfig, game_state: GameState | None = None):
         # game_state may be provided at construction or passed later to planning methods
         self.game_state: GameState | None = game_state
-        speed = game_state.account.server_speed if game_state else 1.0
+        speed = logic_config.speed
         self.calculator = TravianCalculator(speed=speed)
         self.strategy = choose_strategy(logic_config)
 

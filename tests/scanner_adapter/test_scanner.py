@@ -2,7 +2,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from src.core.model.model import VillageIdentity, SourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
-    Tribe, HeroInfo, Village, BuildingContract, Resources
+    Tribe, HeroInfo, Village, BuildingContract, Resources, BuildingQueue
 from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
@@ -29,7 +29,7 @@ def inventory_html():
 
 def test_scan_village_list(dorf1_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_village_list(dorf1_html)
@@ -45,7 +45,7 @@ def test_scan_village_list(dorf1_html):
 
 def test_scan_village_source(dorf1_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_village_source(dorf1_html)
@@ -77,7 +77,7 @@ def test_scan_village_source(dorf1_html):
 
 def test_scan_village_center(dorf2_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_village_center(dorf2_html)
@@ -95,7 +95,7 @@ def test_scan_village_center(dorf2_html):
 
 def test_scan_village_name(dorf1_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_village_name(dorf1_html)
@@ -106,7 +106,7 @@ def test_scan_village_name(dorf1_html):
 
 def test_scan_stock_bar(dorf1_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_stock_bar(dorf1_html)
@@ -126,7 +126,7 @@ def test_scan_stock_bar(dorf1_html):
 
 def test_scan_production(dorf1_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_production(dorf1_html)
@@ -144,7 +144,7 @@ def test_scan_production(dorf1_html):
 
 def test_scan_village(dorf1_html, dorf2_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
     identity = VillageIdentity(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
 
     # When
@@ -173,29 +173,40 @@ def test_scan_village(dorf1_html, dorf2_html):
 
 def test_scan_building_queue(dorf1_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
-    result = scanner.scan_building_queue(dorf1_html)
+    result = scanner.scan_building_queue(dorf1_html, parallel_building_allowed=True)
 
     # Then
-    expected = [
-        BuildingJob(building_id=0, target_level=2, time_remaining=98),
-        BuildingJob(building_id=0, target_level=3, time_remaining=628)
-    ]
+    expected = BuildingQueue(
+        parallel_building_allowed=True,
+        in_jobs=[
+            BuildingJob(
+                building_name='Main Building',
+                target_level=2,
+                time_remaining=98
+            ),
+            BuildingJob(
+                building_name='Main Building',
+                target_level=3,
+                time_remaining=628
+            )
+        ],
+        out_jobs=[]
+    )
     assert result == expected
 
 
 def test_scan_account_info(dorf1_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_account_info(dorf1_html)
 
     # Then
     expected = Account(
-        server_speed=5.0,
         when_beginners_protection_expires=42778
     )
     assert result == expected
@@ -203,7 +214,7 @@ def test_scan_account_info(dorf1_html):
 
 def test_identity_tribe(dorf2_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.identity_tribe(dorf2_html)
@@ -214,7 +225,7 @@ def test_identity_tribe(dorf2_html):
 
 def test_scan_hero_info(hero_attributes_html, inventory_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     result = scanner.scan_hero_info(hero_attributes_html, inventory_html)
@@ -237,7 +248,7 @@ def test_scan_hero_info(hero_attributes_html, inventory_html):
 
 def test_scan_hero_info_with_attribute_points(inventory_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
     html = HtmlUtils.load("hero_attributes_with_points.html")
 
     # When
@@ -249,7 +260,7 @@ def test_scan_hero_info_with_attribute_points(inventory_html):
 
 def test_scan_hero_info_without_attribute_points(hero_attributes_html, inventory_html):
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # Ensure existing fixture doesn't report attribute points
     result = scanner.scan_hero_info(hero_attributes_html, inventory_html)
@@ -258,7 +269,7 @@ def test_scan_hero_info_without_attribute_points(hero_attributes_html, inventory
 
 def test_scan_hero_without_adventures():
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
     html = """
            <a id="button6977c92fb7cdd" class="layoutButton buttonFramed withIcon round adventure green    "
               href="/hero/adventures">
@@ -276,7 +287,7 @@ def test_scan_hero_without_adventures():
 
 def test_scan_hero_with_adventures():
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
     html = """
            <a id="button6977c92fb7cdd" class="layoutButton buttonFramed withIcon round adventure green    "
               href="/hero/adventures">
@@ -294,7 +305,7 @@ def test_scan_hero_with_adventures():
 
 def test_scan_contract():
     # Given
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
     html = """
            <div id="contract_building10" class="buildingWrapper">
                <div class="upgradeBuilding">

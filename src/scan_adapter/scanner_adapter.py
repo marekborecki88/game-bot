@@ -10,6 +10,7 @@ import json
 import re
 
 from bs4 import Tag, BeautifulSoup
+from coverage.inorout import name_for_module
 
 from src.core.bot import CLASS_TO_RESOURCE_MAP
 from src.core.model.model import (
@@ -34,6 +35,9 @@ class Scanner(ScannerProtocol):
     This class exposes the scanning operations as instance methods so a
     ScannerProtocol-typed object can be injected where needed.
     """
+
+    def __init__(self, server_speed: int) -> None:
+        self.speed = server_speed
 
 
     def _parse_number_value(self, text: str) -> int:
@@ -131,14 +135,6 @@ class Scanner(ScannerProtocol):
 
     def scan_account_info(self, html: str) -> Account:
         soup = BeautifulSoup(html, HTML_PARSER)
-
-        # Extract server speed from title
-        server_speed = 1.0
-        title_text = soup.title.string if soup.title else ""
-        match = re.search(r'x(\d+)', title_text)
-        if match:
-            server_speed = float(match.group(1))
-
         beginners_expires = 0
 
         infobox = soup.select_one("#sidebarBoxInfobox")
@@ -154,7 +150,6 @@ class Scanner(ScannerProtocol):
                         beginners_expires = timer_value
 
         return Account(
-            server_speed=server_speed,
             when_beginners_protection_expires=beginners_expires
         )
 
@@ -469,9 +464,10 @@ class Scanner(ScannerProtocol):
     def _extract_building_job(self, item):
         target_level = self._extract_target_level(item)
         time_remaining = self._extract_remaining_time(item)
+        building_name = self._extract_building_name_from_builing_job(item)
 
         return BuildingJob(
-            building_id=0,  # Cannot easily determine building_id from this view
+            building_name = building_name,
             target_level=target_level,
             time_remaining=time_remaining,
         )
@@ -540,3 +536,7 @@ class Scanner(ScannerProtocol):
             return False
 
         return indicator.get_text().strip() == '!'
+
+    def _extract_building_name_from_builing_job(self, item):
+        return item.select_one('.name').text.split("Level")[0].strip()
+

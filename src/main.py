@@ -28,8 +28,9 @@ def main() -> None:
     with sync_playwright() as playwright:
         # Use a context manager or try/finally for the driver
         driver = Driver(playwright=playwright, driver_config=config.driver_config)
+        speed = config.logic_config.speed
         try:
-            bot = Bot(driver=driver, scanner=Scanner(), logic_config=config.logic_config)
+            bot = Bot(driver=driver, scanner=Scanner(speed), logic_config=config.logic_config)
             bot.run()
         finally:
             # Ensure the browser is closed even on error

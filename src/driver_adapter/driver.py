@@ -90,8 +90,8 @@ class Driver(DriverProtocol):
                 try:
                     locator.click()
                     return True
-                except Exception:
-                    logger.debug(f"Click found element but click failed for selector: {selector}")
+                except Exception as e:
+                    logger.debug(f"Click found element but click failed for selector: {selector}. Error: {e}")
                     return True
         except Exception:
             pass

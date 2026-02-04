@@ -14,7 +14,7 @@ def test_daily_quest_indicator_present():
     </div>
     """
     soup = BeautifulSoup(html, "html.parser")
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     nav = soup.select_one('#navigation')
@@ -29,7 +29,7 @@ def test_daily_quest_indicator_absent_in_hero_attributes():
     html = HtmlUtils.load("hero_attributes.html")
     soup = BeautifulSoup(html, "html.parser")
     nav = soup.select_one('#navigation')
-    scanner = Scanner()
+    scanner = Scanner(server_speed=1)
 
     # When
     indicator = scanner.is_daily_quest_indicator(nav)

@@ -1,11 +1,12 @@
-import pytest
-
 from datetime import datetime, timedelta
 
+import pytest
+
 from src.config.config import LogicConfig, Strategy
-from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village
-from src.core.planner.logic_engine import LogicEngine
 from src.core.job import BuildJob
+from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village, \
+    BuildingQueue
+from src.core.planner.logic_engine import LogicEngine
 
 
 def make_village(**overrides: object) -> Village:
@@ -19,7 +20,11 @@ def make_village(**overrides: object) -> Village:
         "buildings": [],
         "warehouse_capacity": 1000,
         "granary_capacity": 1000,
-        "building_queue": [],
+        "building_queue": BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
         "lumber_hourly_production": 10,
         "clay_hourly_production": 10,
         "iron_hourly_production": 10,
@@ -33,7 +38,7 @@ def make_village(**overrides: object) -> Village:
 
 @pytest.fixture
 def account_info() -> Account:
-    return Account(server_speed=1.0, when_beginners_protection_expires=0)
+    return Account(when_beginners_protection_expires=0)
 
 
 @pytest.fixture
@@ -50,9 +55,9 @@ def config() -> LogicConfig:
 
 
 def test_create_build_job_schedules_future_when_insufficient_resources(
-    account_info: Account,
-    hero_info: HeroInfo,
-    config: Config,
+        account_info: Account,
+        hero_info: HeroInfo,
+        config: LogicConfig,
 ) -> None:
     village = make_village(
         resources=Resources(lumber=0, clay=0, iron=0, crop=0),
@@ -72,11 +77,10 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
 
     now = datetime.now()
     assert job.scheduled_time > now
-    assert village.is_queue_building_freeze is True
+    assert village.can_build() is False
 
     expected = BuildJob(
         scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and
-        expires_at=job.expires_at,      # expires_at values
         success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
         failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
@@ -85,15 +89,16 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
         building_gid=ResourceType.LUMBER.gid,
         target_name=ResourceType.LUMBER.name,
         target_level=2,
+        duration=616
     )
 
     assert expected == job
 
 
 def test_create_build_job_uses_hero_inventory_to_build_immediately(
-    account_info: Account,
-    hero_info: HeroInfo,
-    config: Config,
+        account_info: Account,
+        hero_info: HeroInfo,
+        config: LogicConfig,
 ) -> None:
     village = make_village(
         resources=Resources(lumber=0, clay=0, iron=0, crop=0),
@@ -115,12 +120,10 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
     job = jobs[0]
 
     assert now - timedelta(seconds=1) <= job.scheduled_time <= now + timedelta(seconds=1)
-    assert village.building_queue.is_queue_building_freeze is False
-
+    assert village.can_build() is False
 
     expected = BuildJob(
         scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and
-        expires_at=job.expires_at,      # expires_at values
         success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
         failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
         village_name=village.name,
@@ -130,6 +133,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
         target_name=ResourceType.LUMBER.name,
         target_level=2,
         support=Resources(lumber=65, clay=165, iron=85, crop=100),
+        duration=616
     )
 
     assert expected == job

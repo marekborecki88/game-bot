@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from src.config.config import LogicConfig, Strategy
 from src.core.job import BuildJob
-from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village
+from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village, \
+    BuildingQueue
 from src.core.planner.logic_engine import LogicEngine
 
 
@@ -28,7 +29,11 @@ def test_lowest_resource_type_basic() -> None:
         buildings=[],
         warehouse_capacity=100000,
         granary_capacity=100000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
         lumber_hourly_production=10,
         clay_hourly_production=10,
         iron_hourly_production=10,
@@ -39,7 +44,7 @@ def test_lowest_resource_type_basic() -> None:
     hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={})
 
     game_state = GameState(
-        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        account=Account(when_beginners_protection_expires=0),
         villages=[village],
         hero_info=hero,
     )
@@ -74,7 +79,11 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
         buildings=[],
         warehouse_capacity=100000,
         granary_capacity=100000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
         lumber_hourly_production=10,
         clay_hourly_production=10,
         iron_hourly_production=10,
@@ -92,7 +101,7 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
     )
 
     game_state = GameState(
-        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        account=Account(when_beginners_protection_expires=0),
         villages=[village],
         hero_info=hero,
     )
@@ -127,7 +136,11 @@ def test_lowest_resource_type_balanced() -> None:
         buildings=[],
         warehouse_capacity=100000,
         granary_capacity=100000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
         lumber_hourly_production=10,
         clay_hourly_production=10,
         iron_hourly_production=10,
@@ -137,7 +150,7 @@ def test_lowest_resource_type_balanced() -> None:
     hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={})
 
     game_state = GameState(
-        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        account=Account(when_beginners_protection_expires=0),
         villages=[village],
         hero_info=hero,
     )
@@ -174,7 +187,11 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         buildings=[],
         warehouse_capacity=100000,
         granary_capacity=100000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
         lumber_hourly_production=10,
         clay_hourly_production=10,
         iron_hourly_production=10,
@@ -197,7 +214,11 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         buildings=[],
         warehouse_capacity=100000,
         granary_capacity=100000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
         lumber_hourly_production=10,
         clay_hourly_production=10,
         iron_hourly_production=10,
@@ -208,7 +229,7 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
     hero = HeroInfo(health=100, experience=0, adventures=0, is_available=True, inventory={})
 
     game_state = GameState(
-        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        account=Account(when_beginners_protection_expires=0),
         villages=[v1, v2],
         hero_info=hero,
     )
@@ -243,7 +264,11 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         buildings=[],
         warehouse_capacity=100000,
         granary_capacity=100000,
-        building_queue=[],
+        building_queue=BuildingQueue(
+            parallel_building_allowed=False,
+            in_jobs=[],
+            out_jobs=[],
+        ),
         lumber_hourly_production=10,
         clay_hourly_production=10,
         iron_hourly_production=10,
@@ -260,7 +285,7 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
     )
 
     game_state = GameState(
-        account=Account(server_speed=1.0, when_beginners_protection_expires=0),
+        account=Account(when_beginners_protection_expires=0),
         villages=[village],
         hero_info=hero,
     )

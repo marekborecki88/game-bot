@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
-    BuildingJob
+    BuildingJob, BuildingCost
 from src.core.strategy.Strategy import Strategy
 from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob
 
@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 class BalancedEconomicGrowth(Strategy):
 
+    def __init__(self, minimum_storage_capacity_in_hours: int):
+        super().__init__(minimum_storage_capacity_in_hours)
+        self.calculator = None
 
     def plan_jobs(self, game_state: GameState, calculator: TravianCalculator) -> list[Job]:
         self.calculator = calculator
@@ -24,7 +27,13 @@ class BalancedEconomicGrowth(Strategy):
 
     def create_plan_for_villages(self, game_state: GameState) -> list[Job]:
         global_lowest = self.determine_next_resoure_to_develop(game_state)
-        jobs = [job for v in game_state.villages if (job := self._plan_village(v, game_state, global_lowest)) is not None]
+
+        jobs = []
+
+        for village in game_state.villages:
+            village_jobs = self._plan_village(village, game_state, global_lowest)
+            if village_jobs:
+                jobs.extend(village_jobs)
 
         # For questmaster rewards schedule per-village collecting jobs
         for village in game_state.villages:
@@ -53,7 +62,6 @@ class BalancedEconomicGrowth(Strategy):
                 failure_message="hero adventure failed",
                 hero_info=hero_info,
                 scheduled_time=now,
-                expires_at=now + timedelta(hours=1)
             ))
 
         points = hero_info.points_available
@@ -63,7 +71,6 @@ class BalancedEconomicGrowth(Strategy):
                 failure_message="attribute points allocation failed",
                 points=points,
                 scheduled_time=now,
-                expires_at=now + timedelta(hours=1)
             ))
 
         # If hero-level daily quest indicator is present, schedule collect_daily_quests (no navigation required)
@@ -79,7 +86,6 @@ class BalancedEconomicGrowth(Strategy):
             success_message="daily quests collected",
             failure_message="daily quests collection failed",
             scheduled_time=now,
-            expires_at=now + timedelta(hours=1)
         )
 
     def _create_collect_questmaster_job(self, village: Village) -> Job:
@@ -89,7 +95,6 @@ class BalancedEconomicGrowth(Strategy):
             failure_message="reward from quest master collection failed",
             village=village,
             scheduled_time=now,
-            expires_at=now + timedelta(hours=1)
         )
 
     def _create_new_build_job(self, village, gid, name) -> Job | None:
@@ -106,7 +111,6 @@ class BalancedEconomicGrowth(Strategy):
                     success_message="construction of new building started",
                     failure_message="construction of new building failed",
                     scheduled_time=now,
-                    expires_at=now + timedelta(hours=1),
                     duration=building_cost.time_seconds
                 )
         return None
@@ -131,28 +135,37 @@ class BalancedEconomicGrowth(Strategy):
                 return None
         return total.min_type()
 
-    def _plan_village(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> Job | None:
+    def _plan_village(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> list[Job]:
         if not village.can_build():
-            return None
+            return []
 
-        job = None
+        jobs = []
         if village.needs_more_free_crop():
-            job = self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=ResourceType.CROP)
+            upgrade_crop = self._plan_source_pit_upgrade(village=village, game_state=game_state,global_lowest=ResourceType.CROP)
+            if upgrade_crop:
+                jobs.append(upgrade_crop)
         else:
-            job = self._plan_storage_upgrade(village=village, hero_info=game_state.hero_info) or self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=global_lowest)
+            upgrade = self._plan_storage_upgrade(village=village, hero_info=game_state.hero_info)
+            if upgrade:
+                jobs.append(upgrade)
 
-        if isinstance(job, (BuildJob, BuildNewJob)):
-            # Add job to village building queue immediately to mark it as occupied (even if scheduled in the future) and prevent duplicate planning
-            building_job = BuildingJob(building_id=job.building_id, target_level=job.target_level, time_remaining=job.duration)
-            village.building_queue.add_job(building_job)
-        return job
+        if len(jobs) == 0 or village.building_queue.parallel_building_allowed:
+            upgrade =self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=global_lowest)
+            if upgrade:
+                jobs.append(upgrade)
+
+        for job in jobs:
+            if isinstance(job, (BuildJob, BuildNewJob)):
+                # Add job to village building queue immediately to mark it as occupied (even if scheduled in the future) and prevent duplicate planning
+                building_job = BuildingJob(building_name=job.target_name, target_level=job.target_level, time_remaining=job.duration)
+                village.building_queue.add_job(building_job)
+        return jobs
 
     def _plan_storage_upgrade(self, village: Village, hero_info: HeroInfo) -> Job | None:
-        storage_needs = self._find_insufficient_storage(village)
-        if not storage_needs:
+        building_type = self._find_insufficient_storage(village)
+        if not building_type:
             return None
 
-        building_type, _ = min(storage_needs, key=lambda x: x[1])
         building = village.get_building(building_type)
 
         if building is None:
@@ -165,12 +178,43 @@ class BalancedEconomicGrowth(Strategy):
         # TODO: build next storage building if possible
         return None
 
-    def _find_insufficient_storage(self, village: Village) -> list[tuple[BuildingType, float]]:
-        checks = [
-            (BuildingType.WAREHOUSE, village.warehouse_min_ratio()),
-            (BuildingType.GRANARY, village.granary_min_ratio()),
+    def warehouse_min_ratio(self, village: Village) -> float:
+        highest_production = max(village.lumber_hourly_production, village.clay_hourly_production, village.iron_hourly_production)
+        minimum_capacity = highest_production * self.minimum_storage_capacity_in_hours
+        return village.warehouse_capacity / minimum_capacity
+
+    def granary_min_ratio(self, village: Village) -> float:
+        minimum_capacity = village.crop_hourly_production * self.minimum_storage_capacity_in_hours
+        return village.warehouse_capacity / minimum_capacity
+
+    def _find_insufficient_storage(self, village: Village) -> BuildingType | None:
+        # check if any of the storage will full in less than minimum hours
+        lumber = (village.warehouse_capacity - village.resources.lumber) / village.lumber_hourly_production
+        clay = (village.warehouse_capacity - village.resources.clay) / village.clay_hourly_production
+        iron = (village.warehouse_capacity - village.resources.iron) / village.iron_hourly_production
+        crop = (village.granary_capacity - village.resources.crop) / village.crop_hourly_production
+
+        full_storage_after = [
+            (BuildingType.WAREHOUSE, min(lumber, clay, iron)),
+            (BuildingType.GRANARY, crop)
         ]
-        return [(bt, ratio) for bt, ratio in checks if ratio < 1.0]
+
+        building_to_upgrade = [(bt, full_after) for bt, full_after in full_storage_after if full_after < self.minimum_storage_capacity_in_hours]
+
+        if building_to_upgrade:
+            result = min(building_to_upgrade, key=lambda x: x[1])
+            return result[0] if result else None
+
+        # Check warehouse and granary capacity ratios
+        checks = [
+            (BuildingType.WAREHOUSE, self.warehouse_min_ratio(village)),
+            (BuildingType.GRANARY, self.granary_min_ratio(village)),
+        ]
+        result = [(bt, ratio) for bt, ratio in checks if ratio < 1.0]
+        if result:
+            return min(result, key=lambda x: x[1])[0]
+        else:
+            return None
 
     def _plan_source_pit_upgrade(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> Job | None:
         upgradable = village.upgradable_source_pits()
@@ -193,7 +237,7 @@ class BalancedEconomicGrowth(Strategy):
         """
         now = datetime.now()
 
-        building_cost = self.calculator.get_building_details(building_gid, target_level)
+        building_cost: BuildingCost = self.calculator.get_building_details(building_gid, target_level)
 
         reservation_request = village.create_reservation_request(building_cost)
 
@@ -202,7 +246,7 @@ class BalancedEconomicGrowth(Strategy):
 
         support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
 
-        duration = building_cost.time_seconds
+        duration: int = building_cost.time_seconds
 
         # TODO: FOR ACCAPETED AND PARTIALLY_ACCEPTED, there is need to create separate task because we need to transfer resources from hero to village
         if response.status is not ReservationStatus.ACCEPTED:
@@ -211,35 +255,33 @@ class BalancedEconomicGrowth(Strategy):
 
             scheduled = now + timedelta(seconds=max_delay_seconds)
             # set an expiry reasonably after scheduled time
-            expires = scheduled + timedelta(hours=1)
 
             # Mark village queue frozen to avoid duplicate scheduling
-            village.is_queue_building_freeze = True
-            logger.info(
-                f"Scheduled delayed build for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue")
+            until = scheduled + timedelta(seconds=duration)
+            village.freeze_building_queue_until(until, building_id)
 
-            return BuildJob(
+            job = BuildJob(
                 success_message=f"construction of {target_name} level {target_level} in {village.name} started",
                 failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
                 village_name=village.name, village_id=village.id, building_id=building_id,
                 building_gid=building_gid, target_name=target_name, target_level=target_level,
                 support=support,
                 scheduled_time=scheduled,
-                expires_at=expires,
                 duration=duration
             )
 
+            logger.info(f"Created delayed build {job} for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue until {until}")
+
+            return job
+
         # No shortages -> immediate job
-        scheduled = now
-        expires = now + timedelta(hours=1)
         return BuildJob(
             success_message=f"construction of {target_name} level {target_level} in {village.name} started",
             failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
             village_name=village.name, village_id=village.id, building_id=building_id,
             building_gid=building_gid, target_name=target_name, target_level=target_level,
             support=support,
-            scheduled_time=scheduled,
-            expires_at=expires,
+            scheduled_time=now,
             duration=duration
         )
 

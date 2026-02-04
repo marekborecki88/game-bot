@@ -64,8 +64,13 @@ class HeroAdventureJob(Job):
 
     def try_watch_video(self, driver: DriverProtocol) -> None:
         try:
-            watch_video_button = "button.textButtonV2.buttonFramed.withTextAndIcon.rectangle.withText.purple"
-            if driver.is_visible(watch_video_button):
+            logger.debug("Try to watch video for hero adventure")
+            # watch_video_button = "button.textButtonV2.buttonFramed.withTextAndIcon.rectangle.withText.purple:not(.buttonDisabled)"
+            watch_video_button = ".bonusStatus.watchReady"
+            # Should watch both video for shortening adventure time and unlocking additional difficulty levels
+            video_counter = 0
+            while driver.is_visible(watch_video_button):
+                logger.debug("watching video for hero adventure")
                 driver.click(watch_video_button)
                 driver.wait_for_load_state()
 
@@ -81,6 +86,9 @@ class HeroAdventureJob(Job):
                 # Wait for advertisement to finish
                 while driver.is_visible("#videoArea"):
                     driver.sleep(5)
+
+                video_counter += 1
+                logger.debug(f"video {video_counter} for hero adventure watched")
 
         except Exception as e:
             logger.warning(f"Failed to watch video for hero adventure: {e}", exc_info=True)

@@ -52,11 +52,11 @@ def test_hero_adventure_task_execute_various(
     # ...
     
     now = datetime.now()
-    task = HeroAdventureJob(hero_info=SimpleNamespace(), success_message='', failure_message='', scheduled_time=now, expires_at=now)
+    task = HeroAdventureJob(hero_info=SimpleNamespace(), success_message='', failure_message='', scheduled_time=now)
     # Wait, kw_only=True.
 
     hero_info = SimpleNamespace(health=100, experience=200, adventures=3)
-    task = HeroAdventureJob(success_message="ok", failure_message="err", hero_info=hero_info, scheduled_time=datetime.min, expires_at=datetime.max)
+    task = HeroAdventureJob(success_message="ok", failure_message="err", hero_info=hero_info, scheduled_time=datetime.min)
 
     driver = fake_driver_factory(has_explore=has_explore, has_continue=has_continue, current_url=current_url)
 
@@ -71,7 +71,7 @@ def test_hero_adventure_task_execute_various(
 def test_hero_adventure_task_execute_handles_click_exceptions(fake_driver_factory) -> None:
     """If the driver raises during click, the task should return False and not raise."""
     hero_info = SimpleNamespace(health=1, experience=0, adventures=0)
-    task = HeroAdventureJob(success_message="ok", failure_message="err", hero_info=hero_info, scheduled_time=datetime.min, expires_at=datetime.max)
+    task = HeroAdventureJob(success_message="ok", failure_message="err", hero_info=hero_info, scheduled_time=datetime.min)
 
     driver = fake_driver_factory(has_explore=True, has_continue=False)
     driver.raise_on_click = True
