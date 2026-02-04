@@ -140,24 +140,7 @@ class Bot:
         except Exception:
             # Ensure terminated on unexpected exceptions
             job.status = JobStatus.TERMINATED
-            raise
-        finally:
-            # Ensure that if we scheduled a future build and froze the queue, we unfreeze it now
-            try:
-                vid = None
-                if isinstance(job, BuildJob) or isinstance(job, BuildNewJob):
-                    vid = job.village_id
-                elif hasattr(job, 'village'):
-                    vid = getattr(job, 'village', None).id if getattr(job, 'village', None) else None
-
-                if vid:
-                    try:
-                        self.logic_engine.unfreeze_village_queue(vid)
-                    except Exception:
-                        logger.debug(f"Failed to unfreeze village queue for id {vid}")
-            except Exception:
-                # Swallow any errors in cleanup to avoid masking job errors
-                pass
+        
 
     def _handle_task(self, job: Job) -> str:
         """Generic task handler: run the Job and return a summary.

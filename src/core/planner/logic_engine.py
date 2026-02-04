@@ -31,11 +31,3 @@ class LogicEngine:
     def plan(self, game_state: GameState):
         return self.strategy.plan_jobs(game_state, self.calculator)
 
-    # TODO: need refactor
-    def unfreeze_village_queue(self, village_id: int) -> None:
-        if not self.game_state:
-            return
-        for v in self.game_state.villages:
-            if v.id == village_id:
-                v.is_queue_building_freeze = False
-                return
