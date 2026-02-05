@@ -1,7 +1,7 @@
 import pytest
 from typing import Any
 
-from src.config.config import HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
+from src.config.config import HeroConfig, HeroAdventuresConfig, HeroResourcesConfig, AttributeAllocation
 from src.core.protocols.driver_protocol import DriverProtocol
 
 
@@ -103,11 +103,13 @@ def fake_driver_factory():
 @pytest.fixture
 def hero_config() -> HeroConfig:
     """Default HeroConfig fixture for tests."""
+
+
     return HeroConfig(
         adventures=HeroAdventuresConfig(minimal_health=50, increase_difficulty=False),
         resources=HeroResourcesConfig(
             support_villages=False,
-            attributes_ratio={"fight": 3, "resources": 1},
-            attributes_steps={},
+            attributes_ratio=AttributeAllocation(fighting_strength=3, production_points=1),
+            attributes_steps=AttributeAllocation(),
         ),
     )

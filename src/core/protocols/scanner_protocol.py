@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from src.core.model.model import VillageIdentity, Village, HeroInfo, Account
+from src.core.model.model import VillageIdentity, Village, HeroInfo, Account, IncomingAttackInfo
 
 
 class ScannerProtocol(Protocol):
@@ -21,7 +21,10 @@ class ScannerProtocol(Protocol):
         """Parse account-level information from `/dorf1.php` HTML and return an Account."""
 
     def scan_village(self, identity: VillageIdentity, dorf1_html: str, dorf2_html: str) -> Village:
-        """Create a full Village model from the two village pages and its identity."""
+        """Create a full Village model from the two village pages and its identity.
+
+        If provided, movements HTML is parsed to capture incoming attack information.
+        """
 
     def is_reward_available(self, dorf1_html: str) -> bool:
         """Check whether quest/quest-master reward (or similar) is available in the village page."""
@@ -32,3 +35,5 @@ class ScannerProtocol(Protocol):
         `hero_inventory_html` may be None if inventory page was not fetched.
         """
 
+    def scan_incoming_attacks(self, movements_html: str) -> IncomingAttackInfo:
+        """Parse incoming attack count and the next attack timer from movements HTML."""

@@ -160,11 +160,19 @@ class BalancedEconomicGrowth(Strategy):
                 jobs.append(upgrade)
 
         for job in jobs:
-            if isinstance(job, (BuildJob, BuildNewJob)):
-                # Add job to village building queue immediately to mark it as occupied (even if scheduled in the future) and prevent duplicate planning
+            # Add job to village building queue immediately to mark it as occupied (even if scheduled in the future) and prevent duplicate planning
+            if isinstance(job, BuildJob):
                 building_job = BuildingJob(
                     building_name=job.target_name,
                     target_level=job.target_level,
+                    time_remaining=job.duration,
+                    job_id=job.job_id,
+                )
+                village.building_queue.add_job(building_job)
+            elif isinstance(job, BuildNewJob):
+                building_job = BuildingJob(
+                    building_name=job.target_name,
+                    target_level=1,
                     time_remaining=job.duration,
                     job_id=job.job_id,
                 )

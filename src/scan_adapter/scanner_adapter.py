@@ -23,7 +23,7 @@ from src.core.model.model import (
     BuildingJob,
     BuildingContract,
     Resources,
-    Tribe, BuildingType, ResourceType, BuildingQueue,
+    Tribe, BuildingType, ResourceType, BuildingQueue, IncomingAttackInfo,
 )
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
@@ -103,7 +103,7 @@ class Scanner(ScannerProtocol):
         return elem.get_text().strip()
 
 
-    def _parse_village_entry(self, entry) -> VillageIdentity:
+    def _parse_village_entry(self, entry: Tag) -> VillageIdentity:
         """Parse a single village entry from HTML element."""
         village_id = entry.get('data-did')
         if not village_id:
@@ -113,11 +113,18 @@ class Scanner(ScannerProtocol):
         coordinate_x = self._extract_number(entry, '.coordinateX')
         coordinate_y = self._extract_number(entry, '.coordinateY')
 
+        class_attr = entry.get('class', [])
+        classes = class_attr if isinstance(class_attr, list) else str(class_attr).split()
+        has_attack_class = "attack" in classes
+        has_attack_icon = entry.select_one(".incomingTroops svg.attack") is not None
+        is_under_attack = has_attack_class or has_attack_icon
+
         return VillageIdentity(
             id=int(village_id),
             name=name,
             coordinate_x=coordinate_x,
-            coordinate_y=coordinate_y
+            coordinate_y=coordinate_y,
+            is_under_attack=is_under_attack,
         )
 
     def scan_village_list(self, html: str) -> list[VillageIdentity]:
@@ -157,6 +164,7 @@ class Scanner(ScannerProtocol):
         # Collect stock and production data then assemble Village with Resources model
         stock = self.scan_stock_bar(dorf1)
         production = self.scan_production(dorf1)
+        incoming_attacks = self.scan_incoming_attacks(dorf1)
 
         resources = Resources(
             lumber=stock.get("lumber", 0),
@@ -183,6 +191,9 @@ class Scanner(ScannerProtocol):
             iron_hourly_production=production.get("iron_hourly_production", 0),
             crop_hourly_production=production.get("crop_hourly_production", 0),
             free_crop_hourly_production=production.get("free_crop_hourly_production", 0),
+            is_under_attack=identity.is_under_attack or incoming_attacks.attack_count > 0,
+            incoming_attack_count=incoming_attacks.attack_count,
+            next_attack_seconds=incoming_attacks.next_attack_seconds,
         )
 
     def is_reward_available(self, html: str) -> bool:
@@ -557,3 +568,29 @@ class Scanner(ScannerProtocol):
 
     def _extract_building_name_from_builing_job(self, item):
         return item.select_one('.name').text.split("Level")[0].strip()
+
+    def scan_incoming_attacks(self, movements_html: str) -> IncomingAttackInfo:
+        """Parse incoming attack count and the next attack timer from movements HTML."""
+        soup = BeautifulSoup(movements_html, HTML_PARSER)
+        movements_table = soup.select_one("#movements")
+        if movements_table is None:
+            return IncomingAttackInfo()
+
+        attack_count = 0
+        timer_value: int | None = None
+
+        for row in movements_table.select("tr"):
+            attack_cell = row.select_one(".mov .a1")
+            if attack_cell is None:
+                continue
+
+            attack_text = attack_cell.get_text().strip()
+            attack_count = self._parse_number_value(attack_text)
+
+            timer = row.select_one(".timer")
+            if timer is not None:
+                timer_value = self._parse_number_value(timer.get("value", "0"))
+            break
+
+        return IncomingAttackInfo(attack_count=attack_count, next_attack_seconds=timer_value)
+

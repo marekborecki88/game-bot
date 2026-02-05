@@ -1,5 +1,5 @@
 server_url: ${SERVER_URL}
-speed: 10
+speed: 3
 user_login: ${USER_LOGIN}
 user_password: ${USER_PASSWORD}
 headless: ${HEADLESS}
@@ -13,5 +13,5 @@ hero:
   resources:
     support-villages: true
     attributes-ratio:
-      Fighting strength: 25
-      Resources: 75
+      fighting-strength: 25
+      production-points: 75

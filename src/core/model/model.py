@@ -275,6 +275,9 @@ class Village:
     is_upgraded_to_city: bool = False
     is_permanent_capital: bool = False
     has_quest_master_reward: bool = False
+    is_under_attack: bool = False
+    incoming_attack_count: int = 0
+    next_attack_seconds: int | None = None
 
 
     def build(self, page: Page, driver_config: DriverConfig, id: int):
@@ -478,6 +481,12 @@ class VillageIdentity:
     name: str
     coordinate_x: int
     coordinate_y: int
+    is_under_attack: bool = False
+
+@dataclass(frozen=True)
+class IncomingAttackInfo:
+    attack_count: int = 0
+    next_attack_seconds: int | None = None
 
 
 @dataclass

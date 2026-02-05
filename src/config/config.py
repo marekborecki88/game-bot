@@ -33,11 +33,38 @@ class HeroAdventuresConfig:
 
 
 @dataclass(frozen=True)
+class AttributeAllocation:
+    """Attribute point allocation configuration."""
+    fighting_strength: int = 0
+    off_bonus: int = 0
+    def_bonus: int = 0
+    production_points: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        """Convert to dictionary for processing."""
+        return {
+            "fighting_strength": self.fighting_strength,
+            "off_bonus": self.off_bonus,
+            "def_bonus": self.def_bonus,
+            "production_points": self.production_points,
+        }
+
+    def total(self) -> int:
+        """Return sum of all attribute allocations."""
+        return (
+            self.fighting_strength
+            + self.off_bonus
+            + self.def_bonus
+            + self.production_points
+        )
+
+
+@dataclass(frozen=True)
 class HeroResourcesConfig:
     """Configuration for hero resource gathering."""
     support_villages: bool
-    attributes_ratio: dict[str, int]
-    attributes_steps: dict[str, int]
+    attributes_ratio: AttributeAllocation
+    attributes_steps: AttributeAllocation
 
 
 @dataclass(frozen=True)
@@ -158,6 +185,43 @@ class Config:
         )
 
         hero_data = data.get('hero', {})
+
+        # Helper to convert YAML format keys (hyphenated) to AttributeAllocation
+        def _parse_attribute_allocation(raw_dict: dict[str, int]) -> AttributeAllocation:
+            """Convert raw YAML dict with hyphenated keys to AttributeAllocation."""
+            key_map = {
+                "fight": "fighting_strength",
+                "fighting_strength": "fighting_strength",
+                "fighting-strength": "fighting_strength",
+                "power": "fighting_strength",
+                "off": "off_bonus",
+                "off_bonus": "off_bonus",
+                "off-bonus": "off_bonus",
+                "def": "def_bonus",
+                "def_bonus": "def_bonus",
+                "def-bonus": "def_bonus",
+                "resources": "production_points",
+                "production": "production_points",
+                "production_points": "production_points",
+                "production-points": "production_points",
+            }
+
+            normalized = {}
+            for key, value in raw_dict.items():
+                if not isinstance(value, int) or value < 0:
+                    continue
+                canonical = key_map.get(key)
+                if canonical is None:
+                    continue
+                normalized[canonical] = normalized.get(canonical, 0) + value
+
+            return AttributeAllocation(
+                fighting_strength=normalized.get("fighting_strength", 0),
+                off_bonus=normalized.get("off_bonus", 0),
+                def_bonus=normalized.get("def_bonus", 0),
+                production_points=normalized.get("production_points", 0),
+            )
+
         hero_config = HeroConfig(
             adventures=HeroAdventuresConfig(
                 minimal_health=int(hero_data.get('adventures', {}).get('minimal-health', 50)),
@@ -165,8 +229,8 @@ class Config:
             ),
             resources=HeroResourcesConfig(
                 support_villages=bool(hero_data.get('resources', {}).get('support-villages', False)),
-                attributes_ratio=dict(hero_data.get('resources', {}).get('attributes-ratio', {})),
-                attributes_steps=dict(hero_data.get('resources', {}).get('attributes-steps', {})),
+                attributes_ratio=_parse_attribute_allocation(hero_data.get('resources', {}).get('attributes-ratio', {})),
+                attributes_steps=_parse_attribute_allocation(hero_data.get('resources', {}).get('attributes-steps', {})),
             ),
         )
 

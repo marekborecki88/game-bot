@@ -2,7 +2,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from src.core.model.model import VillageIdentity, SourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
-    Tribe, HeroInfo, HeroAttributes, Village, BuildingContract, Resources, BuildingQueue
+    Tribe, HeroInfo, HeroAttributes, Village, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
 from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
@@ -27,6 +27,16 @@ def inventory_html():
     return HtmlUtils.load("inventory.html")
 
 
+@pytest.fixture
+def village_list_html():
+    return HtmlUtils.load("village_list.html")
+
+
+@pytest.fixture
+def movements_html():
+    return HtmlUtils.load("movements.html")
+
+
 def test_scan_village_list(dorf1_html):
     # Given
     scanner = Scanner(server_speed=1)
@@ -39,6 +49,20 @@ def test_scan_village_list(dorf1_html):
         VillageIdentity(id=50275, name="SODOMA", coordinate_x=1, coordinate_y=146),
         VillageIdentity(id=50281, name="GOMORA", coordinate_x=2, coordinate_y=146),
         VillageIdentity(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
+    ]
+    assert result == expected
+
+
+def test_scan_village_list_with_attack(village_list_html: str) -> None:
+    # Given
+    scanner = Scanner(server_speed=1)
+
+    # When
+    result = scanner.scan_village_list(village_list_html)
+
+    # Then
+    expected = [
+        VillageIdentity(id=51246, name="Travix`s village", coordinate_x=104, coordinate_y=104, is_under_attack=True)
     ]
     assert result == expected
 
@@ -166,7 +190,10 @@ def test_scan_village(dorf1_html, dorf2_html):
         free_crop_hourly_production=1503,
         source_pits=result.source_pits,
         buildings=result.buildings,
-        building_queue=result.building_queue
+        building_queue=result.building_queue,
+        is_under_attack=False,
+        incoming_attack_count=0,
+        next_attack_seconds=None,
     )
     assert result == expected
 
@@ -357,3 +384,14 @@ def test_scan_contract():
         crop_consumption=1,
     )
     assert result == expected
+
+
+def test_scan_incoming_attacks(movements_html: str) -> None:
+    # Given
+    scanner = Scanner(server_speed=1)
+
+    # When
+    result = scanner.scan_incoming_attacks(movements_html)
+
+    # Then
+    assert result == IncomingAttackInfo(attack_count=1, next_attack_seconds=402)

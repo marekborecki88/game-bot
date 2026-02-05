@@ -51,34 +51,45 @@ class AllocateAttributesJob(Job):
             return False
 
     def _plan_attribute_allocations(self) -> dict[str, int]:
-        ratios = self._normalize_ratio(self.hero_config.resources.attributes_ratio, preserve_order=False)
-        steps = self._normalize_ratio(self.hero_config.resources.attributes_steps, preserve_order=True)
+        """Plan which attributes to allocate points to based on steps and ratios."""
+        ratios_dict = self.hero_config.resources.attributes_ratio.to_dict()
+        steps_dict = self.hero_config.resources.attributes_steps.to_dict()
 
         current = self._current_attributes()
-        step_allocations = self._plan_step_allocations(current, steps)
+        step_allocations = self._plan_step_allocations(current, steps_dict)
         remaining_points = self.points - sum(step_allocations.values())
         if remaining_points < 0:
             remaining_points = 0
 
-        ratio_allocations = self._plan_ratio_allocations(current, ratios, remaining_points)
+        ratio_allocations = self._plan_ratio_allocations(current, ratios_dict, remaining_points)
         return self._merge_allocations(step_allocations, ratio_allocations)
 
     def _plan_ratio_allocations(self, current: dict[str, int], ratios: dict[str, int], points: int) -> dict[str, int]:
+        """Allocate points based on ratio proportions using a greedy algorithm.
+
+        For each point to allocate, find the attribute with the largest deficit
+        relative to its target proportion.
+        """
         if not ratios or points <= 0:
             return {}
 
         total_ratio = sum(ratios.values())
-        total_current = sum(current[key] for key in ratios.keys())
-        allocations = {key: 0 for key in ratios.keys()}
+        if total_ratio == 0:
+            return {}
+
+        total_current = sum(current.get(key, 0) for key in ratios.keys())
+        allocations = dict.fromkeys(ratios.keys(), 0)
         total = total_current
 
         for _ in range(points):
-            best_key = None
-            best_deficit = None
+            best_key: str | None = None
+            best_deficit: float | None = None
+
             for key, ratio in ratios.items():
                 target = (ratio / total_ratio) * (total + 1)
-                current_value = current[key] + allocations[key]
+                current_value = current.get(key, 0) + allocations[key]
                 deficit = target - current_value
+
                 if best_deficit is None or deficit > best_deficit:
                     best_deficit = deficit
                     best_key = key
@@ -89,13 +100,13 @@ class AllocateAttributesJob(Job):
             allocations[best_key] += 1
             total += 1
 
-        return allocations
+        return {key: value for key, value in allocations.items() if value > 0}
 
     def _plan_step_allocations(self, current: dict[str, int], steps: dict[str, int]) -> dict[str, int]:
         if not steps:
             return {}
 
-        allocations = {key: 0 for key in steps.keys()}
+        allocations = dict.fromkeys(steps.keys(), 0)
         remaining_points = self.points
 
         for key in steps.keys():
@@ -119,40 +130,6 @@ class AllocateAttributesJob(Job):
             "production_points": hero_attributes.production_points,
         }
 
-    def _normalize_ratio(self, raw_ratio: dict[str, int], preserve_order: bool) -> dict[str, int]:
-        key_map = {
-            "fight": "fighting_strength",
-            "fighting_strength": "fighting_strength",
-            "power": "fighting_strength",
-            "off": "off_bonus",
-            "off_bonus": "off_bonus",
-            "def": "def_bonus",
-            "def_bonus": "def_bonus",
-            "resources": "production_points",
-            "production": "production_points",
-            "production_points": "production_points",
-        }
-        ordered_keys = [
-            "fighting_strength",
-            "off_bonus",
-            "def_bonus",
-            "production_points",
-        ]
-        normalized: dict[str, int] = {}
-        ordered_canonicals: list[str] = []
-        for key, value in raw_ratio.items():
-            if value <= 0:
-                continue
-            canonical = key_map.get(key)
-            if canonical is None:
-                continue
-            normalized[canonical] = normalized.get(canonical, 0) + int(value)
-            if preserve_order and canonical not in ordered_canonicals:
-                ordered_canonicals.append(canonical)
-
-        if preserve_order:
-            return {key: normalized[key] for key in ordered_canonicals}
-        return {key: normalized[key] for key in ordered_keys if key in normalized}
 
     def _merge_allocations(self, left: dict[str, int], right: dict[str, int]) -> dict[str, int]:
         merged = dict(left)
