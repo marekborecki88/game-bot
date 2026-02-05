@@ -1,10 +1,21 @@
 from __future__ import annotations
 
-from src.config.config import LogicConfig, Strategy
-from src.core.job import BuildJob
+from src.config.config import LogicConfig, Strategy, HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
 from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village, \
     BuildingQueue
 from src.core.planner.logic_engine import LogicEngine
+
+
+def _create_hero_config() -> HeroConfig:
+    """Helper to create HeroConfig for tests."""
+    return HeroConfig(
+        adventures=HeroAdventuresConfig(minimal_health=50, increase_difficulty=False),
+        resources=HeroResourcesConfig(
+            support_villages=False,
+            attributes_ratio={"fight": 3, "resources": 1},
+            attributes_steps={},
+        ),
+    )
 
 
 def test_lowest_resource_type_basic() -> None:
@@ -12,8 +23,9 @@ def test_lowest_resource_type_basic() -> None:
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
         speed=1,
     )
+    hero_config = _create_hero_config()
 
-    # Village resources: L=100, C=200, I=300, Cr=400 (lowest: LUMBER)
+    # ...existing code...
     village = Village(
         id=1,
         name="V1",
@@ -49,7 +61,7 @@ def test_lowest_resource_type_basic() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(logic_config, hero_config).plan(game_state)
 
     assert len(build_jobs) == 1
 
@@ -62,8 +74,9 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
         speed=1,
     )
+    hero_config = _create_hero_config()
 
-    # Village resources: L=100, C=200, I=300, Cr=400
+    # ...existing code...
     village = Village(
         id=1,
         name="V1",
@@ -106,7 +119,7 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(logic_config, hero_config).plan(game_state)
 
     assert len(build_jobs) == 1
 
@@ -119,8 +132,9 @@ def test_lowest_resource_type_balanced() -> None:
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
         speed=1,
     )
+    hero_config = _create_hero_config()
 
-    # Village resources: all equal
+    # ...existing code...
     village = Village(
         id=1,
         name="V1",
@@ -155,7 +169,7 @@ def test_lowest_resource_type_balanced() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(logic_config, hero_config).plan(game_state)
 
     # In the current implementation, even when global-lowest is "None", the planner
     # still picks an upgradable pit (fallback). For this test data it becomes LUMBER.
@@ -170,8 +184,9 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
         speed=1,
     )
+    hero_config = _create_hero_config()
 
-    # Village V1 resources: L=100, C=200, I=300, Cr=400
+    # ...existing code...
     v1 = Village(
         id=1,
         name="V1",
@@ -234,7 +249,7 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(logic_config, hero_config).plan(game_state)
 
     assert len(build_jobs) == 2
 
@@ -249,8 +264,9 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
         speed=1,
     )
+    hero_config = _create_hero_config()
 
-    # Village resources: all zero
+    # ...existing code...
     village = Village(
         id=1,
         name="V1",
@@ -292,7 +308,7 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         hero_info=hero,
     )
 
-    build_jobs = LogicEngine(logic_config).plan(game_state)
+    build_jobs = LogicEngine(logic_config, hero_config).plan(game_state)
 
     assert len(build_jobs) == 1
 

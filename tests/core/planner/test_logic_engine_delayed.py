@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.config.config import LogicConfig, Strategy
+from src.config.config import LogicConfig, Strategy, HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
 from src.core.job import BuildJob
 from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village, \
     BuildingQueue
@@ -54,10 +54,23 @@ def config() -> LogicConfig:
     )
 
 
+@pytest.fixture
+def hero_config() -> HeroConfig:
+    return HeroConfig(
+        adventures=HeroAdventuresConfig(minimal_health=50, increase_difficulty=False),
+        resources=HeroResourcesConfig(
+            support_villages=False,
+            attributes_ratio={"fight": 3, "resources": 1},
+            attributes_steps={},
+        ),
+    )
+
+
 def test_create_build_job_schedules_future_when_insufficient_resources(
         account_info: Account,
         hero_info: HeroInfo,
         config: LogicConfig,
+        hero_config: HeroConfig,
 ) -> None:
     village = make_village(
         resources=Resources(lumber=200, clay=200, iron=200, crop=200),
@@ -69,7 +82,7 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
     )
 
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-    engine = LogicEngine(config)
+    engine = LogicEngine(config, hero_config)
 
     now = datetime.now()
     jobs = engine.plan(game_state)
@@ -97,6 +110,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
         account_info: Account,
         hero_info: HeroInfo,
         config: LogicConfig,
+        hero_config: HeroConfig,
 ) -> None:
     village = make_village(
         resources=Resources(lumber=0, clay=0, iron=0, crop=0),
@@ -110,7 +124,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
     hero_info.inventory.update({"lumber": 10000, "clay": 10000, "iron": 10000, "crop": 10000})
 
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
-    engine = LogicEngine(config)
+    engine = LogicEngine(config, hero_config)
 
     now = datetime.now()
     jobs = engine.plan(game_state)

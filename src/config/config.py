@@ -26,6 +26,28 @@ class DriverConfig:
 
 
 @dataclass(frozen=True)
+class HeroAdventuresConfig:
+    """Configuration for hero adventures."""
+    minimal_health: int
+    increase_difficulty: bool
+
+
+@dataclass(frozen=True)
+class HeroResourcesConfig:
+    """Configuration for hero resource gathering."""
+    support_villages: bool
+    attributes_ratio: dict[str, int]
+    attributes_steps: dict[str, int]
+
+
+@dataclass(frozen=True)
+class HeroConfig:
+    """Configuration for hero behavior and attributes."""
+    adventures: HeroAdventuresConfig
+    resources: HeroResourcesConfig
+
+
+@dataclass(frozen=True)
 class LogicConfig:
     """Configuration for the bot logic and planning."""
     speed: int
@@ -39,6 +61,7 @@ class Config:
     log_level: str
     driver_config: DriverConfig
     logic_config: LogicConfig
+    hero_config: HeroConfig
 
     @classmethod
     def find_config_path(cls, config_path: Optional[str] = None) -> str:
@@ -134,10 +157,24 @@ class Config:
             minimum_storage_capacity_in_hours=int(data.get('minimum_storage_capacity_in_hours', 24)),
         )
 
+        hero_data = data.get('hero', {})
+        hero_config = HeroConfig(
+            adventures=HeroAdventuresConfig(
+                minimal_health=int(hero_data.get('adventures', {}).get('minimal-health', 50)),
+                increase_difficulty=bool(hero_data.get('adventures', {}).get('increase-difficulty', False)),
+            ),
+            resources=HeroResourcesConfig(
+                support_villages=bool(hero_data.get('resources', {}).get('support-villages', False)),
+                attributes_ratio=dict(hero_data.get('resources', {}).get('attributes-ratio', {})),
+                attributes_steps=dict(hero_data.get('resources', {}).get('attributes-steps', {})),
+            ),
+        )
+
         return cls(
             log_level=data.get('log_level', 'INFO'),
             driver_config=driver_config,
             logic_config=logic_config,
+            hero_config=hero_config,
         )
 
 

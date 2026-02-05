@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from src.config.config import HeroConfig
 from src.core.job.job import Job
 from src.core.protocols.driver_protocol import DriverProtocol
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 @dataclass(kw_only=True)
 class HeroAdventureJob(Job):
     hero_info: Any
+    hero_config: HeroConfig
 
     def execute(self, driver: DriverProtocol) -> bool:
         """Start a hero adventure using the provided driver primitives.

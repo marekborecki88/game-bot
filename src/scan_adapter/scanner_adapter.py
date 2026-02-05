@@ -16,6 +16,7 @@ from src.core.model.model import (
     VillageIdentity,
     Village,
     HeroInfo,
+    HeroAttributes,
     Account,
     SourcePit,
     Building,
@@ -229,6 +230,7 @@ class Scanner(ScannerProtocol):
         is_available = self._is_hero_available(hero_html)
         inventory = self._parse_hero_inventory(inventory_html)
         points_available = self._parse_available_attribute_points(soup)
+        hero_attributes = self._parse_hero_attributes(soup)
 
         # detect daily quest indicator from the header/navigation if present
         nav_tag = soup.select_one('#navigation')
@@ -239,9 +241,10 @@ class Scanner(ScannerProtocol):
             experience=experience,
             adventures=adventures,
             is_available=is_available,
+            hero_attributes=hero_attributes,
             points_available=points_available,
             inventory=inventory,
-            has_daily_quest_indicator=daily_indicator
+            has_daily_quest_indicator=daily_indicator,
         )
 
     # Additional helpers that tests rely on — delegate to legacy implementations
@@ -511,6 +514,22 @@ class Scanner(ScannerProtocol):
             return 0
         return self._parse_number_value(points_elem.get_text())
 
+    def _parse_hero_attributes(self, soup: BeautifulSoup) -> HeroAttributes:
+        """Parse hero attribute values from hero attributes screen."""
+        return HeroAttributes(
+            fighting_strength=self._extract_attribute_value(soup, "power"),
+            off_bonus=self._extract_attribute_value(soup, "offBonus"),
+            def_bonus=self._extract_attribute_value(soup, "defBonus"),
+            production_points=self._extract_attribute_value(soup, "productionPoints"),
+        )
+
+    def _extract_attribute_value(self, soup: BeautifulSoup, input_name: str) -> int:
+        input_elem = soup.select_one(f"input[name='{input_name}']")
+        if not input_elem:
+            return 0
+        value_text = input_elem.get("value", "0")
+        return self._parse_number_value(value_text)
+
     def _class_list_to_str(self, class_attr) -> str:
         """Normalize class attribute (string or list) to space-joined string."""
         if isinstance(class_attr, list):
@@ -538,4 +557,3 @@ class Scanner(ScannerProtocol):
 
     def _extract_building_name_from_builing_job(self, item):
         return item.select_one('.name').text.split("Level")[0].strip()
-

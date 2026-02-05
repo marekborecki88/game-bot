@@ -2,7 +2,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from src.core.model.model import VillageIdentity, SourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
-    Tribe, HeroInfo, Village, BuildingContract, Resources, BuildingQueue
+    Tribe, HeroInfo, HeroAttributes, Village, BuildingContract, Resources, BuildingQueue
 from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
@@ -236,6 +236,12 @@ def test_scan_hero_info(hero_attributes_html, inventory_html):
         experience=16594,
         adventures=83,
         is_available=True,
+        hero_attributes=HeroAttributes(
+            fighting_strength=0,
+            off_bonus=0,
+            def_bonus=68,
+            production_points=36,
+        ),
         inventory={
             "lumber": 616,
             "clay": 34210,
