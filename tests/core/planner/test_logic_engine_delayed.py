@@ -78,21 +78,19 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
 
     assert job.scheduled_time > now
     assert village.building_queue.can_build_outside() is False
-
-    expected = BuildJob(
-        scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and
-        success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
-        failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
-        village_name=village.name,
-        village_id=village.id,
-        building_id=2,
-        building_gid=ResourceType.LUMBER.gid,
-        target_name=ResourceType.LUMBER.name,
-        target_level=2,
-        duration=616
-    )
-
-    assert expected == job
+    assert isinstance(job, BuildJob)
+    assert job.success_message == f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started"
+    assert job.failure_message == f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed"
+    assert job.village_name == village.name
+    assert job.village_id == village.id
+    assert job.building_id == 2
+    assert job.building_gid == ResourceType.LUMBER.gid
+    assert job.target_name == ResourceType.LUMBER.name
+    assert job.target_level == 2
+    assert job.support is None
+    assert job.duration == 616
+    assert job.freeze_until is None
+    assert job.freeze_queue_key is None
 
 
 def test_create_build_job_uses_hero_inventory_to_build_immediately(
@@ -121,19 +119,16 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
 
     assert now - timedelta(seconds=1) <= job.scheduled_time <= now + timedelta(seconds=1)
     assert village.building_queue.can_build_outside() is False
-
-    expected = BuildJob(
-        scheduled_time=job.scheduled_time,  # match the dynamically assigned scheduled_time and
-        success_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started",
-        failure_message=f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed",
-        village_name=village.name,
-        village_id=village.id,
-        building_id=3,
-        building_gid=ResourceType.LUMBER.gid,
-        target_name=ResourceType.LUMBER.name,
-        target_level=2,
-        support=Resources(lumber=65, clay=165, iron=85, crop=100),
-        duration=616
-    )
-
-    assert expected == job
+    assert isinstance(job, BuildJob)
+    assert job.success_message == f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} started"
+    assert job.failure_message == f"construction of {ResourceType.LUMBER.name} level 2 in {village.name} failed"
+    assert job.village_name == village.name
+    assert job.village_id == village.id
+    assert job.building_id == 3
+    assert job.building_gid == ResourceType.LUMBER.gid
+    assert job.target_name == ResourceType.LUMBER.name
+    assert job.target_level == 2
+    assert job.support == Resources(lumber=65, clay=165, iron=85, crop=100)
+    assert job.duration == 616
+    assert job.freeze_until is None
+    assert job.freeze_queue_key is None
