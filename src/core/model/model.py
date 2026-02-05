@@ -141,12 +141,21 @@ class ReservationResponse:
     provided_resources: Resources
 
 
+@dataclass(frozen=True)
+class HeroAttributes:
+    fighting_strength: int = 0
+    off_bonus: int = 0
+    def_bonus: int = 0
+    production_points: int = 0
+
+
 @dataclass
 class HeroInfo:
     health: int
     experience: int
     adventures: int
     is_available: bool
+    hero_attributes: HeroAttributes = field(default_factory=HeroAttributes)
     points_available: int = 0
     inventory: dict[str, int] = field(default_factory=dict)
     # Whether the daily quests UI shows a new-quest indicator (!) — belongs to UI/hero context

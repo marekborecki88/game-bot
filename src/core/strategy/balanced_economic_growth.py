@@ -3,6 +3,7 @@ import math
 from datetime import datetime, timedelta
 
 from src.core.calculator.calculator import TravianCalculator
+from src.config.config import HeroConfig
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
     BuildingJob, BuildingCost
 from src.core.strategy.Strategy import Strategy
@@ -12,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 class BalancedEconomicGrowth(Strategy):
 
-    def __init__(self, minimum_storage_capacity_in_hours: int):
-        super().__init__(minimum_storage_capacity_in_hours)
+    def __init__(self, minimum_storage_capacity_in_hours: int, hero_config: HeroConfig):
+        self.minimum_storage_capacity_in_hours = minimum_storage_capacity_in_hours
+        self.hero_config = hero_config
         self.calculator = None
 
     def plan_jobs(self, game_state: GameState, calculator: TravianCalculator) -> list[Job]:
@@ -57,11 +59,12 @@ class BalancedEconomicGrowth(Strategy):
 
         now = datetime.now()
 
-        if hero_info.can_go_on_adventure():
+        if hero_info.can_go_on_adventure() and hero_info.health >= self.hero_config.adventures.minimal_health:
             jobs.append(HeroAdventureJob(
                 success_message="hero adventure scheduled",
                 failure_message="hero adventure failed",
                 hero_info=hero_info,
+                hero_config=self.hero_config,
                 scheduled_time=now,
             ))
 
@@ -71,6 +74,8 @@ class BalancedEconomicGrowth(Strategy):
                 success_message="attribute points allocated ",
                 failure_message="attribute points allocation failed",
                 points=points,
+                hero_info=hero_info,
+                hero_config=self.hero_config,
                 scheduled_time=now,
             ))
 

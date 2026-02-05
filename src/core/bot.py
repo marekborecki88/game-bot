@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import FrameType
 
-from src.config.config import LogicConfig
+from src.config.config import LogicConfig, HeroConfig
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
 from src.core.job.job import Job
@@ -58,12 +58,12 @@ class QueueFreeze:
 class Bot:
     """Game bot with scheduled planning and job execution."""
 
-    def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol, logic_config: LogicConfig) -> None:
+    def __init__(self, driver: DriverProtocol, scanner: ScannerProtocol, logic_config: LogicConfig, hero_config: HeroConfig) -> None:
         self.driver: DriverProtocol = driver
         self.scanner: ScannerProtocol = scanner
         # Do not perform expensive scans during construction. The LogicEngine may receive
         # a fresh GameState at planning time via create_plan_for_village(game_state).
-        self.logic_engine: LogicEngine = LogicEngine(game_state=None, logic_config=logic_config)
+        self.logic_engine: LogicEngine = LogicEngine(game_state=None, logic_config=logic_config, hero_config=hero_config)
         self._running: bool = False
 
         # HTML cache keyed by (village_name, index) where index is 1 or 2
