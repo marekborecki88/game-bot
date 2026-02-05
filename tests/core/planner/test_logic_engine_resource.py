@@ -125,7 +125,7 @@ def test_lowest_resource_type_balanced() -> None:
         id=1,
         name="V1",
         tribe=Tribe.ROMANS,
-        resources=Resources(lumber=100, clay=100, iron=100, crop=100),
+        resources=Resources(lumber=1000, clay=1000, iron=1000, crop=1000),
         free_crop=100,
         source_pits=[
             SourcePit(id=1, type=ResourceType.LUMBER, level=1),
@@ -176,7 +176,7 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         id=1,
         name="V1",
         tribe=Tribe.ROMANS,
-        resources=Resources(lumber=100, clay=200, iron=300, crop=400),
+        resources=Resources(lumber=1000, clay=2000, iron=3000, crop=4000),
         free_crop=100,
         source_pits=[
             SourcePit(id=1, type=ResourceType.LUMBER, level=1),
@@ -203,7 +203,7 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         id=2,
         name="V2",
         tribe=Tribe.ROMANS,
-        resources=Resources(lumber=50, clay=50, iron=50, crop=50),
+        resources=Resources(lumber=500, clay=500, iron=500, crop=500),
         free_crop=100,
         source_pits=[
             SourcePit(id=1, type=ResourceType.LUMBER, level=1),
@@ -242,6 +242,8 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
     assert any(job.target_name == ResourceType.LUMBER.name for job in build_jobs)
 
 
+#TODO: add case where one resource is extremely high and we shoulnd't upgrate right this one
+#TODO: add case where two resource are extremely high and and 2 others are equal lowest
 def test_lowest_resource_type_with_hero_inventory_only() -> None:
     logic_config = LogicConfig(
         strategy=Strategy.BALANCED_ECONOMIC_GROWTH,
@@ -253,7 +255,7 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         id=1,
         name="V1",
         tribe=Tribe.ROMANS,
-        resources=Resources(lumber=0, clay=0, iron=0, crop=0),
+        resources=Resources(lumber=1000, clay=1000, iron=1000, crop=1000),
         free_crop=100,
         source_pits=[
             SourcePit(id=1, type=ResourceType.LUMBER, level=1),
@@ -281,7 +283,7 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         experience=0,
         adventures=0,
         is_available=True,
-        inventory={"lumber": 10, "clay": 5, "iron": 20, "crop": 30},
+        inventory={"lumber": 1000, "clay": 5, "iron": 2000, "crop": 3000},
     )
 
     game_state = GameState(

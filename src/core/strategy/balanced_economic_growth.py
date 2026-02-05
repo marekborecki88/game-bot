@@ -21,6 +21,7 @@ class BalancedEconomicGrowth(Strategy):
         new_jobs = []
         new_jobs.extend(self.create_plan_for_villages(game_state))
         # Also plan hero adventure (if applicable)
+        #TODO: add information to game_state when hero will be back from adventure/traveling
         hero_jobs = self.create_plan_for_hero(game_state.hero_info)
         new_jobs.extend(hero_jobs)
         return new_jobs
@@ -235,52 +236,52 @@ class BalancedEconomicGrowth(Strategy):
         now = datetime.now()
 
         building_cost: BuildingCost = self.calculator.get_building_details(building_gid, target_level)
-
+        duration: int = building_cost.time_seconds
         reservation_request = village.create_reservation_request(building_cost)
 
-        # send reservation request to hero
-        response = hero_info.send_request(reservation_request)
-
-        support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
-
-        duration: int = building_cost.time_seconds
-
-        # TODO: FOR ACCAPETED AND PARTIALLY_ACCEPTED, there is need to create separate task because we need to transfer resources from hero to village
-        if response.status is not ReservationStatus.ACCEPTED:
-            shortage = reservation_request - response.provided_resources
-            max_delay_seconds = self.calculate_delay(shortage, village)
-
-            scheduled = now + timedelta(seconds=max_delay_seconds)
-            # set an expiry reasonably after scheduled time
-
-            # Mark village queue frozen to avoid duplicate scheduling
-            until = scheduled + timedelta(seconds=duration)
-            village.freeze_building_queue_until(until, building_id)
-
-            job = BuildJob(
+        if reservation_request.is_empty():
+            # No shortages -> immediate job
+            return BuildJob(
                 success_message=f"construction of {target_name} level {target_level} in {village.name} started",
                 failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
                 village_name=village.name, village_id=village.id, building_id=building_id,
                 building_gid=building_gid, target_name=target_name, target_level=target_level,
-                support=support,
-                scheduled_time=scheduled,
+                support=None,
+                scheduled_time=now,
                 duration=duration
             )
 
-            logger.info(f"Created delayed build {job} for village {village.name} (id={village.id}) in {max_delay_seconds} seconds; freezing queue until {until}")
+        # send reservation request to hero
+        response = hero_info.send_request(reservation_request)
+        support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
 
-            return job
+        shortage = reservation_request - response.provided_resources
+        max_delay_seconds = self.calculate_delay(shortage, village)
 
-        # No shortages -> immediate job
-        return BuildJob(
+        scheduled = now
+        if not shortage.is_empty():
+            scheduled += timedelta(seconds=max_delay_seconds)
+            until = scheduled + timedelta(seconds=duration)
+            # Mark village queue frozen to avoid duplicate scheduling
+            village.freeze_building_queue_until(until, building_id)
+
+
+        job = BuildJob(
             success_message=f"construction of {target_name} level {target_level} in {village.name} started",
             failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
             village_name=village.name, village_id=village.id, building_id=building_id,
             building_gid=building_gid, target_name=target_name, target_level=target_level,
             support=support,
-            scheduled_time=now,
+            scheduled_time=scheduled,
             duration=duration
         )
+
+        if not shortage.is_empty():
+            logger.info(f"Scheduling build job for {village.name} {target_name} level {target_level} in the future at {scheduled} due to resource shortage: {shortage}, max delay seconds: {max_delay_seconds}")
+
+        return job
+
+
 
     def calculate_delay(self, shortage: Resources, village: Village) -> int:
         village_production = shortage / village.resources_hourly_production()

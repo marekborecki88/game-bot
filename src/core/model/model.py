@@ -84,6 +84,9 @@ class Resources:
 
         return provided
 
+    def is_empty(self):
+        return self.lumber == 0 and self.clay == 0 and self.iron == 0 and self.crop == 0
+
 
 @dataclass
 class BuildingCost:
@@ -197,7 +200,12 @@ class BuildingQueue:
         # min from in_jobs and out_jobs
         in_duration = sum(job.time_remaining for job in self.in_jobs)
         out_duration = sum(job.time_remaining for job in self.out_jobs)
-        return min(in_duration, out_duration) if self.parallel_building_allowed else max(in_duration, out_duration)
+        if self.parallel_building_allowed:
+            # parallel building, we can start new job when shorter is finished
+            return min(in_duration, out_duration)
+        else:
+            # parallel building not allowed, sum both queue blocks together
+            return max(in_duration, out_duration)
 
     def add_job(self, job: BuildingJob) -> None:
         self.in_jobs.append(job) if self._building_in_center(job.building_name) else self.out_jobs.append(job)
@@ -288,7 +296,7 @@ class Village:
 
     def needs_more_free_crop(self) -> bool:
 
-        crop_ratio = self.free_crop / self.crop_hourly_production
+        crop_ratio = 0 if self.crop_hourly_production == 0 else self.free_crop / self.crop_hourly_production
         return crop_ratio < 0.1 and self.any_crop_is_upgradable()
 
     def max_source_pit_level(self):

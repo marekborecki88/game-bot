@@ -60,7 +60,7 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
         config: LogicConfig,
 ) -> None:
     village = make_village(
-        resources=Resources(lumber=0, clay=0, iron=0, crop=0),
+        resources=Resources(lumber=200, clay=200, iron=200, crop=200),
         lumber_hourly_production=5,
         clay_hourly_production=5,
         iron_hourly_production=5,
@@ -71,11 +71,11 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
     engine = LogicEngine(config)
 
+    now = datetime.now()
     jobs = engine.plan(game_state)
     assert len(jobs) == 1
     job = jobs[0]
 
-    now = datetime.now()
     assert job.scheduled_time > now
     assert village.building_queue.can_build_outside() is False
 

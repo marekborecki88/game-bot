@@ -3,26 +3,25 @@ import signal
 import time
 from types import FrameType
 
-import schedule
-
 from src.config.config import LogicConfig
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
-from src.core.job.job import Job, JobStatus
+from src.core.job.job import Job
 from src.core.model.model import Village, GameState
 from src.core.planner.logic_engine import LogicEngine
-from src.core.job import BuildJob, BuildNewJob
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
 CLOSE_CONTENT_BUTTON_SELECTOR = "#closeContentButton"
 ATTRIBUTES = "/hero/attributes"
 HERO_INVENTORY = "/hero/inventory"
+
 CLASS_TO_RESOURCE_MAP = {
     "item145": "lumber",
     "item146": "clay",
     "item147": "iron",
     "item148": "crop"
 }
+
 RESOURCE_TO_CLASS_MAP = {
     "lumber": "item145",
     "clay": "item146",
@@ -53,44 +52,41 @@ class Bot:
         self.html_cache = HtmlCache()
         # Remember active village name after create_game_state builds cache
         self._active_village_name: str | None = None
-
         self._setup_signal_handlers()
+        self._next_run_timestamp: float = 0
 
-    def _schedule_planning(self) -> None:
-        try:
-            # Build fresh game state so we can both plan and compute next planning time
-            game_state = self.create_game_state()
-            jobs = self.logic_engine.plan(game_state)
-            logger.info(f"Planning complete: added {len(jobs)} new jobs. Total pending: {len(jobs)}")
 
-            for job in jobs:
-                try:
-                    logger.debug(f"Executing job scheduled for {job.scheduled_time}")
-                    summary = self._execute_job(job)
-                    logger.info(summary)
-                except Exception as e:
-                    logger.error(f"Job execution failed: {e}", exc_info=True)
+    def _schedule_planning(self, game_state: GameState) -> None:
+        delay = int(self._calculate_next_delay(game_state))
+        self._next_run_timestamp = time.time() + delay
+        logger.info(f"Next planning scheduled in {delay} seconds")
 
-            delay = int(self._calculate_next_delay(game_state))
-            self._planning_job = schedule.every(delay).seconds.do(self._run_planning)
-            logger.info(f"Next planning scheduled in {delay} seconds")
-        except Exception as e:
-            logger.error(f"Failed to schedule next planning run: {e}")
+
+    def run(self) -> None:
+        logger.info("Starting bot...")
+        self._running = True
+
+        while self._running:
+            current_time = time.time()
+            if current_time >= self._next_run_timestamp:
+                self._run_planning()
+            time.sleep(1)
+
+        logger.info("Bot has been stopped.")
 
     def _run_planning(self) -> None:
-        """Run the planning phase, add new jobs and schedule the next planning run dynamically.
-
-        The next planning run will be scheduled for when the shortest building queue finishes
-        across all villages. If there are no villages or the computed delay is invalid, a
-        fallback interval (PLANNING_INTERVAL) will be used.
-        """
         logger.debug("Running planning phase...")
 
-
         try:
-            self._schedule_planning()
+            game_state = self.create_game_state()
+            jobs = self.logic_engine.plan(game_state)
+            for job in jobs:
+                self._execute_job(job)
+
+            self._schedule_planning(game_state)
         except Exception as e:
-            logger.error(f"Planning failed: {e}", exc_info=True)
+            logger.error(f"Planning failed: {e}")
+            self._next_run_timestamp = time.time() + 60  # Fallback przy błędzie
 
     def _calculate_next_delay(self, game_state: GameState) -> int:
         return int(shortest_building_queue(game_state.villages)) or 1
@@ -105,60 +101,14 @@ class Bot:
         logger.info(f"Received signal {signum}, initiating graceful shutdown...")
         self._running = False
 
-    def run(self) -> None:
-        """Start the bot's main loop with scheduled tasks."""
-        logger.info("Starting bot...")
-        self._running = True
 
-        # NOTE: planning is now scheduled dynamically by `_run_planning` itself
-        # Schedule job execution check
-        # schedule.every(self.JOB_CHECK_INTERVAL).seconds.do(self._execute_pending_jobs)
-
-        # Run initial planning immediately; it will schedule the next run based on queues
-        self._run_planning()
-
-
-        while self._running:
-            schedule.run_pending()
-            time.sleep(0.1)  # Small sleep to prevent CPU spinning
-
-    def _execute_job(self, job: Job) -> str:
-        """Execute a job and return a summary message.
-
-        This method performs common bookkeeping (expiration check, status toggles,
-        exception handling and final cleanup) and delegates the task-specific
-        execution to the `_handle_task` method which runs Task instances.
-        """
-
-        job.status = JobStatus.RUNNING
+    def _execute_job(self, job: Job) -> None:
         try:
-            summary = self._handle_task(job)
-            # If handler succeeded, ensure job status is COMPLETED unless handler set it.
-            if job.status == JobStatus.RUNNING:
-                job.status = JobStatus.COMPLETED
-            return summary
-        except Exception:
-            # Ensure terminated on unexpected exceptions
-            job.status = JobStatus.TERMINATED
-        
+            job.execute(self.driver)
+            logger.info(f"Job executed: {job.success_message}")
+        except Exception as e:
+            logger.error(f"Job execution failed: {job.failure_message}, error: {e}")
 
-    def _handle_task(self, job: Job) -> str:
-        """Generic task handler: run the Job and return a summary.
-
-        Assumes `job` implements execute() and
-        providing success_message/failure_message.
-        """
-        try:
-            succeeded = job.execute(self.driver)
-        except Exception:
-            succeeded = False
-
-        if not succeeded:
-            job.status = JobStatus.EXPIRED
-            return job.failure_message
-
-        job.status = JobStatus.COMPLETED
-        return job.success_message
 
     def create_game_state(self):
         # Clear previous run cache

@@ -31,6 +31,10 @@ def make_village(**overrides) -> Village:
         "warehouse_capacity": 50000,
         "granary_capacity": 50000,
         "building_queue": [],
+        "lumber_hourly_production": 1000,
+        "clay_hourly_production": 1000,
+        "iron_hourly_production": 1000,
+        "crop_hourly_production": 1000,
     }
     defaults.update(overrides)
     return Village(**defaults)
