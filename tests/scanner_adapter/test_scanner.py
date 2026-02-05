@@ -29,7 +29,7 @@ def inventory_html():
 
 @pytest.fixture
 def village_list_html():
-    return HtmlUtils.load("village_list.html")
+    return HtmlUtils.load("upgradeBuilding.html")
 
 
 @pytest.fixture

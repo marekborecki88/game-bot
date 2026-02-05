@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def choose_strategy(logic_config: LogicConfig, hero_config: HeroConfig) -> Strategy:
     match logic_config.strategy:
         case StrategyType.BALANCED_ECONOMIC_GROWTH:
-            return BalancedEconomicGrowth(logic_config.minimum_storage_capacity_in_hours, hero_config)
+            return BalancedEconomicGrowth(logic_config, hero_config)
         case StrategyType.DEFEND_ARMY:
             raise ValueError("Not implemented yet: Strategy.DEFEND_ARMY")
         case _:

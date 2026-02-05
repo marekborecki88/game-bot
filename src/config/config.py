@@ -80,6 +80,7 @@ class LogicConfig:
     speed: int
     strategy: Strategy | None
     minimum_storage_capacity_in_hours: int = 24  # Default value if not specified
+    daily_quest_threshold: int = 50  # Minimum points required to collect daily quest reward
 
 
 @dataclass
@@ -182,6 +183,7 @@ class Config:
             speed=int(data['speed']),
             strategy=Strategy(data['strategy']) if 'strategy' in data else None,
             minimum_storage_capacity_in_hours=int(data.get('minimum_storage_capacity_in_hours', 24)),
+            daily_quest_threshold=int(data.get('daily_quest_threshold', 50)),
         )
 
         hero_data = data.get('hero', {})

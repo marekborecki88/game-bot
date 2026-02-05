@@ -224,3 +224,12 @@ class Driver(DriverProtocol):
             return locator.count() > 0 and locator.is_visible()
         except Exception:
             return False
+
+    def get_text_content(self, selector: str) -> str:
+        try:
+            locator = self.page.locator(selector).first
+            if locator.count() > 0:
+                return locator.text_content() or ""
+        except Exception:
+            pass
+        return ""

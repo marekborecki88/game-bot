@@ -3,7 +3,7 @@ import math
 from datetime import datetime, timedelta
 
 from src.core.calculator.calculator import TravianCalculator
-from src.config.config import HeroConfig
+from src.config.config import HeroConfig, LogicConfig
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
     BuildingJob, BuildingCost
 from src.core.strategy.Strategy import Strategy
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 class BalancedEconomicGrowth(Strategy):
 
-    def __init__(self, minimum_storage_capacity_in_hours: int, hero_config: HeroConfig):
-        self.minimum_storage_capacity_in_hours = minimum_storage_capacity_in_hours
+    def __init__(self, logic_config: LogicConfig, hero_config: HeroConfig):
+        self.logic_config = logic_config
         self.hero_config = hero_config
         self.calculator = None
 
@@ -92,6 +92,7 @@ class BalancedEconomicGrowth(Strategy):
             success_message="daily quests collected",
             failure_message="daily quests collection failed",
             scheduled_time=now,
+            daily_quest_threshold=self.logic_config.daily_quest_threshold,
         )
 
     def _create_collect_questmaster_job(self, village: Village) -> Job:
@@ -198,11 +199,11 @@ class BalancedEconomicGrowth(Strategy):
 
     def warehouse_min_ratio(self, village: Village) -> float:
         highest_production = max(village.lumber_hourly_production, village.clay_hourly_production, village.iron_hourly_production)
-        minimum_capacity = highest_production * self.minimum_storage_capacity_in_hours
+        minimum_capacity = highest_production * self.logic_config.minimum_storage_capacity_in_hours
         return village.warehouse_capacity / minimum_capacity
 
     def granary_min_ratio(self, village: Village) -> float:
-        minimum_capacity = village.crop_hourly_production * self.minimum_storage_capacity_in_hours
+        minimum_capacity = village.crop_hourly_production * self.logic_config.minimum_storage_capacity_in_hours
         return village.warehouse_capacity / minimum_capacity
 
     def _find_insufficient_storage(self, village: Village) -> BuildingType | None:
@@ -217,7 +218,7 @@ class BalancedEconomicGrowth(Strategy):
             (BuildingType.GRANARY, crop)
         ]
 
-        building_to_upgrade = [(bt, full_after) for bt, full_after in full_storage_after if full_after < self.minimum_storage_capacity_in_hours]
+        building_to_upgrade = [(bt, full_after) for bt, full_after in full_storage_after if full_after < self.logic_config.minimum_storage_capacity_in_hours]
 
         if building_to_upgrade:
             result = min(building_to_upgrade, key=lambda x: x[1])

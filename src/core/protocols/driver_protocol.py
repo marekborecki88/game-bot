@@ -82,3 +82,6 @@ class DriverProtocol(Protocol):
 
     def is_visible(self, selector: str) -> bool:
         """Return True if the element matching the selector is visible."""
+
+    def get_text_content(self, selector: str) -> str:
+        """Return the text content of the first element matching the selector, or empty string if not found."""
