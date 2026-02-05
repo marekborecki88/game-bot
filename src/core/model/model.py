@@ -202,13 +202,15 @@ class BuildingQueue:
         out_duration = sum(job.time_remaining for job in self.out_jobs)
         if self.parallel_building_allowed:
             # parallel building, we can start new job when shorter is finished
-            return min(in_duration, out_duration)
-        else:
-            # parallel building not allowed, sum both queue blocks together
-            return max(in_duration, out_duration)
+            return max(0, min(in_duration, out_duration))
+        # parallel building not allowed, sum both queue blocks together
+        return max(0, max(in_duration, out_duration))
 
-    def add_job(self, job: BuildingJob) -> None:
+    def add_job(self, job: "BuildingJob") -> None:
         self.in_jobs.append(job) if self._building_in_center(job.building_name) else self.out_jobs.append(job)
+
+    def queue_key_for_building_name(self, building_name: str) -> str:
+        return "in_jobs" if self._building_in_center(building_name) else "out_jobs"
 
     def _building_in_center(self, building_name: str) -> bool:
         return building_name not in ["Woodcutter", "Clay Pit", "Iron Mine", "Cropland"]
@@ -225,10 +227,19 @@ class BuildingQueue:
             return len(self.out_jobs) == 0
         return len(self.in_jobs) + len(self.out_jobs) == 0
 
-    def freeze_until(self, until, building_id):
-        queue = self.in_jobs if self._building_in_center(building_id) else self.out_jobs
+    def freeze_until(self, until: datetime, queue_key: str, job_id: str | None) -> None:
+        queue = self.in_jobs if queue_key == "in_jobs" else self.out_jobs
         # freeze by adding a dummy job that lasts until the given time
-        queue.append(BuildingJob(building_name="Freeze queue", target_level=0, time_remaining=int((until - datetime.now()).total_seconds())))
+        queue.append(BuildingJob(
+            building_name="Freeze queue",
+            target_level=0,
+            time_remaining=int((until - datetime.now()).total_seconds()),
+            job_id=job_id,
+        ))
+
+    def remove_jobs_by_id(self, job_id: str) -> None:
+        self.in_jobs = [job for job in self.in_jobs if job.job_id != job_id]
+        self.out_jobs = [job for job in self.out_jobs if job.job_id != job_id]
 
 
 @dataclass
@@ -334,8 +345,8 @@ class Village:
             crop=self.crop_hourly_production,
         )
 
-    def freeze_building_queue_until(self, until: datetime, building_id: int) -> None:
-        self.building_queue.freeze_until(until=until, building_id=building_id)
+    def freeze_building_queue_until(self, until: datetime, queue_key: str, job_id: str | None) -> None:
+        self.building_queue.freeze_until(until=until, queue_key=queue_key, job_id=job_id)
 
 
 class BuildingType(Enum):
@@ -446,7 +457,7 @@ class BuildingJob:
     building_name: str
     target_level: int
     time_remaining: int
-
+    job_id: str | None = None
 
 @dataclass
 class VillageIdentity:

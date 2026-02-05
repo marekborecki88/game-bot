@@ -1,12 +1,18 @@
 import logging
 import signal
 import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from types import FrameType
 
 from src.config.config import LogicConfig
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
 from src.core.job.job import Job
+from src.core.job.scheduler import ScheduledJobQueue
+from src.core.job.planning_job import PlanningJob
+from src.core.job.build_job import BuildJob
+from src.core.job.build_new_job import BuildNewJob
 from src.core.model.model import Village, GameState
 from src.core.planner.logic_engine import LogicEngine
 from src.core.protocols.scanner_protocol import ScannerProtocol
@@ -34,7 +40,17 @@ logger = logging.getLogger(__name__)
 
 
 def shortest_building_queue(villages: list[Village]) -> int:
+    if not villages:
+        return 0
     return min([v.building_queue_duration() for v in villages])
+
+
+@dataclass(frozen=True)
+class QueueFreeze:
+    village_name: str
+    queue_key: str
+    frozen_until: datetime
+    job_id: str
 
 
 class Bot:
@@ -53,43 +69,71 @@ class Bot:
         # Remember active village name after create_game_state builds cache
         self._active_village_name: str | None = None
         self._setup_signal_handlers()
-        self._next_run_timestamp: float = 0
+        self._job_queue = ScheduledJobQueue()
+        self._queue_freezes: dict[tuple[str, str], QueueFreeze] = {}
+        self._job_freeze_index: dict[str, tuple[str, str]] = {}
 
-
-    def _schedule_planning(self, game_state: GameState) -> None:
+    def _schedule_planning(self, game_state: GameState | None) -> None:
         delay = int(self._calculate_next_delay(game_state))
-        self._next_run_timestamp = time.time() + delay
+        scheduled_time = datetime.now() + timedelta(seconds=delay)
+        planning_job = PlanningJob(
+            scheduled_time=scheduled_time,
+            success_message="planning completed",
+            failure_message="planning failed",
+            planning_context=self,
+        )
+        self._job_queue.push(planning_job)
         logger.info(f"Next planning scheduled in {delay} seconds")
-
 
     def run(self) -> None:
         logger.info("Starting bot...")
         self._running = True
+        self._schedule_planning(game_state=None)
 
         while self._running:
-            current_time = time.time()
-            if current_time >= self._next_run_timestamp:
-                self._run_planning()
-            time.sleep(1)
+            now = datetime.now()
+            job = self._job_queue.pop_due(now)
+            if job:
+                self._execute_job(job)
+                continue
+
+            next_time = self._job_queue.peek_next_time()
+            if next_time is None:
+                self._schedule_planning(game_state=None)
+                time.sleep(1)
+                continue
+
+            sleep_seconds = max(1, int((next_time - now).total_seconds()))
+            time.sleep(sleep_seconds)
 
         logger.info("Bot has been stopped.")
 
-    def _run_planning(self) -> None:
+    def run_planning(self) -> None:
         logger.debug("Running planning phase...")
 
         try:
             game_state = self.create_game_state()
+            self._apply_queue_freezes(game_state)
             jobs = self.logic_engine.plan(game_state)
             for job in jobs:
-                self._execute_job(job)
+                self._register_queue_freeze(job)
+                self._job_queue.push(job)
 
             self._schedule_planning(game_state)
         except Exception as e:
             logger.error(f"Planning failed: {e}")
-            self._next_run_timestamp = time.time() + 60  # Fallback przy błędzie
+            fallback_time = datetime.now() + timedelta(seconds=60)
+            self._job_queue.push(PlanningJob(
+                scheduled_time=fallback_time,
+                success_message="planning completed",
+                failure_message="planning failed",
+                planning_context=self,
+            ))
 
-    def _calculate_next_delay(self, game_state: GameState) -> int:
-        return int(shortest_building_queue(game_state.villages)) or 1
+    def _calculate_next_delay(self, game_state: GameState | None) -> int:
+        if game_state is None:
+            return 15
+        return max(0, int(shortest_building_queue(game_state.villages))) + 15
 
     def _setup_signal_handlers(self) -> None:
         """Setup graceful shutdown handlers for SIGINT and SIGTERM."""
@@ -101,14 +145,58 @@ class Bot:
         logger.info(f"Received signal {signum}, initiating graceful shutdown...")
         self._running = False
 
+    def _register_queue_freeze(self, job: Job) -> None:
+        if isinstance(job, BuildJob) and job.freeze_until and job.freeze_queue_key:
+            freeze = QueueFreeze(
+                village_name=job.village_name,
+                queue_key=job.freeze_queue_key,
+                frozen_until=job.freeze_until,
+                job_id=job.job_id,
+            )
+            freeze_key = (freeze.village_name, freeze.queue_key)
+            self._queue_freezes[freeze_key] = freeze
+            self._job_freeze_index[job.job_id] = freeze_key
+
+        if isinstance(job, BuildNewJob) and job.freeze_until and job.freeze_queue_key:
+            freeze = QueueFreeze(
+                village_name=job.village_name,
+                queue_key=job.freeze_queue_key,
+                frozen_until=job.freeze_until,
+                job_id=job.job_id,
+            )
+            freeze_key = (freeze.village_name, freeze.queue_key)
+            self._queue_freezes[freeze_key] = freeze
+            self._job_freeze_index[job.job_id] = freeze_key
+
+    def _apply_queue_freezes(self, game_state: GameState) -> None:
+        now = datetime.now()
+        for village in game_state.villages:
+            for queue_key in ("in_jobs", "out_jobs"):
+                freeze_key = (village.name, queue_key)
+                freeze = self._queue_freezes.get(freeze_key)
+                if freeze and freeze.frozen_until > now:
+                    village.building_queue.freeze_until(
+                        until=freeze.frozen_until,
+                        queue_key=queue_key,
+                        job_id=freeze.job_id,
+                    )
 
     def _execute_job(self, job: Job) -> None:
         try:
-            job.execute(self.driver)
+            job.status = job.status.RUNNING
+            result = job.execute(self.driver)
+            job.status = job.status.COMPLETED if result else job.status.TERMINATED
+            self._release_queue_freeze(job.job_id)
             logger.info(f"Job executed: {job.success_message}")
         except Exception as e:
+            job.status = job.status.TERMINATED
+            self._release_queue_freeze(job.job_id)
             logger.error(f"Job execution failed: {job.failure_message}, error: {e}")
 
+    def _release_queue_freeze(self, job_id: str) -> None:
+        freeze_key = self._job_freeze_index.pop(job_id, None)
+        if freeze_key:
+            self._queue_freezes.pop(freeze_key, None)
 
     def create_game_state(self):
         # Clear previous run cache

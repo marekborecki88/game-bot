@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from src.core.model.model import Resources
 from src.core.job.job import Job
@@ -14,6 +15,8 @@ class BuildJob(Job):
     target_name: str
     target_level: int
     support: Resources | None = None
+    freeze_until: datetime | None = None
+    freeze_queue_key: str | None = None
 
     def execute(self, driver: DriverProtocol) -> bool:
         """Perform building/upgrade action using driver primitives.

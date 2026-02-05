@@ -112,7 +112,9 @@ class BalancedEconomicGrowth(Strategy):
                     success_message="construction of new building started",
                     failure_message="construction of new building failed",
                     scheduled_time=now,
-                    duration=building_cost.time_seconds
+                    duration=building_cost.time_seconds,
+                    freeze_until=None,
+                    freeze_queue_key=village.building_queue.queue_key_for_building_name(name),
                 )
         return None
 
@@ -155,7 +157,12 @@ class BalancedEconomicGrowth(Strategy):
         for job in jobs:
             if isinstance(job, (BuildJob, BuildNewJob)):
                 # Add job to village building queue immediately to mark it as occupied (even if scheduled in the future) and prevent duplicate planning
-                building_job = BuildingJob(building_name=job.target_name, target_level=job.target_level, time_remaining=job.duration)
+                building_job = BuildingJob(
+                    building_name=job.target_name,
+                    target_level=job.target_level,
+                    time_remaining=job.duration,
+                    job_id=job.job_id,
+                )
                 village.building_queue.add_job(building_job)
         return jobs
 
@@ -259,12 +266,14 @@ class BalancedEconomicGrowth(Strategy):
         max_delay_seconds = self.calculate_delay(shortage, village)
 
         scheduled = now
+        freeze_until: datetime | None = None
+        freeze_queue_key: str | None = None
         if not shortage.is_empty():
             scheduled += timedelta(seconds=max_delay_seconds)
-            until = scheduled + timedelta(seconds=duration)
+            freeze_until = scheduled + timedelta(seconds=duration)
             # Mark village queue frozen to avoid duplicate scheduling
-            village.freeze_building_queue_until(until, building_id)
-
+            freeze_queue_key = village.building_queue.queue_key_for_building_name(target_name)
+            village.freeze_building_queue_until(freeze_until, freeze_queue_key, job_id=None)
 
         job = BuildJob(
             success_message=f"construction of {target_name} level {target_level} in {village.name} started",
@@ -273,7 +282,9 @@ class BalancedEconomicGrowth(Strategy):
             building_gid=building_gid, target_name=target_name, target_level=target_level,
             support=support,
             scheduled_time=scheduled,
-            duration=duration
+            duration=duration,
+            freeze_until=freeze_until,
+            freeze_queue_key=freeze_queue_key,
         )
 
         if not shortage.is_empty():

@@ -7,6 +7,8 @@ from src.core.job.hero_adventure_job import HeroAdventureJob
 from src.core.job.allocate_attributes_job import AllocateAttributesJob
 from src.core.job.collect_daily_quests_job import CollectDailyQuestsJob
 from src.core.job.collect_questmaster_job import CollectQuestmasterJob
+from src.core.job.planning_job import PlanningJob
+from src.core.job.scheduler import ScheduledJobQueue
 
 __all__ = [
     "Job",
@@ -17,4 +19,6 @@ __all__ = [
     "AllocateAttributesJob",
     "CollectDailyQuestsJob",
     "CollectQuestmasterJob",
+    "PlanningJob",
+    "ScheduledJobQueue",
 ]

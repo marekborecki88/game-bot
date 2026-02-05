@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from src.core.job.job import Job
 from src.core.protocols.driver_protocol import DriverProtocol
@@ -11,6 +12,8 @@ class BuildNewJob(Job):
     building_id: int
     building_gid: int
     target_name: str
+    freeze_until: datetime | None = None
+    freeze_queue_key: str | None = None
 
     def execute(self, driver: DriverProtocol) -> bool:
         """Place a new building contract using driver primitives.
