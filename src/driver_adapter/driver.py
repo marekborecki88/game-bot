@@ -49,7 +49,10 @@ class Driver(DriverProtocol):
         logger.info("Successfully logged in.")
 
     def stop(self) -> None:
-        self.browser.close()
+        try:
+            self.browser.close()
+        except Exception as e:
+            logger.warning(f"Error closing browser: {e}")
 
     def navigate(self, path: str) -> None:
         """Navigate to a path on the configured server and wait for load.

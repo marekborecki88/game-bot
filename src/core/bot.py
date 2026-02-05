@@ -1,6 +1,6 @@
 import logging
 import signal
-import time
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import FrameType
@@ -20,6 +20,8 @@ from src.core.protocols.scanner_protocol import ScannerProtocol
 CLOSE_CONTENT_BUTTON_SELECTOR = "#closeContentButton"
 ATTRIBUTES = "/hero/attributes"
 HERO_INVENTORY = "/hero/inventory"
+PLANNING_SUCCESS_MESSAGE = "planning completed"
+PLANNING_FAILURE_MESSAGE = "planning failed"
 
 CLASS_TO_RESOURCE_MAP = {
     "item145": "lumber",
@@ -72,23 +74,19 @@ class Bot:
         self._job_queue = ScheduledJobQueue()
         self._queue_freezes: dict[tuple[str, str], QueueFreeze] = {}
         self._job_freeze_index: dict[str, tuple[str, str]] = {}
-
-    def _schedule_planning(self, game_state: GameState | None) -> None:
-        delay = int(self._calculate_next_delay(game_state))
-        scheduled_time = datetime.now() + timedelta(seconds=delay)
-        planning_job = PlanningJob(
-            scheduled_time=scheduled_time,
-            success_message="planning completed",
-            failure_message="planning failed",
-            planning_context=self,
-        )
-        self._job_queue.push(planning_job)
-        logger.info(f"Next planning scheduled in {delay} seconds")
+        self._shutdown_event = threading.Event()
 
     def run(self) -> None:
         logger.info("Starting bot...")
         self._running = True
-        self._schedule_planning(game_state=None)
+        # Execute first planning immediately
+        initial_planning_job = PlanningJob(
+            scheduled_time=datetime.now(),
+            success_message=PLANNING_SUCCESS_MESSAGE,
+            failure_message=PLANNING_FAILURE_MESSAGE,
+            planning_context=self,
+        )
+        self._job_queue.push(initial_planning_job)
 
         while self._running:
             now = datetime.now()
@@ -99,12 +97,12 @@ class Bot:
 
             next_time = self._job_queue.peek_next_time()
             if next_time is None:
-                self._schedule_planning(game_state=None)
-                time.sleep(1)
+                # Should not happen if planning always schedules next planning
+                self._shutdown_event.wait(timeout=1)
                 continue
 
             sleep_seconds = max(1, int((next_time - now).total_seconds()))
-            time.sleep(sleep_seconds)
+            self._shutdown_event.wait(timeout=sleep_seconds)
 
         logger.info("Bot has been stopped.")
 
@@ -119,14 +117,24 @@ class Bot:
                 self._register_queue_freeze(job)
                 self._job_queue.push(job)
 
-            self._schedule_planning(game_state)
+            # Schedule next planning based on building queue duration
+            delay = int(self._calculate_next_delay(game_state))
+            scheduled_time = datetime.now() + timedelta(seconds=delay)
+            planning_job = PlanningJob(
+                scheduled_time=scheduled_time,
+                success_message=PLANNING_SUCCESS_MESSAGE,
+                failure_message=PLANNING_FAILURE_MESSAGE,
+                planning_context=self,
+            )
+            self._job_queue.push(planning_job)
+            logger.info(f"Next planning scheduled in {delay} seconds")
         except Exception as e:
             logger.error(f"Planning failed: {e}")
             fallback_time = datetime.now() + timedelta(seconds=60)
             self._job_queue.push(PlanningJob(
                 scheduled_time=fallback_time,
-                success_message="planning completed",
-                failure_message="planning failed",
+                success_message=PLANNING_SUCCESS_MESSAGE,
+                failure_message=PLANNING_FAILURE_MESSAGE,
                 planning_context=self,
             ))
 
@@ -144,6 +152,7 @@ class Bot:
         """Handle shutdown signals gracefully."""
         logger.info(f"Received signal {signum}, initiating graceful shutdown...")
         self._running = False
+        self._shutdown_event.set()
 
     def _register_queue_freeze(self, job: Job) -> None:
         if isinstance(job, BuildJob) and job.freeze_until and job.freeze_queue_key:

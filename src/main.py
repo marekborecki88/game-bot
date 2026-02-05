@@ -32,6 +32,10 @@ def main() -> None:
         try:
             bot = Bot(driver=driver, scanner=Scanner(speed), logic_config=config.logic_config)
             bot.run()
+        except KeyboardInterrupt:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("Keyboard interrupt received, shutting down...")
         finally:
             # Ensure the browser is closed even on error
             driver.stop()

@@ -201,7 +201,11 @@ class BuildingQueue:
         in_duration = sum(job.time_remaining for job in self.in_jobs)
         out_duration = sum(job.time_remaining for job in self.out_jobs)
         if self.parallel_building_allowed:
-            # parallel building, we can start new job when shorter is finished
+            # If only one queue is active, re-plan no later than one hour
+            if in_duration == 0 and out_duration > 0:
+                return max(0, min(out_duration, 3600))
+            if out_duration == 0 and in_duration > 0:
+                return max(0, min(in_duration, 3600))
             return max(0, min(in_duration, out_duration))
         # parallel building not allowed, sum both queue blocks together
         return max(0, max(in_duration, out_duration))
