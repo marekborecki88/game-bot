@@ -16,7 +16,7 @@ class FoundNewVillageJob(Job):
         """
         try:
             # Navigate to the village
-            driver.navigate_to_village(village_id=self.village_id)
+            driver.navigate_to_village(village_id=self.village.id)
 
             # Click map <a class="map" href="/karte.php" accesskey="3"></a>
             driver.click("a.map")

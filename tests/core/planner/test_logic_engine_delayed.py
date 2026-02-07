@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.config.config import LogicConfig, Strategy, HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
+from src.config.config import AttributeAllocation, LogicConfig, Strategy, HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
 from src.core.job import BuildJob
 from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village, \
     BuildingQueue
@@ -15,6 +15,7 @@ def make_village(**overrides: object) -> Village:
         "name": "DelayedVillage",
         "tribe": Tribe.ROMANS,
         "resources": Resources(lumber=0, clay=0, iron=0, crop=0),
+        "coordinates": (0, 0),
         "free_crop": 0,
         "source_pits": [SourcePit(id=1, type=ResourceType.LUMBER, level=1)],
         "buildings": [],
@@ -60,8 +61,8 @@ def hero_config() -> HeroConfig:
         adventures=HeroAdventuresConfig(minimal_health=50, increase_difficulty=False),
         resources=HeroResourcesConfig(
             support_villages=False,
-            attributes_ratio={"fight": 3, "resources": 1},
-            attributes_steps={},
+            attributes_ratio=AttributeAllocation(fighting_strength=3, production_points=1),
+            attributes_steps=AttributeAllocation(),
         ),
     )
 

@@ -146,11 +146,10 @@ def test_scan_village_name(dorf1_html):
     scanner = Scanner(server_speed=1)
 
     # When
-    result = scanner.scan_village_name(dorf1_html)
+    result = scanner.scan_village_basic_info(dorf1_html)
 
     # Then
-    assert result == "New village"
-
+    assert result == VillageBasicInfo(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
 
 def test_scan_stock_bar(dorf1_html):
     # Given
@@ -204,6 +203,7 @@ def test_scan_village(dorf1_html, dorf2_html):
         name="New village",
         tribe=result.tribe,
         resources=Resources(lumber=5636, clay=5475, iron=5844, crop=14284),
+        coordinates=(2, 147),
         free_crop=1503,
         warehouse_capacity=6300,
         granary_capacity=14400,
