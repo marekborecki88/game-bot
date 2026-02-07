@@ -22,6 +22,13 @@ class DriverProtocol(Protocol):
         load state before returning.
         """
 
+    def navigate_to_village(self, village_id: int) -> None:
+        """Navigate to the village with the given ID.
+
+        Implementations are expected to wait for the page to reach a stable
+        load state before returning.
+        """
+
     def get_village_inner_html(self, village_id: int) -> tuple[str, str]:
         """
         Return the inner HTML's of dorf1 and dorf2 for the given village ID.
@@ -85,3 +92,9 @@ class DriverProtocol(Protocol):
 
     def get_text_content(self, selector: str) -> str:
         """Return the text content of the first element matching the selector, or empty string if not found."""
+
+    def press_key(self, param):
+        """Simulate pressing a key on the keyboard."""
+
+    def select_option(self, param, param1):
+        """Select an option from a dropdown menu."""

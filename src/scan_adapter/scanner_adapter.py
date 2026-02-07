@@ -13,7 +13,7 @@ from bs4 import Tag, BeautifulSoup
 
 from src.core.bot import CLASS_TO_RESOURCE_MAP
 from src.core.model.model import (
-    VillageIdentity,
+    VillageBasicInfo,
     Village,
     HeroInfo,
     HeroAttributes,
@@ -103,7 +103,7 @@ class Scanner(ScannerProtocol):
         return elem.get_text().strip()
 
 
-    def _parse_village_entry(self, entry: Tag) -> VillageIdentity:
+    def _parse_village_entry(self, entry: Tag) -> VillageBasicInfo:
         """Parse a single village entry from HTML element."""
         village_id = entry.get('data-did')
         if not village_id:
@@ -119,7 +119,7 @@ class Scanner(ScannerProtocol):
         has_attack_icon = entry.select_one(".incomingTroops svg.attack") is not None
         is_under_attack = has_attack_class or has_attack_icon
 
-        return VillageIdentity(
+        return VillageBasicInfo(
             id=int(village_id),
             name=name,
             coordinate_x=coordinate_x,
@@ -127,18 +127,26 @@ class Scanner(ScannerProtocol):
             is_under_attack=is_under_attack,
         )
 
-    def scan_village_list(self, html: str) -> list[VillageIdentity]:
+    def scan_village_list(self, html: str) -> list[VillageBasicInfo]:
         """Parse village names and coordinates from HTML string."""
         soup = BeautifulSoup(html, HTML_PARSER)
         village_entries = soup.select('.villageList .listEntry.village')
         return [self._parse_village_entry(entry) for entry in village_entries]
 
-    def scan_village_name(self, dorf1: str) -> str:
-        soup = BeautifulSoup(dorf1, HTML_PARSER)
-        active_village = soup.select_one('.villageList .listEntry.village.active .name')
+    def scan_village_basic_info(self, html: str) -> VillageBasicInfo:
+        soup = BeautifulSoup(html, HTML_PARSER)
+        active_village = soup.select_one('.villageList .listEntry.village.active')
+
         if not active_village:
             raise ValueError("Active village name not found in HTML")
-        return active_village.get_text().strip()
+
+        return VillageBasicInfo(
+            id=int(active_village.get('data-did')),
+            name=self._extract_text(active_village, '.name'),
+            coordinate_x=self._extract_number(active_village, '.coordinateX'),
+            coordinate_y=self._extract_number(active_village, '.coordinateY'),
+            is_under_attack=active_village.select_one(".incomingTroops svg.attack") is not None
+        )
 
     def scan_account_info(self, html: str) -> Account:
         soup = BeautifulSoup(html, HTML_PARSER)
@@ -160,11 +168,12 @@ class Scanner(ScannerProtocol):
             when_beginners_protection_expires=beginners_expires
         )
 
-    def scan_village(self, identity: VillageIdentity, dorf1: str, dorf2: str) -> Village:
+    def scan_village(self, village_basic_info: VillageBasicInfo, dorf1: str, dorf2: str) -> Village:
         # Collect stock and production data then assemble Village with Resources model
         stock = self.scan_stock_bar(dorf1)
         production = self.scan_production(dorf1)
         incoming_attacks = self.scan_incoming_attacks(dorf1)
+        troops = self.scan_troops(dorf1)
 
         resources = Resources(
             lumber=stock.get("lumber", 0),
@@ -174,16 +183,20 @@ class Scanner(ScannerProtocol):
         )
 
         tribe = self.identity_tribe(dorf2)
-        paralell_building_allowed = tribe in {Tribe.ROMANS, Tribe.HUNS}
+        parallel_building_allowed = tribe in {Tribe.ROMANS, Tribe.HUNS}
         return Village(
-            id=identity.id,
-            name=self.scan_village_name(dorf1),
+            id=village_basic_info.id,
+            name=village_basic_info.name,
+            coordinates=(
+                village_basic_info.coordinate_x,
+                village_basic_info.coordinate_y
+            ),
             tribe=tribe,
             resources=resources,
             free_crop=stock.get("free_crop", 0),
             source_pits=self.scan_village_source(dorf1),
             buildings=self.scan_village_center(dorf2),
-            building_queue=self.scan_building_queue(dorf1, paralell_building_allowed),
+            building_queue=self.scan_building_queue(dorf1, parallel_building_allowed),
             warehouse_capacity=stock.get("warehouse_capacity", 0),
             granary_capacity=stock.get("granary_capacity", 0),
             lumber_hourly_production=production.get("lumber_hourly_production", 0),
@@ -191,9 +204,10 @@ class Scanner(ScannerProtocol):
             iron_hourly_production=production.get("iron_hourly_production", 0),
             crop_hourly_production=production.get("crop_hourly_production", 0),
             free_crop_hourly_production=production.get("free_crop_hourly_production", 0),
-            is_under_attack=identity.is_under_attack or incoming_attacks.attack_count > 0,
+            is_under_attack=village_basic_info.is_under_attack or incoming_attacks.attack_count > 0,
             incoming_attack_count=incoming_attacks.attack_count,
             next_attack_seconds=incoming_attacks.next_attack_seconds,
+            troops=troops
         )
 
     def is_reward_available(self, html: str) -> bool:
@@ -229,14 +243,27 @@ class Scanner(ScannerProtocol):
 
     def scan_hero_info(self, hero_html: str, inventory_html: str) -> HeroInfo:
         soup = BeautifulSoup(hero_html, HTML_PARSER)
-        value_elements = (self._get_item_or_raise_error(soup, ".stats", "Hero stats container not found")
-                          .select(".value"))
+        # Try to find .stats, then fallback to .attributeBox .stats
+        stats_container = soup.select_one(".stats")
+        if not stats_container:
+            stats_container = soup.select_one(".attributeBox .stats")
+        if not stats_container:
+            raise ValueError("Hero stats container not found")
+        
+        value_elements = stats_container.select(".value")
         if len(value_elements) < 2:
             raise ValueError("Not enough stats values found for hero info")
 
         health = self._parse_number_value(self.clean_inner_text(value_elements[0]).replace('%', ''))
         experience = self._parse_number_value(self.clean_inner_text(value_elements[1]))
-        adventure_button = self._get_item_or_raise_error(soup, "a.adventure", "Adventure button not found")
+        
+        # Try to find adventure button with multiple fallbacks
+        adventure_button = soup.select_one("a.adventure")
+        if not adventure_button:
+            adventure_button = soup.select_one("a[href*='/hero/adventures']")
+        if not adventure_button:
+            raise ValueError("Adventure button not found")
+        
         adventures = self._parse_adventure_number(adventure_button)
         is_available = self._is_hero_available(hero_html)
         inventory = self._parse_hero_inventory(inventory_html)
@@ -593,4 +620,24 @@ class Scanner(ScannerProtocol):
             break
 
         return IncomingAttackInfo(attack_count=attack_count, next_attack_seconds=timer_value)
+
+    def scan_troops(self, html) -> dict[str, int]:
+        """Parse troop counts from the troops overview page HTML. Returns a dict of troop type to count."""
+        soup = BeautifulSoup(html, HTML_PARSER)
+        troops_table = soup.select_one("#troops tbody")
+
+        if not troops_table:
+            return {}
+
+        troops = {}
+        for row in troops_table.select("tr"):
+            type_cell = row.select_one(".un")
+            count_cell = row.select_one(".num")
+
+            if type_cell and count_cell:
+                troop_type = type_cell.get_text().strip()
+                troop_count = self._parse_number_value(count_cell.get_text())
+                troops[troop_type] = troop_count
+
+        return troops
 

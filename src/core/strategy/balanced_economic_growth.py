@@ -7,7 +7,7 @@ from src.config.config import HeroConfig, LogicConfig
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
     BuildingJob, BuildingCost
 from src.core.strategy.Strategy import Strategy
-from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob
+from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob, FoundNewVillageJob
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +104,16 @@ class BalancedEconomicGrowth(Strategy):
             scheduled_time=now,
         )
 
+    def _create_found_new_village_job(self, village: Village) -> Job:
+        now = datetime.now()
+        return FoundNewVillageJob(
+            success_message=f"new village founded from {village.name}",
+            failure_message=f"founding new village from {village.name} failed",
+            village_id=village.id,
+            village_name=village.name,
+            scheduled_time=now,
+        )
+
     def _create_new_build_job(self, village, gid, name) -> Job | None:
         for pit_id in range(19, 39):
             if not any(b for b in village.buildings if b.id == pit_id):
@@ -146,6 +156,14 @@ class BalancedEconomicGrowth(Strategy):
 
     def _plan_village(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> list[Job]:
         jobs = []
+
+        # Check if village has 3 or more settlers to found a new village
+        settlers_count = village.troops.get("Settlers", 0)
+        if settlers_count >= 3:
+            found_village_job = self._create_found_new_village_job(village)
+            if found_village_job:
+                jobs.append(found_village_job)
+
         if village.needs_more_free_crop():
             upgrade_crop = self._plan_source_pit_upgrade(village=village, game_state=game_state,global_lowest=ResourceType.CROP)
             if upgrade_crop and village.building_queue.can_build_outside():

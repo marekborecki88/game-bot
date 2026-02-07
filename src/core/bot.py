@@ -217,31 +217,31 @@ class Bot:
 
         # Parse village list and active village name
         villages_identities = self.scanner.scan_village_list(dorf1_html)
-        active_name = self.scanner.scan_village_name(dorf1_html)
+        current_village = self.scanner.scan_village_basic_info(dorf1_html)
 
         # Put active village pages into cache and remember active name
-        self.html_cache.set(active_name, 1, dorf1_html)
-        self.html_cache.set(active_name, 2, dorf2_html)
-        self._active_village_name = active_name
+        self.html_cache.set(current_village, 1, dorf1_html)
+        self.html_cache.set(current_village, 2, dorf2_html)
+        self._active_village_name = current_village
 
         # Prefetch other villages and fill cache
-        for v in villages_identities:
-            if v.name == active_name:
+        for village in villages_identities:
+            if village == current_village:
                 continue
-            d1, d2 = self.driver.get_village_inner_html(v.id)
-            self.html_cache.set(v.name, 1, d1)
-            self.html_cache.set(v.name, 2, d2)
+            d1, d2 = self.driver.get_village_inner_html(village.id)
+            self.html_cache.set(village.name, 1, d1)
+            self.html_cache.set(village.name, 2, d2)
 
         # Build game state from cache
         account_info = self.scanner.scan_account_info(dorf1_html)
 
         villages = []
-        for v in villages_identities:
-            d1 = self.html_cache.get(v.name, 1)
-            d2 = self.html_cache.get(v.name, 2)
+        for village in villages_identities:
+            d1 = self.html_cache.get(village.name, 1)
+            d2 = self.html_cache.get(village.name, 2)
             if d1 is None or d2 is None:
-                d1, d2 = self.driver.get_village_inner_html(v.id)
-            village = self.scanner.scan_village(v, d1, d2)
+                d1, d2 = self.driver.get_village_inner_html(village.id)
+            village = self.scanner.scan_village(village, d1, d2)
             village.has_quest_master_reward = self.scanner.is_reward_available(d1)
             villages.append(village)
 

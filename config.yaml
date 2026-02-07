@@ -1,5 +1,5 @@
 server_url: ${SERVER_URL}
-speed: 3
+speed: 10
 user_login: ${USER_LOGIN}
 user_password: ${USER_PASSWORD}
 headless: ${HEADLESS}

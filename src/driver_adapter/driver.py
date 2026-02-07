@@ -233,3 +233,15 @@ class Driver(DriverProtocol):
         except Exception:
             pass
         return ""
+
+    def press_key(self, param):
+        try:
+            self.page.keyboard.press(param)
+        except Exception as e:
+            logger.debug(f"press_key failed for param={param} with error: {e}")
+
+    def select_option(self, param, param1):
+        try:
+            self.page.select_option(param, param1)
+        except Exception as e:
+            logger.debug(f"select_option failed for param={param} param1={param1} with error: {e}")

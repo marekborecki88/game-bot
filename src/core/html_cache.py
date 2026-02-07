@@ -13,8 +13,8 @@ class HtmlCache:
     def clear(self) -> None:
         self._cache.clear()
 
-    def get(self, village_name: str, idx: int) -> Optional[str]:
-        return self._cache.get((village_name, idx))
+    def get(self, village_identity: str, idx: int) -> Optional[str]:
+        return self._cache.get((village_identity, idx))
 
-    def set(self, village_name: str, idx: int, html: str) -> None:
-        self._cache[(village_name, idx)] = html
+    def set(self, village_identity: str, idx: int, html: str) -> None:
+        self._cache[(village_identity, idx)] = html

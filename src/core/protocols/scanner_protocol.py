@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from src.core.model.model import VillageIdentity, Village, HeroInfo, Account, IncomingAttackInfo
+from src.core.model.model import VillageBasicInfo, Village, HeroInfo, Account, IncomingAttackInfo
 
 
 class ScannerProtocol(Protocol):
@@ -11,16 +11,13 @@ class ScannerProtocol(Protocol):
     this protocol so different scanner implementations can be injected.
     """
 
-    def scan_village_list(self, dorf1_html: str) -> list[VillageIdentity]:
+    def scan_village_list(self, dorf1_html: str) -> list[VillageBasicInfo]:
         """Parse `/dorf1.php` HTML and return a list of VillageIdentity objects."""
-
-    def scan_village_name(self, dorf1_html: str) -> str:
-        """Extract the active village name from `/dorf1.php` HTML."""
 
     def scan_account_info(self, dorf1_html: str) -> Account:
         """Parse account-level information from `/dorf1.php` HTML and return an Account."""
 
-    def scan_village(self, identity: VillageIdentity, dorf1_html: str, dorf2_html: str) -> Village:
+    def scan_village(self, identity: VillageBasicInfo, dorf1_html: str, dorf2_html: str) -> Village:
         """Create a full Village model from the two village pages and its identity.
 
         If provided, movements HTML is parsed to capture incoming attack information.
@@ -37,3 +34,9 @@ class ScannerProtocol(Protocol):
 
     def scan_incoming_attacks(self, movements_html: str) -> IncomingAttackInfo:
         """Parse incoming attack count and the next attack timer from movements HTML."""
+
+    def scan_troops(self, html) -> dict[str, int]:
+        """Parse troop counts from the provided HTML and return a dictionary mapping troop types to counts."""
+
+    def scan_village_basic_info(self, dorf1_html) -> VillageBasicInfo:
+        """Parse basic village information (id, coordinates, points) from `/dorf1.php` HTML and return a VillageBasicInfo."""

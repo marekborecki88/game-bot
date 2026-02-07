@@ -1,7 +1,7 @@
 import pytest
 from bs4 import BeautifulSoup
 
-from src.core.model.model import VillageIdentity, SourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
+from src.core.model.model import VillageBasicInfo, SourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
     Tribe, HeroInfo, HeroAttributes, Village, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
 from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
@@ -46,9 +46,9 @@ def test_scan_village_list(dorf1_html):
 
     # Then
     expected = [
-        VillageIdentity(id=50275, name="SODOMA", coordinate_x=1, coordinate_y=146),
-        VillageIdentity(id=50281, name="GOMORA", coordinate_x=2, coordinate_y=146),
-        VillageIdentity(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
+        VillageBasicInfo(id=50275, name="SODOMA", coordinate_x=1, coordinate_y=146),
+        VillageBasicInfo(id=50281, name="GOMORA", coordinate_x=2, coordinate_y=146),
+        VillageBasicInfo(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
     ]
     assert result == expected
 
@@ -87,7 +87,7 @@ def test_scan_village_list_with_attack() -> None:
     result = scanner._parse_village_entry(village_entry)
 
     # Then
-    expected = VillageIdentity(id=51246, name="Travix`s village", coordinate_x=104, coordinate_y=104, is_under_attack=True)
+    expected = VillageBasicInfo(id=51246, name="Travix`s village", coordinate_x=104, coordinate_y=104, is_under_attack=True)
     assert result == expected
 
 
@@ -193,7 +193,7 @@ def test_scan_production(dorf1_html):
 def test_scan_village(dorf1_html, dorf2_html):
     # Given
     scanner = Scanner(server_speed=1)
-    identity = VillageIdentity(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
+    identity = VillageBasicInfo(id=50287, name="New village", coordinate_x=2, coordinate_y=147)
 
     # When
     result = scanner.scan_village(identity, dorf1_html, dorf2_html)

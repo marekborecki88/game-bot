@@ -259,6 +259,7 @@ class BuildingQueue:
 class Village:
     id: int
     name: str
+    coordinates: tuple[int, int]
     tribe: "Tribe"
     resources: Resources
     free_crop: int
@@ -278,6 +279,7 @@ class Village:
     is_under_attack: bool = False
     incoming_attack_count: int = 0
     next_attack_seconds: int | None = None
+    troops: dict[str, int] = field(default_factory=dict)
 
 
     def build(self, page: Page, driver_config: DriverConfig, id: int):
@@ -475,8 +477,8 @@ class BuildingJob:
     time_remaining: int
     job_id: str | None = None
 
-@dataclass
-class VillageIdentity:
+@dataclass(frozen=True)
+class VillageBasicInfo:
     id: int
     name: str
     coordinate_x: int
