@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 from src.core.job.job import Job
+from src.core.model.model import Village
 from src.core.protocols.driver_protocol import DriverProtocol
 
 
 @dataclass(kw_only=True)
 class FoundNewVillageJob(Job):
-    village_id: int
-    village_name: str
+    village: Village
 
     def execute(self, driver: DriverProtocol) -> bool:
         """Navigate to rally point and send settlers to found a new village.
@@ -21,7 +21,7 @@ class FoundNewVillageJob(Job):
             # Click map <a class="map" href="/karte.php" accesskey="3"></a>
             driver.click("a.map")
 
-            x, y = self.findAbandonedValley(driver)
+            x, y = self.findNearestAbandonedValley(driver, self.village.coordinates)
 
             # Navigate to the coordinates
             driver.navigate(f"/karte.php?x={x}&y={y}")
@@ -29,15 +29,10 @@ class FoundNewVillageJob(Job):
             # Click button Found new village
             driver.click("a:has-text('Found new village')")
 
-            # select Gallician culture <select name="vid" id="selectTribe"><option value="">Please select tribe</option><option value="1">Romans</option><option value="2">Teutons</option><option value="3">Gauls</option><option value="6">Egyptians</option><option value="7">Huns</option><option value="8">Spartans</option></select>
-            # driver.click("#selectTribe")
-            # option = 3
-            #
-            # # select the 3rd option (Gauls)
-            # for _ in range(option):
-            #     driver.press_key("ArrowDown")
-
-            driver.select_option("select#selectTribe", "3")
+            #TODO: it should be configurable
+            # if tribe is selectable, choose tribe 3 (Gauls)
+            if driver.is_visible("select#selectTribe"):
+                driver.select_option("select#selectTribe", "3")
 
             driver.press_key("Enter")
 
@@ -52,6 +47,6 @@ class FoundNewVillageJob(Job):
         except Exception:
             return False
 
-    def findAbandonedValley(self, driver) -> tuple[int, int]:
-        return -16, -136
+    def findNearestAbandonedValley(self, driver: DriverProtocol, coordinates: tuple[int, int]) -> tuple[int, int]:
+        driver.scan_map(coordinates)
 

@@ -10,6 +10,43 @@ from src.config.config import DriverConfig
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class Tile:
+    """Base class for all map tiles."""
+    x: int
+    y: int
+
+
+@dataclass(frozen=True)
+class TileVillage(Tile):
+    """Represents an occupied village tile."""
+    village_id: int
+    user_id: int
+    alliance_id: int
+    tribe: str = ""
+    population: int = 0
+    player_name: str = ""
+    alliance_name: str = ""
+
+
+@dataclass(frozen=True)
+class TileOasisFree(Tile):
+    """Represents a free (unoccupied) oasis that can be annexed."""
+    bonus_resources: str = ""  # e.g., "{a.r1}" for resource bonus
+    animals: dict[str, int] = field(default_factory=dict)  # Animals defending the oasis
+
+
+@dataclass(frozen=True)
+class TileOasisOccupied(Tile):
+    """Represents an occupied oasis (already annexed by someone)."""
+    field_type: str = ""  # Translated: "4-4-4-6"
+
+
+@dataclass(frozen=True)
+class TileAbandonedValley(Tile):
+    """Represents an abandoned valley where you can settle (found new village)."""
+    field_type: str = ""  # Translated: "5-4-3-6"
+
 
 @dataclass
 class Resources:

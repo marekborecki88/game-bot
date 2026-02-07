@@ -98,3 +98,9 @@ class DriverProtocol(Protocol):
 
     def select_option(self, param, param1):
         """Select an option from a dropdown menu."""
+
+    def catch_response(self, package_name: str):
+        """Catch a network response matching the given URL pattern."""
+
+    def scan_map(self, coordinates: tuple[int, int]):
+        """Scan the map around the given coordinates."""

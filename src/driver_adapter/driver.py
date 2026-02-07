@@ -7,11 +7,66 @@ from playwright.sync_api import Playwright, Locator
 from src.config.config import DriverConfig
 from src.core.bot import HERO_INVENTORY, CLOSE_CONTENT_BUTTON_SELECTOR, RESOURCE_TO_CLASS_MAP
 from src.core.protocols.driver_protocol import DriverProtocol
-from src.core.model.model import Resources
+from src.core.model.model import Resources, Tile, TileVillage, TileOasisFree, TileOasisOccupied, TileAbandonedValley
 
 RESOURCE_TRANSFER_SUBMIT_SELECTOR = 'button.withText.green'
 
 RESOURCE_TRANSFER_INPUT_SELECTOR = 'input[inputmode="numeric"]'
+
+# Field type translations from game codes to resource distributions
+FIELD_TYPE_TRANSLATIONS = {
+    "f1": "3-3-3-9",
+    "f2": "3-4-5-6",
+    "f3": "4-4-4-6",
+    "f4": "4-5-3-6",
+    "f5": "5-3-4-6",
+    "f6": "1-1-1-15",
+    "f7": "4-4-3-7",
+    "f8": "3-4-4-7",
+    "f9": "4-3-4-7",
+    "f10": "3-5-4-6",
+    "f11": "4-3-5-6",
+    "f12": "5-4-3-6",
+    "f13": "0-0-0-18",
+    "f99": "Natarian village",
+}
+
+# Oasis bonus translations
+OASIS_BONUS_TRANSLATIONS = {
+    "w1-2": "+25% lumber per hour",
+    "w3": "+25% lumber and +25% crop per hour",
+    "w4-5": "+25% clay per hour",
+    "w6": "+25% clay and +25% crop per hour",
+    "w7-8": "+25% iron per hour",
+    "w9": "+25% iron and +25% crop per hour",
+    "w10-11": "+25% crop per hour",
+    "w12": "+50% crop per hour",
+}
+
+# Animal/troop unit translations for oases
+ANIMAL_TRANSLATIONS = {
+    "u35": "Rat",
+    "u36": "Spider",
+    "u37": "Snake",
+    "u38": "Bat",
+    "u39": "Wild Boar",
+    "u40": "Wolf",
+    "u41": "Bear",
+    "u42": "Crocodile",
+    "u43": "Tiger",
+    "u44": "Elephant",
+}
+
+# Tile parsing markers
+ABANDONED_MARKER = "{k.vt}"
+FIELD_TYPE_MARKER = "{k.f"
+FREE_OASIS_MARKER = "{k.fo}"
+RESOURCE_BONUS_MARKER = "{a.r"
+TRIBE_MARKER = "{k.volk}"
+POPULATION_MARKER = "{k.einwohner}"
+PLAYER_MARKER = "{k.spieler}"
+ALLIANCE_MARKER = "{k.allianz}"
+ANIMALS_MARKER = "{k.animals}"
 
 logger = logging.getLogger(__name__)
 
@@ -245,3 +300,201 @@ class Driver(DriverProtocol):
             self.page.select_option(param, param1)
         except Exception as e:
             logger.debug(f"select_option failed for param={param} param1={param1} with error: {e}")
+
+    def catch_response(self, package_name: str) -> dict[str, str]:
+        with self.page.expect_response(lambda res: "position" in res.url) as response_info:
+            response = response_info.value
+            if response.status == 200:
+                data = response.json()
+                return data
+
+        return {}
+
+    def scan_map(self, coordinates: tuple[int, int]) -> list[Tile]:
+        # Navigate to the map
+        self.navigate(f"/karte.php?fullscreen=1&x={coordinates[0]}&y={coordinates[1]}&zoom=1")
+
+        position = self.catch_response("position")
+        tiles = position.get("tiles", [])
+
+        map_tiles: list[Tile] = []
+        for tile in tiles:
+            parsed_tile = self._parse_tile(tile)
+            if parsed_tile:
+                map_tiles.append(parsed_tile)
+
+        return map_tiles
+
+    @staticmethod
+    def _parse_tile(tile: dict) -> Tile | None:
+        """
+        Parse a single tile dictionary into appropriate Tile subclass.
+
+        Args:
+            tile: Dictionary containing tile data from the game API
+
+        Returns:
+            Tile object (TileVillage, TileOasisFree, TileOasisOccupied, or TileAbandonedValley) or None if parsing fails
+        """
+        title = tile.get("title", "")
+        text = tile.get("text", "")
+        x_coord = tile.get("position", {}).get("x", 0)
+        y_coord = tile.get("position", {}).get("y", 0)
+
+        if Driver._is_free_oasis(tile, title):
+            return Driver._create_free_oasis(x_coord, y_coord, text)
+
+        if Driver._is_occupied_oasis(tile, title):
+            return Driver._create_occupied_oasis(x_coord, y_coord, title)
+
+        if Driver._is_abandoned_valley(tile, title):
+            return Driver._create_abandoned_valley(x_coord, y_coord, title)
+
+        if Driver._is_occupied_village(tile):
+            return Driver._create_occupied_village(tile, x_coord, y_coord, title, text)
+
+        # Everything else (decorative elements like "Forest", "Lake") is ignored
+        return None
+
+    @staticmethod
+    def _is_free_oasis(tile: dict, title: str) -> bool:
+        """Check if tile represents a free oasis - has {k.fo} marker."""
+        return FREE_OASIS_MARKER in title
+
+    @staticmethod
+    def _is_occupied_oasis(tile: dict, title: str) -> bool:
+        """Check if tile represents an occupied oasis - has {k.vt} AND field type marker."""
+        has_no_player = tile.get("uid") is None
+        has_abandoned_marker = ABANDONED_MARKER in title
+        has_field_type_marker = FIELD_TYPE_MARKER in title
+        return has_no_player and has_abandoned_marker and has_field_type_marker
+
+    @staticmethod
+    def _is_abandoned_valley(tile: dict, title: str) -> bool:
+        """Check if tile represents an abandoned valley - TODO: need to identify marker."""
+        # TODO: Identify abandoned valley marker when we see it in real data
+        return False
+
+    @staticmethod
+    def _is_occupied_village(tile: dict) -> bool:
+        """Check if tile represents an occupied village - has player (uid)."""
+        return tile.get("uid") is not None
+
+    @staticmethod
+    def _create_free_oasis(x: int, y: int, text: str) -> TileOasisFree:
+        """Create TileOasisFree with resource bonus and animals."""
+        bonus_resources = Driver._extract_resource_bonus(text)
+        animals = Driver._extract_animals(text)
+        return TileOasisFree(x=x, y=y, bonus_resources=bonus_resources, animals=animals)
+
+    @staticmethod
+    def _create_occupied_oasis(x: int, y: int, title: str) -> TileOasisOccupied:
+        """Create TileOasisOccupied with translated field type."""
+        field_type = Driver._extract_and_translate_field_type(title)
+        return TileOasisOccupied(x=x, y=y, field_type=field_type)
+
+    @staticmethod
+    def _create_abandoned_valley(x: int, y: int, title: str) -> TileAbandonedValley:
+        """Create TileAbandonedValley with translated field type."""
+        field_type = Driver._extract_and_translate_field_type(title)
+        return TileAbandonedValley(x=x, y=y, field_type=field_type)
+
+
+
+    @staticmethod
+    def _create_occupied_village(
+        tile: dict, x: int, y: int, title: str, text: str
+    ) -> TileVillage:
+        """Create occupied TileVillage with all player data."""
+        return TileVillage(
+            x=x,
+            y=y,
+            village_id=tile.get("did"),
+            user_id=tile.get("uid"),
+            alliance_id=tile.get("aid"),
+            tribe=Driver._extract_tribe(title),
+            population=Driver._extract_population(text),
+            player_name=Driver._extract_player_name(text),
+            alliance_name=Driver._extract_alliance_name(text),
+        )
+
+    @staticmethod
+    def _extract_and_translate_field_type(title: str) -> str:
+        """Extract field type code from title and translate to human-readable format."""
+        if FIELD_TYPE_MARKER not in title:
+            return ""
+
+        try:
+            field_part = title.split(FIELD_TYPE_MARKER)[1].split("}")[0]
+            field_code = f"f{field_part}"
+            return FIELD_TYPE_TRANSLATIONS.get(field_code, field_code)
+        except (IndexError, ValueError):
+            return ""
+
+    @staticmethod
+    def _extract_resource_bonus(text: str) -> str:
+        """Extract resource bonus from text (e.g., '{a.r1} 25%')."""
+        if RESOURCE_BONUS_MARKER not in text:
+            return ""
+
+        try:
+            # Extract the part like "{a.r1} 25%"
+            bonus_part = text.split(RESOURCE_BONUS_MARKER)[1].split("<br")[0]
+            return f"{{a.r{bonus_part}"
+        except (IndexError, ValueError):
+            return ""
+
+    @staticmethod
+    def _extract_animals(text: str) -> dict[str, int]:
+        """Extract animals from text and translate to readable names (e.g., 'Spider': 6, 'Rat': 1)."""
+        if ANIMALS_MARKER not in text:
+            return {}
+
+        animals = {}
+        try:
+            # Find all animal units in the text
+            animal_section = text.split(ANIMALS_MARKER)[1]
+            # Extract unit types and counts using simple parsing
+            import re
+            units = re.findall(r'unit u(\d+).*?value[^>]*>(\d+)', animal_section)
+            for unit_id, count in units:
+                unit_code = f"u{unit_id}"
+                animal_name = ANIMAL_TRANSLATIONS.get(unit_code, unit_code)
+                animals[animal_name] = int(count)
+        except (IndexError, ValueError):
+            pass
+
+        return animals
+
+    @staticmethod
+    def _extract_tribe(title: str) -> str:
+        """Extract tribe information from title."""
+        if TRIBE_MARKER not in title:
+            return ""
+        return title.split(TRIBE_MARKER)[1].strip()
+
+    @staticmethod
+    def _extract_population(text: str) -> int:
+        """Extract population from text."""
+        if POPULATION_MARKER not in text:
+            return 0
+
+        try:
+            population_part = text.split(POPULATION_MARKER)[1].split("<br")[0].strip()
+            return int(population_part)
+        except (IndexError, ValueError):
+            return 0
+
+    @staticmethod
+    def _extract_player_name(text: str) -> str:
+        """Extract player name from text."""
+        if PLAYER_MARKER not in text:
+            return ""
+        return text.split(PLAYER_MARKER)[1].split("<br")[0].strip()
+
+    @staticmethod
+    def _extract_alliance_name(text: str) -> str:
+        """Extract alliance name from text."""
+        if ALLIANCE_MARKER not in text:
+            return ""
+        return text.split(ALLIANCE_MARKER)[1].split("<br")[0].strip()

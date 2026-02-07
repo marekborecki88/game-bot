@@ -109,8 +109,7 @@ class BalancedEconomicGrowth(Strategy):
         return FoundNewVillageJob(
             success_message=f"new village founded from {village.name}",
             failure_message=f"founding new village from {village.name} failed",
-            village_id=village.id,
-            village_name=village.name,
+            village=village,
             scheduled_time=now,
         )
 
