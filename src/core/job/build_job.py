@@ -25,7 +25,7 @@ class BuildJob(Job):
         was attempted, False otherwise.
         """
         # Navigate directly to the build URL for the given slot and gid
-        driver.navigate(f"/build.php?id={self.building_id}&gid={self.building_gid}")
+        driver.navigate(f"/build.php?newdid={self.village_id}&id={self.building_id}&gid={self.building_gid}")
 
         if self.support:
             # Fill in support resources if provided
