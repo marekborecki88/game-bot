@@ -498,3 +498,34 @@ class Driver(DriverProtocol):
         if ALLIANCE_MARKER not in text:
             return ""
         return text.split(ALLIANCE_MARKER)[1].split("<br")[0].strip()
+
+    def send_merchant(self, origin_village_id: int, market_field_id: int, target_village_coordinates: tuple[int, int], resources: Resources):
+        # go to the sender village
+        self.navigate_to_village(origin_village_id)
+
+        # open merchant send interface for the specific field
+        self.navigate(f"/build.php?id={origin_village_id}&gid=17&market={market_field_id}&t=5")
+
+        # fill in target coordinates
+        self.page.fill('input[name="x"]', str(target_village_coordinates[0]))
+        self.page.fill('input[name="y"]', str(target_village_coordinates[1]))
+
+        # fill in resources <input inputmode="numeric" class="" autocomplete="off" tabindex="4" type="text" value="0" name="lumber">
+        self.page.fill('input[name="lumber"]', str(resources.lumber))
+        self.page.fill('input[name="clay"]', str(resources.clay))
+        self.page.fill('input[name="iron"]', str(resources.iron))
+        self.page.fill('input[name="crop"]', str(resources.crop))
+
+        # catch duration <div class="duration">Duration:&nbsp;<span class="value">0:00:32</span></div>
+        self.page.wait_for_selector('div.duration span.value')
+        duration_text = self.page.locator('div.duration span.value').first.text_content() or ""
+        logger.info(f"Calculated merchant travel duration: {duration_text}")
+
+        # submit the form <div class="actionButtons"><button class="textButtonV2 buttonFramed send rectangle withText green" type="submit" title=""><div>Send resources</div></button></div>
+        self.click('button[type="submit"].withText.green')
+
+
+
+
+
+

@@ -104,3 +104,6 @@ class DriverProtocol(Protocol):
 
     def scan_map(self, coordinates: tuple[int, int]):
         """Scan the map around the given coordinates."""
+
+    def send_merchant(self, origin_village_id: int, market_field_id: int, target_village_coordinates: tuple[int, int], resources: Resources):
+        """Send a merchant from the origin village to the target village with the specified resources."""
