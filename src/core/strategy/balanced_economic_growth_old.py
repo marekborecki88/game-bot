@@ -8,12 +8,12 @@ from src.config.config import HeroConfig, LogicConfig
 from src.core.job.train_job import TrainJob
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
     BuildingJob, BuildingCost
-from src.core.strategy.Strategy import Strategy
+from src.core.strategy.strategy import Strategy
 from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob, FoundNewVillageJob
 
 logger = logging.getLogger(__name__)
 
-class BalancedEconomicGrowth(Strategy):
+class BalancedEconomicGrowthOld(Strategy):
 
     def __init__(self, logic_config: LogicConfig, hero_config: HeroConfig):
         self.logic_config = logic_config

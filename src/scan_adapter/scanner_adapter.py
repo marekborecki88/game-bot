@@ -18,7 +18,7 @@ from src.core.model.model import (
     HeroInfo,
     HeroAttributes,
     Account,
-    SourcePit,
+    ResourcePit,
     Building,
     BuildingJob,
     BuildingContract,
@@ -351,7 +351,7 @@ class Scanner(ScannerProtocol):
 
         return building_queue
 
-    def scan_village_source(self, html: str) -> list[SourcePit]:
+    def scan_village_source(self, html: str) -> list[ResourcePit]:
         soup = BeautifulSoup(html, HTML_PARSER)
         container = soup.select_one("#resourceFieldContainer")
         if not container:
@@ -380,7 +380,7 @@ class Scanner(ScannerProtocol):
             level_match = re.search(r'level(\d+)', class_str)
             level = int(level_match.group(1)) if level_match else 0
 
-            source_pits.append(SourcePit(
+            source_pits.append(ResourcePit(
                 id=field_id,
                 type=source_type,
                 level=level,

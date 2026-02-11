@@ -1,7 +1,7 @@
 import pytest
 from bs4 import BeautifulSoup
 
-from src.core.model.model import VillageBasicInfo, SourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
+from src.core.model.model import VillageBasicInfo, ResourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
     Tribe, HeroInfo, HeroAttributes, Village, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
 from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
@@ -100,24 +100,24 @@ def test_scan_village_source(dorf1_html):
 
     # Then
     expected = [
-        SourcePit(id=1, type=ResourceType.LUMBER, level=8),
-        SourcePit(id=2, type=ResourceType.CROP, level=10),
-        SourcePit(id=3, type=ResourceType.CROP, level=0),
-        SourcePit(id=4, type=ResourceType.LUMBER, level=5),
-        SourcePit(id=5, type=ResourceType.CLAY, level=5),
-        SourcePit(id=6, type=ResourceType.CLAY, level=6),
-        SourcePit(id=7, type=ResourceType.IRON, level=5),
-        SourcePit(id=8, type=ResourceType.CROP, level=3),
-        SourcePit(id=9, type=ResourceType.CROP, level=5),
-        SourcePit(id=10, type=ResourceType.IRON, level=2),
-        SourcePit(id=11, type=ResourceType.IRON, level=5),
-        SourcePit(id=12, type=ResourceType.CROP, level=4),
-        SourcePit(id=13, type=ResourceType.CROP, level=5),
-        SourcePit(id=14, type=ResourceType.LUMBER, level=8),
-        SourcePit(id=15, type=ResourceType.CROP, level=3),
-        SourcePit(id=16, type=ResourceType.CLAY, level=7),
-        SourcePit(id=17, type=ResourceType.LUMBER, level=5),
-        SourcePit(id=18, type=ResourceType.CLAY, level=9)
+        ResourcePit(id=1, type=ResourceType.LUMBER, level=8),
+        ResourcePit(id=2, type=ResourceType.CROP, level=10),
+        ResourcePit(id=3, type=ResourceType.CROP, level=0),
+        ResourcePit(id=4, type=ResourceType.LUMBER, level=5),
+        ResourcePit(id=5, type=ResourceType.CLAY, level=5),
+        ResourcePit(id=6, type=ResourceType.CLAY, level=6),
+        ResourcePit(id=7, type=ResourceType.IRON, level=5),
+        ResourcePit(id=8, type=ResourceType.CROP, level=3),
+        ResourcePit(id=9, type=ResourceType.CROP, level=5),
+        ResourcePit(id=10, type=ResourceType.IRON, level=2),
+        ResourcePit(id=11, type=ResourceType.IRON, level=5),
+        ResourcePit(id=12, type=ResourceType.CROP, level=4),
+        ResourcePit(id=13, type=ResourceType.CROP, level=5),
+        ResourcePit(id=14, type=ResourceType.LUMBER, level=8),
+        ResourcePit(id=15, type=ResourceType.CROP, level=3),
+        ResourcePit(id=16, type=ResourceType.CLAY, level=7),
+        ResourcePit(id=17, type=ResourceType.LUMBER, level=5),
+        ResourcePit(id=18, type=ResourceType.CLAY, level=9)
     ]
 
     assert result == expected

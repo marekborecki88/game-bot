@@ -3,8 +3,9 @@ import logging
 from src.config.config import LogicConfig, HeroConfig, Strategy as StrategyType
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import GameState
-from src.core.strategy.Strategy import Strategy
-from src.core.strategy.balanced_economic_growth import BalancedEconomicGrowth
+from src.core.strategy.defend_army_policy import DefendArmyPolicy
+from src.core.strategy.strategy import Strategy
+from src.core.strategy.balanced_economic_growth_old import BalancedEconomicGrowthOld
 
 logger = logging.getLogger(__name__)
 
@@ -12,9 +13,9 @@ logger = logging.getLogger(__name__)
 def choose_strategy(logic_config: LogicConfig, hero_config: HeroConfig) -> Strategy:
     match logic_config.strategy:
         case StrategyType.BALANCED_ECONOMIC_GROWTH:
-            return BalancedEconomicGrowth(logic_config, hero_config)
+            return BalancedEconomicGrowthOld(logic_config, hero_config)
         case StrategyType.DEFEND_ARMY:
-            raise ValueError("Not implemented yet: Strategy.DEFEND_ARMY")
+            return DefendArmyPolicy(logic_config, hero_config)
         case _:
             raise ValueError(f"Unknown strategy: {logic_config.strategy}")
 

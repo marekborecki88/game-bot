@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.config.config import AttributeAllocation, LogicConfig, Strategy, HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
-from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, SourcePit, Tribe, Village, \
+from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, ResourcePit, Tribe, Village, \
     BuildingQueue
 from src.core.planner.logic_engine import LogicEngine
 
@@ -34,10 +34,10 @@ def test_lowest_resource_type_basic() -> None:
         coordinates=(0, 0),
         free_crop=100,
         source_pits=[
-            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
-            SourcePit(id=2, type=ResourceType.CLAY, level=1),
-            SourcePit(id=3, type=ResourceType.IRON, level=1),
-            SourcePit(id=4, type=ResourceType.CROP, level=1),
+            ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            ResourcePit(id=2, type=ResourceType.CLAY, level=1),
+            ResourcePit(id=3, type=ResourceType.IRON, level=1),
+            ResourcePit(id=4, type=ResourceType.CROP, level=1),
         ],
         buildings=[],
         warehouse_capacity=100000,
@@ -86,10 +86,10 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
         coordinates=(0, 0),
         free_crop=100,
         source_pits=[
-            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
-            SourcePit(id=2, type=ResourceType.CLAY, level=1),
-            SourcePit(id=3, type=ResourceType.IRON, level=1),
-            SourcePit(id=4, type=ResourceType.CROP, level=1),
+            ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            ResourcePit(id=2, type=ResourceType.CLAY, level=1),
+            ResourcePit(id=3, type=ResourceType.IRON, level=1),
+            ResourcePit(id=4, type=ResourceType.CROP, level=1),
         ],
         buildings=[],
         warehouse_capacity=100000,
@@ -145,10 +145,10 @@ def test_lowest_resource_type_balanced() -> None:
         coordinates=(0, 0),
         free_crop=100,
         source_pits=[
-            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
-            SourcePit(id=2, type=ResourceType.CLAY, level=1),
-            SourcePit(id=3, type=ResourceType.IRON, level=1),
-            SourcePit(id=4, type=ResourceType.CROP, level=1),
+            ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            ResourcePit(id=2, type=ResourceType.CLAY, level=1),
+            ResourcePit(id=3, type=ResourceType.IRON, level=1),
+            ResourcePit(id=4, type=ResourceType.CROP, level=1),
         ],
         buildings=[],
         warehouse_capacity=100000,
@@ -198,10 +198,10 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         free_crop=100,
         coordinates=(0, 0),
         source_pits=[
-            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
-            SourcePit(id=2, type=ResourceType.CLAY, level=1),
-            SourcePit(id=3, type=ResourceType.IRON, level=1),
-            SourcePit(id=4, type=ResourceType.CROP, level=1),
+            ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            ResourcePit(id=2, type=ResourceType.CLAY, level=1),
+            ResourcePit(id=3, type=ResourceType.IRON, level=1),
+            ResourcePit(id=4, type=ResourceType.CROP, level=1),
         ],
         buildings=[],
         warehouse_capacity=100000,
@@ -226,10 +226,10 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         coordinates=(1, 1),
         free_crop=100,
         source_pits=[
-            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
-            SourcePit(id=2, type=ResourceType.CLAY, level=1),
-            SourcePit(id=3, type=ResourceType.IRON, level=1),
-            SourcePit(id=4, type=ResourceType.CROP, level=1),
+            ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            ResourcePit(id=2, type=ResourceType.CLAY, level=1),
+            ResourcePit(id=3, type=ResourceType.IRON, level=1),
+            ResourcePit(id=4, type=ResourceType.CROP, level=1),
         ],
         buildings=[],
         warehouse_capacity=100000,
@@ -279,10 +279,10 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         resources=Resources(lumber=1000, clay=1000, iron=1000, crop=1000),
         free_crop=100,
         source_pits=[
-            SourcePit(id=1, type=ResourceType.LUMBER, level=1),
-            SourcePit(id=2, type=ResourceType.CLAY, level=1),
-            SourcePit(id=3, type=ResourceType.IRON, level=1),
-            SourcePit(id=4, type=ResourceType.CROP, level=1),
+            ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
+            ResourcePit(id=2, type=ResourceType.CLAY, level=1),
+            ResourcePit(id=3, type=ResourceType.IRON, level=1),
+            ResourcePit(id=4, type=ResourceType.CROP, level=1),
         ],
         buildings=[],
         coordinates=(0, 0),

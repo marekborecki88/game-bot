@@ -151,6 +151,33 @@ T5_OVERRIDES = {
     43: {"name": "Natarian wall", "cost": [120, 200, 0, 80], "k": 1.28, "time": TimeT5b(11.4)},
 }
 
+production_per_level = {
+    0: 3,
+    1: 7,
+    2: 13,
+    3: 21,
+    4: 31,
+    5: 46,
+    6: 70,
+    7: 98,
+    8: 140,
+    9: 203,
+    10: 280,
+    11: 392,
+    12: 525,
+    13: 693,
+    14: 889,
+    15: 1120,
+    16: 1400,
+    17: 1820,
+    18: 2240,
+    19: 2800,
+    20: 3430,
+    21: 4270,
+    22: 5250
+}
+
+
 def round_mul(v, n):
     return round(v / n) * n
 
@@ -176,6 +203,11 @@ class TravianCalculator:
             for gid, overrides in T5_OVERRIDES.items():
                 if gid in self.buildings:
                     self.buildings[gid].update(overrides)
+
+    def production_improvement_by_upgrade_level(self, level: int) -> int:
+        current = production_per_level.get(level, 0)
+        future = production_per_level.get(level + 1, 0)
+        return (future - current) * self.speed
 
     def get_building_by_name(self, name):
         for b in self.buildings.values():
