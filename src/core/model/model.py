@@ -321,6 +321,7 @@ class Village:
     incoming_attack_count: int = 0
     next_attack_seconds: int | None = None
     troops: dict[str, int] = field(default_factory=dict)
+    last_train_time: datetime | None = None
 
 
     def build(self, page: Page, driver_config: DriverConfig, id: int):
@@ -414,6 +415,17 @@ class Village:
             # BuildingType.WORKSHOP,
         ]
         return any(self.get_building(building_type) for building_type in military_buildings)
+
+    def con_train(self):
+        return self.building_queue.is_empty and self.has_military_building_for_training() and not self._is_train_queue_freeze()
+
+    def _is_train_queue_freeze(self) -> bool:
+        if not self.last_train_time:
+            return False
+        time_since_last_train = (datetime.now() - self.last_train_time).total_seconds()
+        # at least 15 minutes should pass between training sessions
+        return time_since_last_train < 15 * 60
+
 
 
 class BuildingType(Enum):

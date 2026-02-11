@@ -205,7 +205,7 @@ class BalancedEconomicGrowth(Strategy):
             if upgrade and village.building_queue.can_build_outside():
                 jobs.append(upgrade)
 
-        if len(jobs) == 0 and village.building_queue.is_empty and village.has_military_building_for_training():
+        if len(jobs) == 0 and village.con_train():
             train_troops_job = self.plan_troop_training(calculator=self.calculator, village=village)
             jobs.append(train_troops_job)
         return jobs
@@ -347,6 +347,8 @@ class BalancedEconomicGrowth(Strategy):
         # just for Legionnaire
         legionnaire_cost = Resources(lumber=120, clay=100, iron=150, crop=30)
         quantity = min(vars(village.resources / legionnaire_cost).values()).__int__()
+
+        village.last_train_time = datetime.now()
 
         return TrainJob(
             village_id=village.id,
