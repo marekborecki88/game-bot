@@ -14,7 +14,6 @@ from bs4 import Tag, BeautifulSoup
 from src.core.bot import CLASS_TO_RESOURCE_MAP
 from src.core.model.model import (
     VillageBasicInfo,
-    Village,
     HeroInfo,
     HeroAttributes,
     Account,
@@ -25,6 +24,7 @@ from src.core.model.model import (
     Resources,
     Tribe, BuildingType, ResourceType, BuildingQueue, IncomingAttackInfo,
 )
+from src.core.model.village import Village
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
 HTML_PARSER = 'html.parser'
@@ -194,7 +194,7 @@ class Scanner(ScannerProtocol):
             tribe=tribe,
             resources=resources,
             free_crop=stock.get("free_crop", 0),
-            source_pits=self.scan_village_source(dorf1),
+            resource_pits=self.scan_village_source(dorf1),
             buildings=self.scan_village_center(dorf2),
             building_queue=self.scan_building_queue(dorf1, parallel_building_allowed),
             warehouse_capacity=stock.get("warehouse_capacity", 0),

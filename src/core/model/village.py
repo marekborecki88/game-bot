@@ -19,7 +19,7 @@ class Village:
     tribe: Tribe
     resources: Resources
     free_crop: int
-    source_pits: list[ResourcePit]
+    resource_pits: list[ResourcePit]
     buildings: list[Building]
     warehouse_capacity: int
     granary_capacity: int
@@ -77,8 +77,8 @@ class Village:
     def get_building(self, building_type: "BuildingType") -> "Building | None":
         return next((b for b in self.buildings if b.type == building_type), None)
 
-    def upgradable_source_pits(self) -> list["ResourcePit"]:
-        return [p for p in self.source_pits if p.level < self.max_source_pit_level()]
+    def upgradable_resource_pits(self) -> list["ResourcePit"]:
+        return [p for p in self.resource_pits if p.level < self.max_source_pit_level()]
 
     def needs_more_free_crop(self) -> bool:
 
@@ -94,7 +94,7 @@ class Village:
 
     # TODO: better would be return particular id to upgrade
     def any_crop_is_upgradable(self):
-        self_source_pits = [p for p in self.source_pits if
+        self_source_pits = [p for p in self.resource_pits if
                             p.type == ResourceType.CROP and p.level < self.max_source_pit_level()]
         return len(self_source_pits) > 0
 

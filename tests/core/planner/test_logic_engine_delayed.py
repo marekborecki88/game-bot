@@ -4,8 +4,9 @@ import pytest
 
 from src.config.config import AttributeAllocation, LogicConfig, Strategy, HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
 from src.core.job import BuildJob
-from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, ResourcePit, Tribe, Village, \
+from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, ResourcePit, Tribe, \
     BuildingQueue
+from src.core.model.village import Village
 from src.core.planner.logic_engine import LogicEngine
 
 
@@ -79,7 +80,7 @@ def test_create_build_job_schedules_future_when_insufficient_resources(
         clay_hourly_production=5,
         iron_hourly_production=5,
         crop_hourly_production=5,
-        source_pits=[ResourcePit(id=2, type=ResourceType.LUMBER, level=1)],
+        resource_pits=[ResourcePit(id=2, type=ResourceType.LUMBER, level=1)],
     )
 
     game_state = GameState(account=account_info, villages=[village], hero_info=hero_info)
@@ -119,7 +120,7 @@ def test_create_build_job_uses_hero_inventory_to_build_immediately(
         clay_hourly_production=1,
         iron_hourly_production=1,
         crop_hourly_production=1,
-        source_pits=[ResourcePit(id=3, type=ResourceType.LUMBER, level=1)],
+        resource_pits=[ResourcePit(id=3, type=ResourceType.LUMBER, level=1)],
     )
 
     hero_info.inventory.update({"lumber": 10000, "clay": 10000, "iron": 10000, "crop": 10000})

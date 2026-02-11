@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from src.core.job.job import Job
-from src.core.model.model import Village
+from src.core.model.village import Village
 from src.core.protocols.driver_protocol import DriverProtocol
 
 

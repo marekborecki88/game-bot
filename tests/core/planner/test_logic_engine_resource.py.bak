@@ -19,7 +19,7 @@ def test_lowest_resource_type_basic() -> None:
         tribe=Tribe.ROMANS,
         resources=Resources(lumber=100, clay=200, iron=300, crop=400),
         free_crop=100,
-        source_pits=[
+        resource_pits=[
             SourcePit(id=1, type=ResourceType.LUMBER, level=1),
             SourcePit(id=2, type=ResourceType.CLAY, level=1),
             SourcePit(id=3, type=ResourceType.IRON, level=1),
@@ -60,7 +60,7 @@ def test_lowest_resource_type_basic() -> None:
         tribe=Tribe.ROMANS,
         resources=Resources(lumber=100, clay=200, iron=300, crop=400),
         free_crop=100,
-        source_pits=[
+        resource_pits=[
             SourcePit(id=1, type=ResourceType.LUMBER, level=1),
             SourcePit(id=2, type=ResourceType.CLAY, level=1),
             SourcePit(id=3, type=ResourceType.IRON, level=1),

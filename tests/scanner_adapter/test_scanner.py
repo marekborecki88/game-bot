@@ -2,7 +2,8 @@ import pytest
 from bs4 import BeautifulSoup
 
 from src.core.model.model import VillageBasicInfo, ResourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
-    Tribe, HeroInfo, HeroAttributes, Village, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
+    Tribe, HeroInfo, HeroAttributes, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
+from src.core.model.village import Village
 from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
@@ -212,7 +213,7 @@ def test_scan_village(dorf1_html, dorf2_html):
         iron_hourly_production=690,
         crop_hourly_production=1504,
         free_crop_hourly_production=1503,
-        source_pits=result.source_pits,
+        resource_pits=result.resource_pits,
         buildings=result.buildings,
         building_queue=result.building_queue,
         is_under_attack=False,

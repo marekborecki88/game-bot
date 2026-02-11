@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from types import FrameType
 
 from src.config.config import LogicConfig, HeroConfig
+from src.core.model.village import Village
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
 from src.core.job.job import Job
@@ -13,7 +14,7 @@ from src.core.job.scheduler import ScheduledJobQueue
 from src.core.job.planning_job import PlanningJob
 from src.core.job.build_job import BuildJob
 from src.core.job.build_new_job import BuildNewJob
-from src.core.model.model import Village, GameState
+from src.core.model.model import GameState
 from src.core.planner.logic_engine import LogicEngine
 from src.core.protocols.scanner_protocol import ScannerProtocol
 

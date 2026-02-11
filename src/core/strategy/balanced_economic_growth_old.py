@@ -1,13 +1,13 @@
 import logging
 import math
 from datetime import datetime, timedelta
-from typing import Any
 
 from src.core.calculator.calculator import TravianCalculator
 from src.config.config import HeroConfig, LogicConfig
 from src.core.job.train_job import TrainJob
-from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
+from src.core.model.model import ResourceType, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
     BuildingJob, BuildingCost
+from src.core.model.village import Village
 from src.core.strategy.strategy import Strategy
 from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob, FoundNewVillageJob
 
@@ -266,7 +266,7 @@ class BalancedEconomicGrowthOld(Strategy):
             return None
 
     def _plan_source_pit_upgrade(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> Job | None:
-        upgradable = village.upgradable_source_pits()
+        upgradable = village.upgradable_resource_pits()
         if not upgradable:
             return None
 

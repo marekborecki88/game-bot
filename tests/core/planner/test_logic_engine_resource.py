@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from src.config.config import AttributeAllocation, LogicConfig, Strategy, HeroConfig, HeroAdventuresConfig, HeroResourcesConfig
-from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, ResourcePit, Tribe, Village, \
+from src.core.model.model import Account, GameState, HeroInfo, Resources, ResourceType, ResourcePit, Tribe, \
     BuildingQueue
+from src.core.model.village import Village
 from src.core.planner.logic_engine import LogicEngine
 
 
@@ -33,7 +34,7 @@ def test_lowest_resource_type_basic() -> None:
         resources=Resources(lumber=100, clay=200, iron=300, crop=400),
         coordinates=(0, 0),
         free_crop=100,
-        source_pits=[
+        resource_pits=[
             ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
             ResourcePit(id=2, type=ResourceType.CLAY, level=1),
             ResourcePit(id=3, type=ResourceType.IRON, level=1),
@@ -85,7 +86,7 @@ def test_lowest_resource_type_with_hero_inventory() -> None:
         resources=Resources(lumber=100, clay=200, iron=300, crop=400),
         coordinates=(0, 0),
         free_crop=100,
-        source_pits=[
+        resource_pits=[
             ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
             ResourcePit(id=2, type=ResourceType.CLAY, level=1),
             ResourcePit(id=3, type=ResourceType.IRON, level=1),
@@ -144,7 +145,7 @@ def test_lowest_resource_type_balanced() -> None:
         resources=Resources(lumber=1000, clay=1000, iron=1000, crop=1000),
         coordinates=(0, 0),
         free_crop=100,
-        source_pits=[
+        resource_pits=[
             ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
             ResourcePit(id=2, type=ResourceType.CLAY, level=1),
             ResourcePit(id=3, type=ResourceType.IRON, level=1),
@@ -197,7 +198,7 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         resources=Resources(lumber=1000, clay=2000, iron=3000, crop=4000),
         free_crop=100,
         coordinates=(0, 0),
-        source_pits=[
+        resource_pits=[
             ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
             ResourcePit(id=2, type=ResourceType.CLAY, level=1),
             ResourcePit(id=3, type=ResourceType.IRON, level=1),
@@ -225,7 +226,7 @@ def test_lowest_resource_type_with_multiple_villages() -> None:
         resources=Resources(lumber=500, clay=500, iron=500, crop=500),
         coordinates=(1, 1),
         free_crop=100,
-        source_pits=[
+        resource_pits=[
             ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
             ResourcePit(id=2, type=ResourceType.CLAY, level=1),
             ResourcePit(id=3, type=ResourceType.IRON, level=1),
@@ -278,7 +279,7 @@ def test_lowest_resource_type_with_hero_inventory_only() -> None:
         tribe=Tribe.ROMANS,
         resources=Resources(lumber=1000, clay=1000, iron=1000, crop=1000),
         free_crop=100,
-        source_pits=[
+        resource_pits=[
             ResourcePit(id=1, type=ResourceType.LUMBER, level=1),
             ResourcePit(id=2, type=ResourceType.CLAY, level=1),
             ResourcePit(id=3, type=ResourceType.IRON, level=1),
