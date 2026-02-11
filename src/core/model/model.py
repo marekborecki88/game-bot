@@ -403,6 +403,14 @@ class Village:
     def freeze_building_queue_until(self, until: datetime, queue_key: str, job_id: str | None) -> None:
         self.building_queue.freeze_until(until=until, queue_key=queue_key, job_id=job_id)
 
+    def has_military_building_for_training(self):
+        military_buildings = [
+            BuildingType.BARRACKS,
+            # BuildingType.STABLE,
+            # BuildingType.WORKSHOP,
+        ]
+        return any(self.get_building(building_type) for building_type in military_buildings)
+
 
 class BuildingType(Enum):
     # (gid, max_level)

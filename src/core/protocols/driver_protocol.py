@@ -78,7 +78,7 @@ class DriverProtocol(Protocol):
     def current_url(self) -> str:
         """Return the driver's current URL as a string."""
 
-    def transfer_resources_from_hero(self, support: Resources):
+    def transfer_resources_from_hero(self, support: Resources) -> None:
         """Transfer resources from the hero to the current village storage."""
 
     def catch_full_classes_by_selector(self, selector: str) -> str:
@@ -93,20 +93,20 @@ class DriverProtocol(Protocol):
     def get_text_content(self, selector: str) -> str:
         """Return the text content of the first element matching the selector, or empty string if not found."""
 
-    def press_key(self, param):
+    def press_key(self, param) -> None:
         """Simulate pressing a key on the keyboard."""
 
-    def select_option(self, param, param1):
+    def select_option(self, param, param1) -> None:
         """Select an option from a dropdown menu."""
 
-    def catch_response(self, package_name: str):
+    def catch_response(self, package_name: str) -> None:
         """Catch a network response matching the given URL pattern."""
 
-    def scan_map(self, coordinates: tuple[int, int]):
+    def scan_map(self, coordinates: tuple[int, int]) -> None:
         """Scan the map around the given coordinates."""
 
-    def send_merchant(self, origin_village_id: int, market_field_id: int, target_village_coordinates: tuple[int, int], resources: Resources):
+    def send_merchant(self, origin_village_id: int, market_field_id: int, target_village_coordinates: tuple[int, int], resources: Resources) -> None:
         """Send a merchant from the origin village to the target village with the specified resources."""
 
-    def train_troops(self, village: int, military_building_id: int, troop_type: str, quantity: int):
+    def train_troops(self, village_id: int, military_building_id: int, troop_type: int, quantity: int) -> None:
         """Train a specified quantity of troops of a given type in the specified village."""

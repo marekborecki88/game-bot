@@ -524,7 +524,7 @@ class Driver(DriverProtocol):
         # submit the form <div class="actionButtons"><button class="textButtonV2 buttonFramed send rectangle withText green" type="submit" title=""><div>Send resources</div></button></div>
         self.click('button[type="submit"].withText.green')
 
-    def train_troops(self, village_id: int, military_building_id: int, troop_type: str, quantity: int | None):
+    def train_troops(self, village_id: int, military_building_id: int, troop_type: int, quantity: int | None):
         # go to the village
         self.navigate_to_village(village_id)
 

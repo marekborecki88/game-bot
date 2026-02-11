@@ -1,9 +1,11 @@
 import logging
 import math
 from datetime import datetime, timedelta
+from typing import Any
 
 from src.core.calculator.calculator import TravianCalculator
 from src.config.config import HeroConfig, LogicConfig
+from src.core.job.train_job import TrainJob
 from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
     BuildingJob, BuildingCost
 from src.core.strategy.Strategy import Strategy
@@ -163,19 +165,7 @@ class BalancedEconomicGrowth(Strategy):
             if found_village_job:
                 jobs.append(found_village_job)
 
-        if village.needs_more_free_crop():
-            upgrade_crop = self._plan_source_pit_upgrade(village=village, game_state=game_state,global_lowest=ResourceType.CROP)
-            if upgrade_crop and village.building_queue.can_build_outside():
-                jobs.append(upgrade_crop)
-        else:
-            upgrade = self._plan_storage_upgrade(village=village, hero_info=game_state.hero_info)
-            if upgrade and village.building_queue.can_build_inside():
-                jobs.append(upgrade)
-
-        if len(jobs) == 0 or village.building_queue.parallel_building_allowed:
-            upgrade =self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=global_lowest)
-            if upgrade and village.building_queue.can_build_outside():
-                jobs.append(upgrade)
+        jobs.extend(self.village_planning(game_state, global_lowest, village))
 
         for job in jobs:
             # Add job to village building queue immediately to mark it as occupied (even if scheduled in the future) and prevent duplicate planning
@@ -195,6 +185,29 @@ class BalancedEconomicGrowth(Strategy):
                     job_id=job.job_id,
                 )
                 village.building_queue.add_job(building_job)
+        return jobs
+
+    def village_planning(self, game_state: GameState, global_lowest: ResourceType | None, village: Village):
+        jobs = []
+
+        if village.needs_more_free_crop():
+            upgrade_crop = self._plan_source_pit_upgrade(village=village, game_state=game_state,
+                                                         global_lowest=ResourceType.CROP)
+            if upgrade_crop and village.building_queue.can_build_outside():
+                jobs.append(upgrade_crop)
+        else:
+            upgrade = self._plan_storage_upgrade(village=village, hero_info=game_state.hero_info)
+            if upgrade and village.building_queue.can_build_inside():
+                jobs.append(upgrade)
+
+        if len(jobs) == 0 or village.building_queue.parallel_building_allowed:
+            upgrade = self._plan_source_pit_upgrade(village=village, game_state=game_state, global_lowest=global_lowest)
+            if upgrade and village.building_queue.can_build_outside():
+                jobs.append(upgrade)
+
+        if len(jobs) == 0 and village.has_military_building_for_training():
+            train_troops_job = self.plan_troop_training(calculator=self.calculator, village=village)
+            jobs.append(train_troops_job)
         return jobs
 
     def _plan_storage_upgrade(self, village: Village, hero_info: HeroInfo) -> Job | None:
@@ -329,3 +342,19 @@ class BalancedEconomicGrowth(Strategy):
         village_production = shortage / village.resources_hourly_production()
 
         return math.ceil(village_production.max() * 3600)
+
+    def plan_troop_training(self, calculator: TravianCalculator, village: Village) -> Job:
+        # just for Legionnaire
+        legionnaire_cost = Resources(lumber=120, clay=100, iron=150, crop=30)
+        quantity = min(vars(village.resources / legionnaire_cost).values()).__int__()
+
+        return TrainJob(
+            village_id=village.id,
+            military_building_id=19, # just basic barracks for legionnaire
+            success_message=f"training of {quantity} Legionnaire in {village.name} started",
+            failure_message=f"training of {quantity}Legionnaire in {village.name} failed",
+            troop_type=1,
+            scheduled_time=datetime.now(),
+            quantity=quantity,
+            duration=0
+        )
