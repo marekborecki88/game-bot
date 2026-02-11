@@ -241,6 +241,10 @@ class BuildingQueue:
     out_jobs: list[BuildingJob] = field(default_factory=list)
 
     @property
+    def is_empty(self):
+        return len(self.in_jobs) == 0 and len(self.out_jobs) == 0
+
+    @property
     def duration(self) -> int:
         """Calculate total time remaining for all jobs in the queue."""
         # min from in_jobs and out_jobs

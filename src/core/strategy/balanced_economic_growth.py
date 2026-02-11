@@ -205,7 +205,7 @@ class BalancedEconomicGrowth(Strategy):
             if upgrade and village.building_queue.can_build_outside():
                 jobs.append(upgrade)
 
-        if len(jobs) == 0 and village.has_military_building_for_training():
+        if len(jobs) == 0 and village.building_queue.is_empty and village.has_military_building_for_training():
             train_troops_job = self.plan_troop_training(calculator=self.calculator, village=village)
             jobs.append(train_troops_job)
         return jobs
