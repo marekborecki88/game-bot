@@ -524,6 +524,23 @@ class Driver(DriverProtocol):
         # submit the form <div class="actionButtons"><button class="textButtonV2 buttonFramed send rectangle withText green" type="submit" title=""><div>Send resources</div></button></div>
         self.click('button[type="submit"].withText.green')
 
+    def train_troops(self, village_id: int, military_building_id: int, troop_type: str, quantity: int | None):
+        # go to the village
+        self.navigate_to_village(village_id)
+
+        # open barracks interface
+        self.navigate(f"/build.php?id={military_building_id}&gid=19")
+
+        # fill form name t2 include troop id <input type="text" inputmode="numeric" class="text" name="t2" value="0" maxlength="4">
+        if quantity:
+            self.page.fill(f'input[name="t{troop_type}"]', str(quantity))
+        else:
+            # select max option <div class="innerTroopWrapper troopt1 " data-troopid="t1"><a ...
+            self.click(f'div.innerTroopWrapper.troopt{troop_type} a')
+
+        # submit <button type="submit" value="ok" name="s1" id="s1" class="textButtonV1 green startTraining" version="textButtonV1">Train</button>
+        self.click('button[type="submit"].startTraining')
+
 
 
 

@@ -107,3 +107,6 @@ class DriverProtocol(Protocol):
 
     def send_merchant(self, origin_village_id: int, market_field_id: int, target_village_coordinates: tuple[int, int], resources: Resources):
         """Send a merchant from the origin village to the target village with the specified resources."""
+
+    def train_troops(self, village: int, military_building_id: int, troop_type: str, quantity: int):
+        """Train a specified quantity of troops of a given type in the specified village."""
