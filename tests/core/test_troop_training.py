@@ -243,7 +243,7 @@ class TestTrainableUnitsPerHour:
 
     def test_estimate_trainable_units_per_hour_legionnaire_full_resources(self) -> None:
         """Verify Legionnaire trainable units when all resources are produced."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         # Create a dummy strategy instance to access methods
         strategy = Strategy.__new__(Strategy)
@@ -257,7 +257,7 @@ class TestTrainableUnitsPerHour:
 
     def test_estimate_trainable_units_per_hour_legionnaire_doubled_resources(self) -> None:
         """Verify Legionnaire trainable units with doubled resource production."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -269,7 +269,7 @@ class TestTrainableUnitsPerHour:
 
     def test_estimate_trainable_units_per_hour_legionnaire_bottleneck_crop(self) -> None:
         """Verify Legionnaire trainable limited by crop production."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -282,7 +282,7 @@ class TestTrainableUnitsPerHour:
 
     def test_estimate_trainable_units_per_hour_legionnaire_insufficient_resources(self) -> None:
         """Verify no units trainable when resources insufficient."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -294,7 +294,7 @@ class TestTrainableUnitsPerHour:
 
     def test_estimate_trainable_units_per_hour_gauls_phalanx(self) -> None:
         """Verify Phalanx trainable for Gauls."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -306,7 +306,7 @@ class TestTrainableUnitsPerHour:
 
     def test_estimate_trainable_units_per_hour_unsupported_tribe(self) -> None:
         """Verify empty dict for tribes with no units."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -321,7 +321,7 @@ class TestPotentialProductionPerHour:
 
     def test_estimate_potential_attack_per_hour_legionnaire(self) -> None:
         """Verify potential attack production per hour for Legionnaire."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -333,7 +333,7 @@ class TestPotentialProductionPerHour:
 
     def test_estimate_potential_defense_infantry_per_hour_legionnaire(self) -> None:
         """Verify potential defense vs infantry production per hour."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -345,7 +345,7 @@ class TestPotentialProductionPerHour:
 
     def test_estimate_potential_defense_cavalry_per_hour_legionnaire(self) -> None:
         """Verify potential defense vs cavalry production per hour."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -357,7 +357,7 @@ class TestPotentialProductionPerHour:
 
     def test_estimate_potential_attack_per_hour_doubled_production(self) -> None:
         """Verify potential attack with doubled resource production."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         
@@ -369,7 +369,7 @@ class TestPotentialProductionPerHour:
 
     def test_estimate_potential_production_zero_resources(self) -> None:
         """Verify zero production when no resources produced."""
-        from src.core.strategy.Strategy import Strategy
+        from src.core.strategy.strategy import Strategy
         
         strategy = Strategy.__new__(Strategy)
         

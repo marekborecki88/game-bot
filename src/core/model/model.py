@@ -48,12 +48,16 @@ class TileAbandonedValley(Tile):
     field_type: str = ""  # Translated: "5-4-3-6"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Resources:
     lumber: int | float = 0
     clay: int | float = 0
     iron: int | float = 0
     crop: int | float = 0
+
+    def total(self) -> int | float:
+        """Calculate the total of all resource types."""
+        return self.lumber + self.clay + self.iron + self.crop
 
     def __sub__(self, other):
         return Resources(
@@ -89,15 +93,16 @@ class Resources:
         """
         Divide resources by another Resources object (floor division).
         Used for calculating how many items can be made from available resources.
+        If cost is 0 for a resource, it's unlimited (returns max int).
         
         :param other: Resource cost per item
         :return: Resources with floor division results
         """
         return Resources(
-            lumber=self.lumber // other.lumber if other.lumber > 0 else 0,
-            clay=self.clay // other.clay if other.clay > 0 else 0,
-            iron=self.iron // other.iron if other.iron > 0 else 0,
-            crop=self.crop // other.crop if other.crop > 0 else 0
+            lumber=self.lumber // other.lumber if other.lumber > 0 else float('inf'),
+            clay=self.clay // other.clay if other.clay > 0 else float('inf'),
+            iron=self.iron // other.iron if other.iron > 0 else float('inf'),
+            crop=self.crop // other.crop if other.crop > 0 else float('inf')
         )
 
     def count_how_many_can_be_made(self, cost: "Resources") -> int:
@@ -109,7 +114,12 @@ class Resources:
         :return: Maximum count of items that can be made
         """
         division_result = self // cost
-        return int(min(division_result.lumber, division_result.clay, division_result.iron, division_result.crop))
+        values = [division_result.lumber, division_result.clay, division_result.iron, division_result.crop]
+        # Filter out inf values (unlimited resources from zero cost) to find actual limiting factor
+        finite_values = [v for v in values if v != float('inf')]
+        if not finite_values:
+            return 0  # All resources are unlimited but no finite cost found
+        return int(min(finite_values))
 
 
 
@@ -136,16 +146,16 @@ class Resources:
         return True
 
     def calculate_how_much_can_provide(self, request: "Resources") -> "Resources":
-        provided = Resources()
-        for source_type in vars(self).keys():
-            available = getattr(self, source_type)
-            requested = getattr(request, source_type)
-
-            transfer = min(available, requested)
-
-            setattr(provided, source_type, transfer)
-
-        return provided
+        """Calculate how much of each requested resource can be provided.
+        
+        Returns a new Resources object with the minimum of available or requested for each resource type.
+        """
+        return Resources(
+            lumber=min(self.lumber, request.lumber),
+            clay=min(self.clay, request.clay),
+            iron=min(self.iron, request.iron),
+            crop=min(self.crop, request.crop),
+        )
 
     def is_empty(self):
         return self.lumber == 0 and self.clay == 0 and self.iron == 0 and self.crop == 0
