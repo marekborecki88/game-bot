@@ -387,3 +387,157 @@ class Strategy(Protocol):
             ResourceType.IRON: total_iron / total,
             ResourceType.CROP: total_crop / total,
         }
+
+    def calculate_merchants_needed(self, village: Village) -> int:
+        """
+        Calculate the number of merchants needed for a village based on its development stage.
+        
+        Merchants are essential for transporting resources between multiple villages.
+        The number of merchants scales with:
+        - Development stage (early -> mid -> advanced)
+        - Hourly resource production (higher production = more merchants needed)
+        
+        **Calculation formula:**
+        - Total hourly production (sum of all resources per hour)
+        - Merchant capacity ratio based on development stage (how much capacity each merchant provides):
+          * early: 0.0 (no merchants needed)
+          * mid: 0.5 (each merchant covers 50% of production capacity)
+          * advanced: 1.0 (each merchant covers 100% of production capacity)
+        - Base merchant capacity = 1000 resources per unit
+        - merchants_needed = total_hourly_production / (base_capacity * capacity_ratio)
+        
+        :param village: The village to analyze
+        :return: Number of merchants needed (minimum 0)
+        """
+        dev_stage = self.estimate_village_development_stage(village)
+        
+        # Merchant capacity ratio by development stage
+        # Represents what percentage of hourly production the total merchant capacity should cover
+        # Each merchant has fixed capacity of 1000 resources
+        stage_merchant_capacity_ratio = {
+            'early': 0.0,      # No merchants in early stage
+            'mid': 0.5,        # Total merchant capacity = 50% of hourly production
+            'advanced': 1.0,   # Total merchant capacity = 100% of hourly production
+        }
+        
+        capacity_ratio = stage_merchant_capacity_ratio.get(dev_stage, 0.0)
+        
+        if capacity_ratio == 0.0:
+            return 0
+        
+        # Total hourly production
+        total_hourly_production = (
+            village.lumber_hourly_production +
+            village.clay_hourly_production +
+            village.iron_hourly_production +
+            village.crop_hourly_production
+        )
+        
+        # Base merchant capacity (resources per merchant unit)
+        merchant_base_capacity = 1000
+        
+        # Calculate merchants needed
+        merchants = int(total_hourly_production / (merchant_base_capacity * capacity_ratio))
+        
+        return max(0, merchants)
+
+    def estimate_marketplace_requirement(self, villages: list[Village]) -> dict[int, bool]:
+        """
+        Determine if each village requires a marketplace.
+        
+        A marketplace is needed when:
+        - The account has multiple villages (more than 1)
+        
+        A marketplace is NOT needed when:
+        - Only 1 village exists in the account
+        
+        :param villages: List of all villages in the account
+        :return: Dictionary mapping village_id to bool (True = needs marketplace)
+        """
+        needs_marketplace: dict[int, bool] = {}
+        
+        # Single village = no marketplace needed
+        if len(villages) <= 1:
+            for village in villages:
+                needs_marketplace[village.id] = False
+            return needs_marketplace
+        
+        # Multiple villages = all villages need marketplace
+        for village in villages:
+            needs_marketplace[village.id] = True
+        
+        return needs_marketplace
+
+    def calculate_merchant_capacity_needed(
+        self, game_state: GameState
+    ) -> int:
+        """
+        Calculate total merchant capacity needed to transport resources between villages.
+        
+        This considers:
+        - Global resource balance across all villages
+        - Resource deficits in any village
+        - Required capacity to redistribute resources evenly
+        
+        The calculation estimates how much resources need to be transported per hour
+        to balance production across villages. Merchants have a capacity of 1000 per unit.
+        
+        Formula:
+        - Calculate average hourly production per village
+        - For each village, identify resources that fall below average
+        - Sum all deficit amounts = total capacity needed in resources
+        - Divide by merchant capacity (1000) = number of merchants needed
+        
+        :param game_state: Current game state with all villages
+        :return: Total merchant capacity needed (in units, where each merchant = 1000 capacity)
+        """
+        villages = game_state.villages
+        
+        if len(villages) <= 1:
+            # Single village needs no merchant capacity
+            return 0
+        
+        # Calculate average hourly production per resource type across villages
+        total_production_by_type = {
+            ResourceType.LUMBER: 0,
+            ResourceType.CLAY: 0,
+            ResourceType.IRON: 0,
+            ResourceType.CROP: 0,
+        }
+        
+        for village in villages:
+            total_production_by_type[ResourceType.LUMBER] += village.lumber_hourly_production
+            total_production_by_type[ResourceType.CLAY] += village.clay_hourly_production
+            total_production_by_type[ResourceType.IRON] += village.iron_hourly_production
+            total_production_by_type[ResourceType.CROP] += village.crop_hourly_production
+        
+        # Calculate average per village
+        num_villages = len(villages)
+        average_production_by_type = {
+            resource_type: total / num_villages
+            for resource_type, total in total_production_by_type.items()
+        }
+        
+        # Calculate total deficit capacity needed across all villages
+        total_deficit = 0
+        
+        for village in villages:
+            village_production = {
+                ResourceType.LUMBER: village.lumber_hourly_production,
+                ResourceType.CLAY: village.clay_hourly_production,
+                ResourceType.IRON: village.iron_hourly_production,
+                ResourceType.CROP: village.crop_hourly_production,
+            }
+            
+            # Check for deficits in each resource type
+            for resource_type, village_prod in village_production.items():
+                average = average_production_by_type[resource_type]
+                if village_prod < average:
+                    deficit = average - village_prod
+                    total_deficit += deficit
+        
+        # Convert total deficit to merchant units (each merchant = 1000 capacity)
+        merchant_capacity_per_unit = 1000
+        merchants_needed = int(total_deficit / merchant_capacity_per_unit)
+        
+        return max(0, merchants_needed)
