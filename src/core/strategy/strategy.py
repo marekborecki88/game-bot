@@ -541,3 +541,64 @@ class Strategy(Protocol):
         merchants_needed = int(total_deficit / merchant_capacity_per_unit)
         
         return max(0, merchants_needed)
+
+    def estimate_residence_requirement(
+        self, game_state: GameState, culture_threshold: int
+    ) -> dict[str, int | float]:
+        """
+        Determine the priority for building/upgrading residences and training settlers.
+        
+        Residences are crucial for founding new villages. Priority increases as culture points
+        approach the next village threshold.
+        
+        Calculation:
+        - Days to next village = days_to_new_village() from Account
+        - The closer to threshold, the higher the priority (exponential growth)
+        - Priority coefficient scales with village development stage
+        
+        **Returns a dictionary with:**
+        - 'days_to_next_village': Days remaining until culture threshold is reached
+        - 'priority': Priority coefficient (0-100 scale)
+          * 0: Far from threshold, low priority
+          * ~30-50: Approaching threshold, medium priority
+          * ~80-100: Very close to threshold, high priority
+        - 'culture_points': Current culture points
+        - 'culture_points_needed': Points remaining for next village
+        
+        :param game_state: Current game state with account info
+        :param culture_threshold: Culture points needed for a new village (default: 10000)
+        :return: Dictionary with residence/settler requirement metrics
+        """
+        account = game_state.account
+        days_to_village = account.days_to_new_village(culture_threshold)
+        
+        # Calculate points needed for next village
+        points_needed = max(0, culture_threshold - account.culture_points)
+        
+        # Calculate priority based on proximity to threshold
+        # Exponential curve: far away = low priority, close = high priority
+        if points_needed <= 0:
+            priority = 100.0
+        elif days_to_village >= 30:
+            priority = 10.0  # More than month away - low priority
+        elif days_to_village >= 14:
+            priority = 30.0  # 2 weeks away - medium priority
+        elif days_to_village >= 7:
+            priority = 60.0  # 1 week away - high priority
+        else:
+            priority = 90.0  # Less than week - very high priority
+        
+        # Adjust priority based on number of villages
+        # More villages = higher priority for new village
+        num_villages = len(game_state.villages)
+        village_multiplier = 1.0 + (num_villages * 0.2)
+        priority = priority * village_multiplier
+        
+        return {
+            'days_to_next_village': days_to_village,
+            'priority': min(100.0, priority),  # Cap at 100
+            'culture_points': account.culture_points,
+            'culture_points_needed': points_needed,
+            'village_slots_used': num_villages,
+            'village_slots_available': max(0, account.village_slots - num_villages),
+        }

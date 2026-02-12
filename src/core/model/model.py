@@ -193,6 +193,26 @@ def scan_contract(page: Page) -> BuildingContract:
 @dataclass
 class Account:
     when_beginners_protection_expires: int = 0
+    culture_points: int = 0
+    culture_points_per_day: float = 0.0
+    village_slots: int = 1
+
+    def days_to_new_village(self, culture_threshold: int = 10000) -> int:
+        """
+        Calculate the number of days until next village can be founded.
+        
+        :param culture_threshold: Culture points needed for a new village (default: 10000)
+        :return: Days remaining until threshold is reached (minimum 0)
+        """
+        if self.culture_points_per_day <= 0:
+            return 999  # Very large number if not producing culture
+        
+        points_needed = culture_threshold - self.culture_points
+        if points_needed <= 0:
+            return 0
+        
+        days_needed = points_needed / self.culture_points_per_day
+        return int(days_needed)
 
 
 class ReservationStatus(Enum):
