@@ -1,9 +1,10 @@
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.model import GameState, ResourceType, Building, BuildingType, BuildingCost, Resources
 from src.core.model.village import Village
+from src.core.strategy.strategy import Strategy
 
 
-class DefendArmyPolicy:
+class DefendArmyPolicy(Strategy):
     # Mapping between economy building types and their corresponding resource types
     BUILDING_TO_RESOURCE: dict[BuildingType, ResourceType] = {
         BuildingType.WOODCUTTER: ResourceType.LUMBER,
@@ -96,10 +97,35 @@ class DefendArmyPolicy:
                 },
             }
             
+            # Evaluate military building priorities
+            military_building_priorities = self.estimate_military_building_priority(village, village.tribe)
+            military_status["building_priorities"] = military_building_priorities
+            
             # TODO: Based on military_status, decide on training jobs, building upgrades, etc.
             # This will be expanded with actual job creation logic
         
         return jobs
+
+    def evaluate_military_building_requirements(
+        self, villages: list[Village]
+    ) -> dict[int, dict[BuildingType, float]]:
+        """
+        Evaluate military building priorities for all villages.
+        
+        Returns a dictionary mapping village ID to building priorities for that village.
+        Priority coefficients range from 0-100, where higher values indicate more critical
+        buildings to construct or upgrade.
+
+        :param villages: List of villages to analyze
+        :return: Dictionary mapping village_id to dict of (BuildingType -> priority_coefficient)
+        """
+        building_priorities: dict[int, dict[BuildingType, float]] = {}
+        
+        for village in villages:
+            priorities = self.estimate_military_building_priority(village, village.tribe)
+            building_priorities[village.id] = priorities
+        
+        return building_priorities
 
 
 

@@ -2,9 +2,11 @@ from typing import Protocol
 
 from src.config.config import HeroConfig, LogicConfig
 from src.core.calculator.calculator import TravianCalculator
-from src.core.model.model import GameState, Resources
-from src.core.model.units import get_unit_by_name, get_units_for_tribe, Tribe
+from src.core.model.model import GameState, Resources, BuildingType, Tribe
+from src.core.model.village import Village
+from src.core.model.units import get_unit_by_name, get_units_for_tribe
 from src.core.job.job import Job
+from src.core.model.model import ResourceType
 
 
 class Strategy(Protocol):
@@ -178,3 +180,151 @@ class Strategy(Protocol):
         """
         trainable_units = self.estimate_trainable_units_per_hour(village_tribe, hourly_production)
         return self.estimate_total_defense_cavalry(trainable_units)
+
+    def get_missing_critical_military_buildings(self, village: Village) -> list[tuple[BuildingType, int]]:
+        """
+        Identify missing critical military buildings in a village.
+        
+        Returns military buildings that are not yet constructed, sorted by priority:
+        1. BARRACKS (always highest - trains infantry)
+        2. STABLE (trains cavalry)
+        3. WORKSHOP (trains siege units)
+
+        :param village: The village to analyze
+        :return: List of (BuildingType, priority_index) tuples, sorted by priority
+        """
+        critical_buildings = [
+            (BuildingType.BARRACKS, 0),
+            (BuildingType.STABLE, 1),
+            (BuildingType.WORKSHOP, 2),
+        ]
+        
+        missing_buildings: list[tuple[BuildingType, int]] = []
+        
+        for building_type, priority in critical_buildings:
+            existing = village.get_building(building_type)
+            if existing is None:
+                missing_buildings.append((building_type, priority))
+        
+        return missing_buildings
+
+    def estimate_village_development_stage(self, village: Village) -> str:
+        """
+        Determine the development stage of a village based on resource pit and production building levels.
+        
+        Stages:
+        - 'early': Any primary resource pit (woodcutter/clay_pit/iron_mine) is below level 5
+        - 'mid': All primary resource pits are level 5+, but not yet advanced
+        - 'advanced': At least one resource type is fully developed:
+          * Lumber: all woodcutters at level 10 AND sawmill at level 5+
+          * Clay: all clay pits at level 10 AND brickyard at level 5+
+          * Iron: all iron mines at level 10 AND iron foundry at level 5+
+
+        :param village: The village to analyze
+        :return: Development stage as string: 'early', 'mid', or 'advanced'
+        """
+        # Get resource pit levels by type
+        pit_levels = {
+            ResourceType.LUMBER: [],
+            ResourceType.CLAY: [],
+            ResourceType.IRON: [],
+            ResourceType.CROP: [],
+        }
+        
+        for pit in village.resource_pits:
+            pit_levels[pit.type].append(pit.level)
+        
+        # Check for early stage: any primary resource pit < 5
+        for resource_type in [ResourceType.LUMBER, ResourceType.CLAY, ResourceType.IRON]:
+            if pit_levels[resource_type]:
+                min_level = min(pit_levels[resource_type])
+                if min_level < 5:
+                    return 'early'
+        
+        # Check for advanced stage - combinations of primary + secondary buildings
+        # Lumber: woodcutter (primary) + sawmill (secondary)
+        sawmill = village.get_building(BuildingType.SAWMILL)
+        sawmill_level = sawmill.level if sawmill else 0
+        if pit_levels[ResourceType.LUMBER] and min(pit_levels[ResourceType.LUMBER]) == 10 and sawmill_level >= 5:
+            return 'advanced'
+        
+        # Clay: clay_pit (primary) + brickyard (secondary)
+        brickyard = village.get_building(BuildingType.BRICKYARD)
+        brickyard_level = brickyard.level if brickyard else 0
+        if pit_levels[ResourceType.CLAY] and min(pit_levels[ResourceType.CLAY]) == 10 and brickyard_level >= 5:
+            return 'advanced'
+        
+        # Iron: iron_mine (primary) + iron_foundry (secondary)
+        iron_foundry = village.get_building(BuildingType.IRON_FOUNDRY)
+        iron_foundry_level = iron_foundry.level if iron_foundry else 0
+        if pit_levels[ResourceType.IRON] and min(pit_levels[ResourceType.IRON]) == 10 and iron_foundry_level >= 5:
+            return 'advanced'
+        
+        # Otherwise mid stage
+        return 'mid'
+
+    def estimate_military_building_priority(
+        self, village: Village, tribe: Tribe
+    ) -> dict[BuildingType, float]:
+        """
+        Calculate priority coefficient for each military building in a village.
+        
+        Higher coefficient = higher priority to build/upgrade.
+        Considers:
+        - Missing critical buildings (barracks, stable, workshop)
+        - Village development stage
+        - Current building levels
+
+        :param village: The village to analyze
+        :param tribe: The tribe of the village (unused parameter, kept for interface compatibility)
+        :return: Dictionary mapping BuildingType to priority coefficient (0-100 scale)
+        """
+        priorities: dict[BuildingType, float] = {
+            BuildingType.BARRACKS: 0.0,
+            BuildingType.STABLE: 0.0,
+            BuildingType.WORKSHOP: 0.0,
+        }
+        
+        # Get village development stage
+        dev_stage = self.estimate_village_development_stage(village)
+        
+        # Determine development stage multiplier
+        stage_multiplier = {
+            'early': 1.2,      # Early stage: boost military building priority
+            'mid': 1.0,        # Mid stage: balanced priority
+            'advanced': 0.9,   # Advanced: slightly lower priority (focus on upgrades)
+        }.get(dev_stage, 1.0)
+        
+        # === BARRACKS Priority ===
+        barracks = village.get_building(BuildingType.BARRACKS)
+        if barracks is None:
+            # Missing barracks = highest priority
+            priorities[BuildingType.BARRACKS] = 40.0 * stage_multiplier
+        else:
+            # Existing barracks: priority based on level upgrade potential
+            upgrade_priority = max(0.0, (20 - barracks.level) / 20.0) * 10.0
+            priorities[BuildingType.BARRACKS] = upgrade_priority * stage_multiplier
+        
+        # === STABLE Priority ===
+        stable = village.get_building(BuildingType.STABLE)
+        
+        if stable is None:
+            # Missing stable = high priority
+            priorities[BuildingType.STABLE] = 30.0 * stage_multiplier
+        else:
+            # Existing stable: priority based on level upgrade potential
+            upgrade_priority = max(0.0, (20 - stable.level) / 20.0) * 10.0
+            priorities[BuildingType.STABLE] = upgrade_priority * stage_multiplier
+        
+        # === WORKSHOP Priority ===
+        workshop = village.get_building(BuildingType.WORKSHOP)
+        
+        if workshop is None:
+            # Missing workshop: lower priority than barracks/stable
+            priorities[BuildingType.WORKSHOP] = 20.0 * stage_multiplier
+        else:
+            # Existing workshop: priority based on level
+            upgrade_priority = max(0.0, (20 - workshop.level) / 20.0) * 8.0
+            priorities[BuildingType.WORKSHOP] = upgrade_priority * stage_multiplier
+        
+        return priorities
