@@ -1,5 +1,5 @@
 from src.core.calculator.calculator import TravianCalculator
-from src.core.model.model import GameState, ResourceType, Building, BuildingType, BuildingCost
+from src.core.model.model import GameState, ResourceType, Building, BuildingType, BuildingCost, Resources
 from src.core.model.village import Village
 
 
@@ -21,21 +21,85 @@ class DefendArmyPolicy:
         self.logic_config = logic_config
         self.hero_config = hero_config
 
-    def plan_jobs(self, game_state: GameState, calculator: TravianCalculator):
+    def plan_jobs(self, game_state: GameState, calculator: TravianCalculator) -> list:
         """
-            This method will calculate multiple factors to determine the best plan for develop defencive army.
-            it will consider such factors as:
-            - training troops
-            - build military objects
-            - current resources balance and production
-            - merchants mobility and capacity
-            - warehouse and granary capacity
-
-        :param game_state:
-        :param calculator:
-        :return:
+        Plan jobs to develop defensive army considering current troop strength and resources.
+        Analyzes military metrics across all villages and returns job recommendations.
+        
+        :param game_state: Current game state with villages and hero info
+        :param calculator: Travian calculator for time and cost calculations
+        :return: List of recommended jobs to execute
         """
-        # self.economy_upgrades(game_state, calculator)
+        jobs = []
+        
+        # Analyze military strength across all villages
+        for village in game_state.villages:
+            # Calculate current military metrics
+            total_attack = self.estimate_total_attack(village.troops)
+            total_defense_infantry = self.estimate_total_defense_infantry(village.troops)
+            total_defense_cavalry = self.estimate_total_defense_cavalry(village.troops)
+            grain_consumption = self.estimate_grain_consumption_per_hour(village.troops)
+            
+            # Get training building levels
+            barracks = village.get_building(BuildingType.BARRACKS)
+            stable = village.get_building(BuildingType.STABLE)
+            barracks_level = barracks.level if barracks else 0
+            stable_level = stable.level if stable else 0
+            
+            # Create Resources object with hourly production
+            hourly_production = Resources(
+                lumber=village.lumber_hourly_production,
+                clay=village.clay_hourly_production,
+                iron=village.iron_hourly_production,
+                crop=village.crop_hourly_production
+            )
+            
+            # Calculate potential production per hour based on hourly resources
+            potential_attack_per_hour = self.estimate_potential_attack_per_hour(
+                village.tribe,
+                hourly_production
+            )
+            potential_defense_infantry_per_hour = self.estimate_potential_defense_infantry_per_hour(
+                village.tribe,
+                hourly_production
+            )
+            potential_defense_cavalry_per_hour = self.estimate_potential_defense_cavalry_per_hour(
+                village.tribe,
+                hourly_production
+            )
+            
+            # Calculate trainable units per hour
+            trainable_units = self.estimate_trainable_units_per_hour(
+                village.tribe,
+                hourly_production
+            )
+            
+            # Log current military status (for debugging/planning)
+            military_status = {
+                "village_id": village.id,
+                "current_strength": {
+                    "total_attack": total_attack,
+                    "total_defense_infantry": total_defense_infantry,
+                    "total_defense_cavalry": total_defense_cavalry,
+                    "grain_consumption_per_hour": grain_consumption,
+                    "troop_count": sum(village.troops.values()),
+                },
+                "potential_production_per_hour": {
+                    "attack": potential_attack_per_hour,
+                    "defense_infantry": potential_defense_infantry_per_hour,
+                    "defense_cavalry": potential_defense_cavalry_per_hour,
+                    "trainable_units": trainable_units,
+                },
+                "training_buildings": {
+                    "barracks_level": barracks_level,
+                    "stable_level": stable_level,
+                },
+            }
+            
+            # TODO: Based on military_status, decide on training jobs, building upgrades, etc.
+            # This will be expanded with actual job creation logic
+        
+        return jobs
 
 
 

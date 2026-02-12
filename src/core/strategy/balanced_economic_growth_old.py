@@ -346,7 +346,7 @@ class BalancedEconomicGrowthOld(Strategy):
     def plan_troop_training(self, calculator: TravianCalculator, village: Village) -> Job:
         # just for Legionnaire
         legionnaire_cost = Resources(lumber=120, clay=100, iron=150, crop=30)
-        quantity = min(vars(village.resources / legionnaire_cost).values()).__int__()
+        quantity = village.resources.count_how_many_can_be_made(legionnaire_cost)
 
         village.last_train_time = datetime.now()
 

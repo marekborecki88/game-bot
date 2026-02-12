@@ -85,6 +85,32 @@ class Resources:
             crop=self.crop / other.crop
         )
 
+    def __floordiv__(self, other: "Resources") -> "Resources":
+        """
+        Divide resources by another Resources object (floor division).
+        Used for calculating how many items can be made from available resources.
+        
+        :param other: Resource cost per item
+        :return: Resources with floor division results
+        """
+        return Resources(
+            lumber=self.lumber // other.lumber if other.lumber > 0 else 0,
+            clay=self.clay // other.clay if other.clay > 0 else 0,
+            iron=self.iron // other.iron if other.iron > 0 else 0,
+            crop=self.crop // other.crop if other.crop > 0 else 0
+        )
+
+    def count_how_many_can_be_made(self, cost: "Resources") -> int:
+        """
+        Calculate how many items (with given cost in Resources) can be made from available resources.
+        Returns the minimum count limited by any resource type.
+
+        :param cost: Resource cost per one item
+        :return: Maximum count of items that can be made
+        """
+        division_result = self // cost
+        return int(min(division_result.lumber, division_result.clay, division_result.iron, division_result.crop))
+
 
 
     def min(self):
