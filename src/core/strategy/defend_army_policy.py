@@ -25,86 +25,185 @@ class DefendArmyPolicy(Strategy):
     def plan_jobs(self, game_state: GameState, calculator: TravianCalculator) -> list:
         """
         Plan jobs to develop defensive army considering current troop strength and resources.
-        Analyzes military metrics across all villages and returns job recommendations.
+        
+        Analyzes multiple factors across all villages:
+        - Military strength and potential troop production
+        - Economy and resource production
+        - Merchants mobility and capacity for multi-village trading
+        - Residence/settler requirements for expanding
+        
+        Returns a prioritized list of jobs to execute.
         
         :param game_state: Current game state with villages and hero info
         :param calculator: Travian calculator for time and cost calculations
         :return: List of recommended jobs to execute
         """
         jobs = []
+        villages = game_state.villages
         
-        # Analyze military strength across all villages
-        for village in game_state.villages:
-            # Calculate current military metrics
-            total_attack = self.estimate_total_attack(village.troops)
-            total_defense_infantry = self.estimate_total_defense_infantry(village.troops)
-            total_defense_cavalry = self.estimate_total_defense_cavalry(village.troops)
-            grain_consumption = self.estimate_grain_consumption_per_hour(village.troops)
-            
-            # Get training building levels
-            barracks = village.get_building(BuildingType.BARRACKS)
-            stable = village.get_building(BuildingType.STABLE)
-            barracks_level = barracks.level if barracks else 0
-            stable_level = stable.level if stable else 0
-            
-            # Create Resources object with hourly production
-            hourly_production = Resources(
-                lumber=village.lumber_hourly_production,
-                clay=village.clay_hourly_production,
-                iron=village.iron_hourly_production,
-                crop=village.crop_hourly_production
+        # === GLOBAL ANALYSIS ===
+        
+        # Check merchant requirements across all villages
+        marketplace_requirements = self.estimate_marketplace_requirement(villages)
+        merchants_needed_global = self.calculate_merchant_capacity_needed(game_state)
+        
+        # Check residence/settler requirements
+        residence_requirements = self.estimate_residence_requirement(game_state)
+        
+        # === PER-VILLAGE ANALYSIS ===
+        
+        village_plans = []
+        
+        for village in villages:
+            village_plan = self._analyze_village_plan(
+                village=village,
+                game_state=game_state,
+                calculator=calculator,
+                needs_marketplace=marketplace_requirements.get(village.id, False),
+                residence_requirements=residence_requirements,
             )
-            
-            # Calculate potential production per hour based on hourly resources
-            potential_attack_per_hour = self.estimate_potential_attack_per_hour(
-                village.tribe,
-                hourly_production
-            )
-            potential_defense_infantry_per_hour = self.estimate_potential_defense_infantry_per_hour(
-                village.tribe,
-                hourly_production
-            )
-            potential_defense_cavalry_per_hour = self.estimate_potential_defense_cavalry_per_hour(
-                village.tribe,
-                hourly_production
-            )
-            
-            # Calculate trainable units per hour
-            trainable_units = self.estimate_trainable_units_per_hour(
-                village.tribe,
-                hourly_production
-            )
-            
-            # Log current military status (for debugging/planning)
-            military_status = {
-                "village_id": village.id,
-                "current_strength": {
-                    "total_attack": total_attack,
-                    "total_defense_infantry": total_defense_infantry,
-                    "total_defense_cavalry": total_defense_cavalry,
-                    "grain_consumption_per_hour": grain_consumption,
-                    "troop_count": sum(village.troops.values()),
-                },
-                "potential_production_per_hour": {
-                    "attack": potential_attack_per_hour,
-                    "defense_infantry": potential_defense_infantry_per_hour,
-                    "defense_cavalry": potential_defense_cavalry_per_hour,
-                    "trainable_units": trainable_units,
-                },
-                "training_buildings": {
-                    "barracks_level": barracks_level,
-                    "stable_level": stable_level,
-                },
-            }
-            
-            # Evaluate military building priorities
-            military_building_priorities = self.estimate_military_building_priority(village, village.tribe)
-            military_status["building_priorities"] = military_building_priorities
-            
-            # TODO: Based on military_status, decide on training jobs, building upgrades, etc.
-            # This will be expanded with actual job creation logic
+            village_plans.append(village_plan)
+        
+        # === CONSOLIDATE AND PRIORITIZE ===
+        
+        # TODO: Based on village_plans and global analysis, create actual Job objects
+        # Priority order:
+        # 1. Critical military buildings (missing barracks, stable, workshop)
+        # 2. Economy upgrades to support troop training
+        # 3. Marketplace if multiple villages exist
+        # 4. Merchants based on capacity needs
+        # 5. Residences if close to culture threshold for new village
         
         return jobs
+
+    def _analyze_village_plan(
+        self,
+        village: Village,
+        game_state: GameState,
+        calculator: TravianCalculator,
+        needs_marketplace: bool,
+        residence_requirements: dict[str, int | float],
+    ) -> dict:
+        """
+        Analyze a single village and determine optimal building/training plan.
+        
+        :param village: The village to analyze
+        :param game_state: Current game state
+        :param calculator: Travian calculator
+        :param needs_marketplace: Whether village requires marketplace (multi-village account)
+        :param residence_requirements: Global residence/settler requirements
+        :return: Dictionary with village analysis and recommendations
+        """
+        # === MILITARY ANALYSIS ===
+        
+        total_attack = self.estimate_total_attack(village.troops)
+        total_defense_infantry = self.estimate_total_defense_infantry(village.troops)
+        total_defense_cavalry = self.estimate_total_defense_cavalry(village.troops)
+        grain_consumption = self.estimate_grain_consumption_per_hour(village.troops)
+        
+        barracks = village.get_building(BuildingType.BARRACKS)
+        stable = village.get_building(BuildingType.STABLE)
+        barracks_level = barracks.level if barracks else 0
+        stable_level = stable.level if stable else 0
+        
+        hourly_production = Resources(
+            lumber=village.lumber_hourly_production,
+            clay=village.clay_hourly_production,
+            iron=village.iron_hourly_production,
+            crop=village.crop_hourly_production
+        )
+        
+        potential_attack_per_hour = self.estimate_potential_attack_per_hour(
+            village.tribe,
+            hourly_production
+        )
+        potential_defense_infantry_per_hour = self.estimate_potential_defense_infantry_per_hour(
+            village.tribe,
+            hourly_production
+        )
+        potential_defense_cavalry_per_hour = self.estimate_potential_defense_cavalry_per_hour(
+            village.tribe,
+            hourly_production
+        )
+        
+        trainable_units = self.estimate_trainable_units_per_hour(
+            village.tribe,
+            hourly_production
+        )
+        
+        military_building_priorities = self.estimate_military_building_priority(village, village.tribe)
+        
+        military_analysis = {
+            "current_strength": {
+                "total_attack": total_attack,
+                "total_defense_infantry": total_defense_infantry,
+                "total_defense_cavalry": total_defense_cavalry,
+                "grain_consumption_per_hour": grain_consumption,
+                "troop_count": sum(village.troops.values()),
+            },
+            "potential_production_per_hour": {
+                "attack": potential_attack_per_hour,
+                "defense_infantry": potential_defense_infantry_per_hour,
+                "defense_cavalry": potential_defense_cavalry_per_hour,
+                "trainable_units": trainable_units,
+            },
+            "training_buildings": {
+                "barracks_level": barracks_level,
+                "stable_level": stable_level,
+            },
+            "building_priorities": military_building_priorities,
+        }
+        
+        # === ECONOMY ANALYSIS ===
+        
+        dev_stage = self.estimate_village_development_stage(village)
+        
+        economy_upgrades = self.plan_economy_upgrades(village)
+        
+        economy_analysis = {
+            "development_stage": dev_stage,
+            "hourly_production": {
+                "lumber": village.lumber_hourly_production,
+                "clay": village.clay_hourly_production,
+                "iron": village.iron_hourly_production,
+                "crop": village.crop_hourly_production,
+            },
+            "building_upgrades": economy_upgrades,
+        }
+        
+        # === MERCHANT ANALYSIS ===
+        
+        merchants_needed = self.calculate_merchants_needed(village)
+        
+        merchant_analysis = {
+            "merchants_needed": merchants_needed,
+            "needs_marketplace": needs_marketplace,
+            "marketplace_level": village.get_building(BuildingType.MARKETPLACE).level
+                if village.get_building(BuildingType.MARKETPLACE) else 0,
+        }
+        
+        # === RESIDENCE/SETTLER ANALYSIS ===
+        
+        residence_analysis = {
+            "days_to_next_village": residence_requirements.get("days_to_next_village", 999),
+            "residence_priority": residence_requirements.get("priority", 0.0),
+            "culture_progress": {
+                "current": residence_requirements.get("culture_points", 0),
+                "needed": residence_requirements.get("culture_points_needed", 10000),
+            },
+            "slots": {
+                "used": residence_requirements.get("village_slots_used", 1),
+                "available": residence_requirements.get("village_slots_available", 0),
+            },
+        }
+        
+        return {
+            "village_id": village.id,
+            "military": military_analysis,
+            "economy": economy_analysis,
+            "merchants": merchant_analysis,
+            "residence": residence_analysis,
+        }
 
     def evaluate_military_building_requirements(
         self, villages: list[Village]
