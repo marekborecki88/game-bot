@@ -328,3 +328,62 @@ class Strategy(Protocol):
             priorities[BuildingType.WORKSHOP] = upgrade_priority * stage_multiplier
         
         return priorities
+
+    def estimate_resource_production_proportions(
+        self, planned_units: dict[str, int]
+    ) -> dict[ResourceType, float]:
+        """
+        Calculate target resource production proportions based on planned unit costs.
+        
+        Analyzes the costs of planned units and returns proportional production targets
+        for each resource type. Used for balancing production towards unit training needs.
+        
+        Example: If Legionnaires cost lumber:clay:iron:crop = 120:100:150:30,
+        the returned proportions would reflect these ratios.
+
+        :param planned_units: Dictionary mapping unit name to quantity (e.g., {"Legionnaire": 100})
+        :return: Dictionary mapping ResourceType to proportion (sum = 1.0)
+        """
+        if not planned_units:
+            # Default balanced proportions
+            return {
+                ResourceType.LUMBER: 0.25,
+                ResourceType.CLAY: 0.25,
+                ResourceType.IRON: 0.25,
+                ResourceType.CROP: 0.25,
+            }
+
+        # Calculate total resource requirements for planned units
+        total_lumber = 0
+        total_clay = 0
+        total_iron = 0
+        total_crop = 0
+        
+        for unit_name, quantity in planned_units.items():
+            unit = None
+            for tribe in Tribe:
+                unit = get_unit_by_name(unit_name, tribe)
+                if unit:
+                    break
+            if unit:
+                total_lumber += unit.costs.lumber * quantity
+                total_clay += unit.costs.clay * quantity
+                total_iron += unit.costs.iron * quantity
+                total_crop += unit.costs.crop * quantity
+        
+        total = total_lumber + total_clay + total_iron + total_crop
+        if total == 0:
+            # Fallback to balanced proportions
+            return {
+                ResourceType.LUMBER: 0.25,
+                ResourceType.CLAY: 0.25,
+                ResourceType.IRON: 0.25,
+                ResourceType.CROP: 0.25,
+            }
+        
+        return {
+            ResourceType.LUMBER: total_lumber / total,
+            ResourceType.CLAY: total_clay / total,
+            ResourceType.IRON: total_iron / total,
+            ResourceType.CROP: total_crop / total,
+        }
