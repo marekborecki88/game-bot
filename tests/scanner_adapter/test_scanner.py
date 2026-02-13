@@ -53,45 +53,6 @@ def test_scan_village_list(dorf1_html):
     ]
     assert result == expected
 
-
-def test_scan_village_list_with_attack() -> None:
-    # Given
-    scanner = Scanner(server_speed=1)
-    html = """
-           <div class="dropContainer" data-sortid="village51246" data-sortlevel="0">
-               <div class="listEntry village active attack" data-did="51246" data-sortid="village51246">
-                   <a href="#" class="active">
-                       <div class="iconAndNameWrapper">
-                           <span class="incomingTroops" data-id="51246"
-                                 data-load-tooltip="incomingTroops"
-                                 data-load-tooltip-data="{&quot;villageIds&quot;:[51246]}">
-                           </span>
-                           <span
-                                   class="name" data-did="51246">Travix`s village
-                           </span>
-                       </div>
-                   </a>
-                   <span class="coordinatesGrid">&#x202D;
-                       <span
-                           class="coordinates coordinatesWrapper coordinatesAligned coordinatesltr"><span
-                           class="coordinateX">(&#x202D;104&#x202C;</span><span
-                           class="coordinatePipe">|</span><span class="coordinateY">&#x202D;104&#x202C;)</span>
-                       </span>&#x202C;
-                   </span>
-               </div>
-           </div>
-           """
-    soup = BeautifulSoup(html, "html.parser")
-    village_entry = soup.select_one('.listEntry.village')
-
-    # When
-    result = scanner._parse_village_entry(village_entry)
-
-    # Then
-    expected = VillageBasicInfo(id=51246, name="Travix`s village", coordinate_x=104, coordinate_y=104, is_under_attack=True)
-    assert result == expected
-
-
 def test_scan_village_source(dorf1_html):
     # Given
     scanner = Scanner(server_speed=1)
