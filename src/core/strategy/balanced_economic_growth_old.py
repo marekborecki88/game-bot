@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 from src.core.calculator.calculator import TravianCalculator
 from src.config.config import HeroConfig, LogicConfig
 from src.core.job.train_job import TrainJob
-from src.core.model.model import ResourceType, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
+from src.core.model.game_state import GameState
+from src.core.model.model import ResourceType, HeroInfo, Resources, BuildingType, ReservationStatus, \
     BuildingJob, BuildingCost
 from src.core.model.village import Village
 from src.core.strategy.strategy import Strategy

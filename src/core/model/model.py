@@ -2,10 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-
 from playwright.sync_api import Page
-
-from src.config.config import DriverConfig
 
 logger = logging.getLogger(__name__)
 
@@ -105,23 +102,10 @@ class Resources:
             crop=self.crop // other.crop if other.crop > 0 else float('inf')
         )
 
-    def count_how_many_can_be_made(self, cost: "Resources") -> int:
-        """
-        Calculate how many items (with given cost in Resources) can be made from available resources.
-        Returns the minimum count limited by any resource type.
-
-        :param cost: Resource cost per one item
-        :return: Maximum count of items that can be made
-        """
-        division_result = self // cost
+    def count_how_many_can_be_made(self, cost: "Resources") -> float:
+        division_result = self / cost
         values = [division_result.lumber, division_result.clay, division_result.iron, division_result.crop]
-        # Filter out inf values (unlimited resources from zero cost) to find actual limiting factor
-        finite_values = [v for v in values if v != float('inf')]
-        if not finite_values:
-            return 0  # All resources are unlimited but no finite cost found
-        return int(min(finite_values))
-
-
+        return int(min(values))
 
     def min(self):
         return min(self.lumber, self.clay, self.iron, self.crop)
@@ -440,6 +424,13 @@ class ResourceType(Enum):
         self.gid = gid
         self.max_level = max_level
 
+    @staticmethod
+    def find_by_gid(gid: int) -> "ResourceType":
+        for member in ResourceType:
+            if member.gid == gid:
+                return member
+        raise ValueError(f"No ResourceType with id: {gid}")
+
 
 @dataclass
 class Building:
@@ -488,21 +479,6 @@ class VillageBasicInfo:
 class IncomingAttackInfo:
     attack_count: int = 0
     next_attack_seconds: int | None = None
-
-
-@dataclass
-class GameState:
-    account: "Account"
-    villages: list[Village]
-    hero_info: "HeroInfo"
-
-    @property
-    def calculate_global_resources(self) -> Resources:
-        total_resources = Resources()
-        for village in self.villages:
-            total_resources += village.resources
-        total_resources += self.hero_info.hero_inventory_resource()
-        return total_resources
 
 
 class AttributePointType(Enum):

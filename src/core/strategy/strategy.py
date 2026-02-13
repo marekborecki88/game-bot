@@ -1,12 +1,15 @@
 from typing import Protocol
+from datetime import datetime
 
 from src.config.config import HeroConfig, LogicConfig
 from src.core.calculator.calculator import TravianCalculator
-from src.core.model.model import GameState, Resources, BuildingType, Tribe
+from src.core.model.game_state import GameState
+from src.core.model.model import Resources, BuildingType, Tribe, HeroInfo
 from src.core.model.village import Village
 from src.core.model.units import get_unit_by_name, get_units_for_tribe
 from src.core.job.job import Job
 from src.core.model.model import ResourceType
+from src.core.job import HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob
 
 
 class Strategy(Protocol):
@@ -32,7 +35,7 @@ class Strategy(Protocol):
         """
         ...
 
-    def estimate_total_attack(self, village_troops: dict[str, int]) -> int:
+    def total_attack(self, village_troops: dict[str, int], tribe: Tribe) -> int:
         """
         Calculate total attack points from all trained units in a village.
 
@@ -42,20 +45,16 @@ class Strategy(Protocol):
         if not village_troops:
             return 0
 
-        total_attack = 0
+        attack = 0
         for unit_name, quantity in village_troops.items():
-            # Try to find the unit in all tribes
-            unit = None
-            for tribe in Tribe:
-                unit = get_unit_by_name(unit_name, tribe)
-                if unit:
-                    break
+            unit = get_unit_by_name(unit_name, tribe)
+
             if unit:
-                total_attack += unit.attack * quantity
+                attack += unit.attack * quantity
 
-        return total_attack
+        return attack
 
-    def estimate_total_defense_infantry(self, village_troops: dict[str, int]) -> int:
+    def total_defense_infantry(self, village_troops: dict[str, int], tribe: Tribe) -> int:
         """
         Calculate total defense against infantry from all trained units in a village.
 
@@ -68,40 +67,33 @@ class Strategy(Protocol):
         total_defense = 0
         for unit_name, quantity in village_troops.items():
             # Try to find the unit in all tribes
-            unit = None
-            for tribe in Tribe:
-                unit = get_unit_by_name(unit_name, tribe)
-                if unit:
-                    break
+            unit = get_unit_by_name(unit_name, tribe)
             if unit:
                 total_defense += unit.defense_vs_infantry * quantity
 
         return total_defense
 
-    def estimate_total_defense_cavalry(self, village_troops: dict[str, int]) -> int:
+    def total_defense_cavalry(self, village_troops: dict[str, int], tribe: Tribe) -> int:
         """
         Calculate total defense against cavalry from all trained units in a village.
 
         :param village_troops: Dictionary mapping unit name to quantity
+        :param tribe: The tribe of the village (used to find units)
         :return: Total defense against cavalry value
         """
         if not village_troops:
             return 0
 
-        total_defense = 0
+        defense = 0
         for unit_name, quantity in village_troops.items():
             # Try to find the unit in all tribes
-            unit = None
-            for tribe in Tribe:
-                unit = get_unit_by_name(unit_name, tribe)
-                if unit:
-                    break
+            unit = get_unit_by_name(unit_name, tribe)
             if unit:
-                total_defense += unit.defense_vs_cavalry * quantity
+                defense += unit.defense_vs_cavalry * quantity
 
-        return total_defense
+        return defense
 
-    def estimate_grain_consumption_per_hour(self, village_troops: dict[str, int]) -> int:
+    def grain_consumption_per_hour(self, village_troops: dict[str, int], tribe: Tribe) -> int:
         """
         Calculate hourly grain consumption of all trained units in a village.
 
@@ -114,26 +106,19 @@ class Strategy(Protocol):
         total_consumption = 0
         for unit_name, quantity in village_troops.items():
             # Try to find the unit in all tribes
-            unit = None
-            for tribe in Tribe:
-                unit = get_unit_by_name(unit_name, tribe)
-                if unit:
-                    break
+            unit = get_unit_by_name(unit_name, tribe)
+
             if unit:
                 total_consumption += unit.grain_consumption * quantity
 
         return total_consumption
 
     def estimate_trainable_units_per_hour(self, village_tribe: Tribe, hourly_production: Resources) -> dict[str, int]:
-        """
-        Calculate how many units of each type can be trained per hour based on hourly resource production.
-        For each unit type available for the tribe, calculate how many can be trained using only
-        the hourly production rate (without consuming stored resources).
+        # This method should treat differently units trained in barracks and stable,
+        # because we can train one in barrack and one in stable
+        # At this moment this method calculate only one unit from barracks,
+        # but in future we need to compare units and choose best option or mix option
 
-        :param village_tribe: The tribe of the village
-        :param hourly_production: Hourly production of all resources
-        :return: Dictionary mapping unit name to quantity trainable per hour
-        """
         trainable_units: dict[str, int] = {}
         
         units = get_units_for_tribe(village_tribe)
@@ -144,42 +129,27 @@ class Strategy(Protocol):
             # Calculate how many units can be trained based on available resources
             units_trainable = hourly_production.count_how_many_can_be_made(unit.costs)
             if units_trainable > 0:
-                trainable_units[unit.name] = units_trainable
+                trainable_units[unit.name] = units_trainable.__int__()
 
         return trainable_units
 
-    def estimate_potential_attack_per_hour(self, village_tribe: Tribe, hourly_production: Resources) -> int:
-        """
-        Calculate total attack points that could be produced per hour from hourly resource production.
+    def calculate_troops_statistics(self, tribe: Tribe, units: dict[str, int]) -> dict[str, int]:
+        statistics = {
+            'attack': 0,
+            'defense_infantry': 0,
+            'defense_cavalry': 0,
+            'grain_consumption': 0,
+        }
+        for unit_name, quantity in units.items():
+            unit = get_unit_by_name(unit_name, tribe)
+            if not unit:
+                continue
+            statistics['attack'] += unit.attack * quantity
+            statistics['defense_infantry'] += unit.defense_vs_infantry * quantity
+            statistics['defense_cavalry'] += unit.defense_vs_cavalry * quantity
+            statistics['grain_consumption'] += unit.grain_consumption * quantity
+        return statistics
 
-        :param village_tribe: The tribe of the village
-        :param hourly_production: Hourly production of all resources
-        :return: Total attack value from units trainable per hour
-        """
-        trainable_units = self.estimate_trainable_units_per_hour(village_tribe, hourly_production)
-        return self.estimate_total_attack(trainable_units)
-
-    def estimate_potential_defense_infantry_per_hour(self, village_tribe: Tribe, hourly_production: Resources) -> int:
-        """
-        Calculate total defense against infantry that could be produced per hour from hourly resource production.
-
-        :param village_tribe: The tribe of the village
-        :param hourly_production: Hourly production of all resources
-        :return: Total defense against infantry from units trainable per hour
-        """
-        trainable_units = self.estimate_trainable_units_per_hour(village_tribe, hourly_production)
-        return self.estimate_total_defense_infantry(trainable_units)
-
-    def estimate_potential_defense_cavalry_per_hour(self, village_tribe: Tribe, hourly_production: Resources) -> int:
-        """
-        Calculate total defense against cavalry that could be produced per hour from hourly resource production.
-
-        :param village_tribe: The tribe of the village
-        :param hourly_production: Hourly production of all resources
-        :return: Total defense against cavalry from units trainable per hour
-        """
-        trainable_units = self.estimate_trainable_units_per_hour(village_tribe, hourly_production)
-        return self.estimate_total_defense_cavalry(trainable_units)
 
     def get_missing_critical_military_buildings(self, village: Village) -> list[tuple[BuildingType, int]]:
         """
@@ -457,9 +427,8 @@ class Strategy(Protocol):
         needs_marketplace: dict[int, bool] = {}
         
         # Single village = no marketplace needed
-        if len(villages) <= 1:
-            for village in villages:
-                needs_marketplace[village.id] = False
+        if len(villages) == 1:
+            needs_marketplace[villages[0].id] = False
             return needs_marketplace
         
         # Multiple villages = all villages need marketplace
@@ -468,82 +437,8 @@ class Strategy(Protocol):
         
         return needs_marketplace
 
-    def calculate_merchant_capacity_needed(
-        self, game_state: GameState
-    ) -> int:
-        """
-        Calculate total merchant capacity needed to transport resources between villages.
-        
-        This considers:
-        - Global resource balance across all villages
-        - Resource deficits in any village
-        - Required capacity to redistribute resources evenly
-        
-        The calculation estimates how much resources need to be transported per hour
-        to balance production across villages. Merchants have a capacity of 1000 per unit.
-        
-        Formula:
-        - Calculate average hourly production per village
-        - For each village, identify resources that fall below average
-        - Sum all deficit amounts = total capacity needed in resources
-        - Divide by merchant capacity (1000) = number of merchants needed
-        
-        :param game_state: Current game state with all villages
-        :return: Total merchant capacity needed (in units, where each merchant = 1000 capacity)
-        """
-        villages = game_state.villages
-        
-        if len(villages) <= 1:
-            # Single village needs no merchant capacity
-            return 0
-        
-        # Calculate average hourly production per resource type across villages
-        total_production_by_type = {
-            ResourceType.LUMBER: 0,
-            ResourceType.CLAY: 0,
-            ResourceType.IRON: 0,
-            ResourceType.CROP: 0,
-        }
-        
-        for village in villages:
-            total_production_by_type[ResourceType.LUMBER] += village.lumber_hourly_production
-            total_production_by_type[ResourceType.CLAY] += village.clay_hourly_production
-            total_production_by_type[ResourceType.IRON] += village.iron_hourly_production
-            total_production_by_type[ResourceType.CROP] += village.crop_hourly_production
-        
-        # Calculate average per village
-        num_villages = len(villages)
-        average_production_by_type = {
-            resource_type: total / num_villages
-            for resource_type, total in total_production_by_type.items()
-        }
-        
-        # Calculate total deficit capacity needed across all villages
-        total_deficit = 0
-        
-        for village in villages:
-            village_production = {
-                ResourceType.LUMBER: village.lumber_hourly_production,
-                ResourceType.CLAY: village.clay_hourly_production,
-                ResourceType.IRON: village.iron_hourly_production,
-                ResourceType.CROP: village.crop_hourly_production,
-            }
-            
-            # Check for deficits in each resource type
-            for resource_type, village_prod in village_production.items():
-                average = average_production_by_type[resource_type]
-                if village_prod < average:
-                    deficit = average - village_prod
-                    total_deficit += deficit
-        
-        # Convert total deficit to merchant units (each merchant = 1000 capacity)
-        merchant_capacity_per_unit = 1000
-        merchants_needed = int(total_deficit / merchant_capacity_per_unit)
-        
-        return max(0, merchants_needed)
-
     def estimate_residence_requirement(
-        self, game_state: GameState, culture_threshold: int
+        self, game_state: GameState
     ) -> dict[str, int | float]:
         """
         Determine the priority for building/upgrading residences and training settlers.
@@ -570,6 +465,7 @@ class Strategy(Protocol):
         :return: Dictionary with residence/settler requirement metrics
         """
         account = game_state.account
+        culture_threshold = 2000
         days_to_village = account.days_to_new_village(culture_threshold)
         
         # Calculate points needed for next village
@@ -602,3 +498,73 @@ class Strategy(Protocol):
             'village_slots_used': num_villages,
             'village_slots_available': max(0, account.village_slots - num_villages),
         }
+
+    def create_plan_for_hero(self, hero_info: HeroInfo) -> list[Job]:
+        """Create a plan for the hero, which may include an adventure and attribute allocation.
+
+        If the hero is available (not on the way, not traveling), schedule an adventure.
+        If the hero has attribute points available, schedule an allocation job.
+
+        Returns a list of Jobs (possibly empty).
+        """
+        jobs: list[Job] = []
+
+        now = datetime.now()
+
+        if hero_info.can_go_on_adventure() and hero_info.health >= self.hero_config.adventures.minimal_health:
+            jobs.append(HeroAdventureJob(
+                success_message="hero adventure scheduled",
+                failure_message="hero adventure failed",
+                hero_info=hero_info,
+                hero_config=self.hero_config,
+                scheduled_time=now,
+            ))
+
+        points = hero_info.points_available
+        if points > 0:
+            jobs.append(AllocateAttributesJob(
+                success_message="attribute points allocated",
+                failure_message="attribute points allocation failed",
+                points=points,
+                hero_info=hero_info,
+                hero_config=self.hero_config,
+                scheduled_time=now,
+            ))
+
+        # If hero-level daily quest indicator is present, schedule collect_daily_quests (no navigation required)
+        if hero_info.has_daily_quest_indicator:
+            jobs.append(self._create_collect_daily_quests_job())
+
+        return jobs
+
+    def _create_collect_daily_quests_job(self) -> Job:
+        now = datetime.now()
+        return CollectDailyQuestsJob(
+            success_message="daily quests collected",
+            failure_message="daily quests collection failed",
+            scheduled_time=now,
+            daily_quest_threshold=self.logic_config.daily_quest_threshold,
+        )
+
+    def _create_collect_questmaster_job(self, village: Village) -> Job:
+        now = datetime.now()
+        return CollectQuestmasterJob(
+            success_message="reward from quest master collected",
+            failure_message="reward from quest master collection failed",
+            village=village,
+            scheduled_time=now,
+        )
+
+    def plan_questmaster_rewards(self, villages: list[Village]) -> list[Job]:
+        """Create jobs for collecting questmaster rewards from villages that have them available.
+
+        :param villages: List of villages to check for questmaster rewards
+        :return: List of CollectQuestmasterJob jobs
+        """
+        jobs: list[Job] = []
+        for village in villages:
+            if village.has_quest_master_reward:
+                qm_job = self._create_collect_questmaster_job(village)
+                if qm_job:
+                    jobs.append(qm_job)
+        return jobs

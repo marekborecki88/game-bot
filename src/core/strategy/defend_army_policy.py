@@ -1,7 +1,13 @@
 from src.core.calculator.calculator import TravianCalculator
-from src.core.model.model import GameState, ResourceType, Building, BuildingType, BuildingCost, Resources
+from src.core.model.game_state import GameState
+from src.core.model.model import ResourceType, Building, BuildingType, BuildingCost, Resources
 from src.core.model.village import Village
 from src.core.strategy.strategy import Strategy
+from src.core.job.build_job import BuildJob
+from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DefendArmyPolicy(Strategy):
@@ -31,6 +37,8 @@ class DefendArmyPolicy(Strategy):
         - Economy and resource production
         - Merchants mobility and capacity for multi-village trading
         - Residence/settler requirements for expanding
+        - Hero adventures and attribute allocation
+        - Quest rewards (daily quests and questmaster)
         
         Returns a prioritized list of jobs to execute.
         
@@ -41,12 +49,18 @@ class DefendArmyPolicy(Strategy):
         jobs = []
         villages = game_state.villages
         
+        # === HERO JOBS (independent of policy) ===
+        # These jobs are added regardless of the strategy chosen
+        hero_jobs = self.create_plan_for_hero(game_state.hero_info)
+        
+        # === QUESTMASTER REWARDS (independent of policy) ===
+        questmaster_jobs = self.plan_questmaster_rewards(villages)
+        
         # === GLOBAL ANALYSIS ===
         
         # Check merchant requirements across all villages
         marketplace_requirements = self.estimate_marketplace_requirement(villages)
-        merchants_needed_global = self.calculate_merchant_capacity_needed(game_state)
-        
+
         # Check residence/settler requirements
         residence_requirements = self.estimate_residence_requirement(game_state)
         
@@ -66,15 +80,86 @@ class DefendArmyPolicy(Strategy):
         
         # === CONSOLIDATE AND PRIORITIZE ===
         
-        # TODO: Based on village_plans and global analysis, create actual Job objects
-        # Priority order:
-        # 1. Critical military buildings (missing barracks, stable, workshop)
-        # 2. Economy upgrades to support troop training
-        # 3. Marketplace if multiple villages exist
-        # 4. Merchants based on capacity needs
-        # 5. Residences if close to culture threshold for new village
+        # Aggregate all building priorities from village plans
+        all_building_recommendations = self._consolidate_building_recommendations(
+            village_plans=village_plans,
+            marketplace_needed_globally=len(villages) > 1,
+            residence_requirements=residence_requirements,
+        )
         
-        return jobs
+        # Create BuildJob objects from recommendations
+        for recommendation in all_building_recommendations:
+            village_id = recommendation["village_id"]
+            building_type = recommendation["building_type"]
+            priority = recommendation["priority"]
+            reason = recommendation["reason"]
+            
+            # Find the village and building details
+            village = next((v for v in villages if v.id == village_id), None)
+            if not village:
+                continue
+            
+            # Check if building queue allows adding this building
+            if self._is_building_in_center(building_type.name):
+                if not village.building_queue.can_build_inside():
+                    logger.debug(f"Skipping {building_type.name} in village {village_id}: inside queue is occupied")
+                    continue
+            else:
+                if not village.building_queue.can_build_outside():
+                    logger.debug(f"Skipping {building_type.name} in village {village_id}: outside queue is occupied")
+                    continue
+            
+            # Get or create the building
+            building = village.get_building(building_type)
+            if building is None:
+                # Building doesn't exist yet, skip for now (TODO: handle new building construction)
+                logger.debug(f"Building {building_type} not yet available in village {village_id}")
+                continue
+            
+            # Create BuildJob for this building
+            job = BuildJob(
+                scheduled_time=datetime.now(),  # Can be adjusted based on priority
+                success_message=f"Built/upgraded {building_type.name} in village {village.name}",
+                failure_message=f"Failed to build/upgrade {building_type.name} in village {village.name}",
+                village_name=village.name,
+                village_id=village_id,
+                building_id=building.id,
+                building_gid=building_type.gid,
+                target_name=building_type.name,
+                target_level=building.level + 1,
+            )
+            
+            jobs.append({
+                "job": job,
+                "priority": priority,
+                "reason": reason,
+                "village_id": village_id,
+                "building_type": building_type,
+            })
+        
+        # Sort jobs by priority (descending)
+        jobs.sort(key=lambda x: x["priority"], reverse=True)
+        
+        # Log job planning summary
+        logger.info(f"Planned {len(jobs)} jobs across {len(villages)} villages")
+        for i, job_info in enumerate(jobs[:5]):  # Log top 5 jobs
+            if isinstance(job_info, dict) and "building_type" in job_info:
+                logger.debug(f"  {i+1}. Village {job_info['village_id']}: {job_info['building_type'].name} "
+                            f"(priority: {job_info['priority']:.1f}) - {job_info['reason']}")
+        
+        # Return Job objects: extract from dicts and keep hero/questmaster jobs
+        result_jobs = []
+        
+        # Add extracted BuildJob objects from building recommendations
+        for job_item in jobs:
+            if isinstance(job_item, dict) and "job" in job_item:
+                result_jobs.append(job_item["job"])
+        
+        # Add hero jobs and questmaster jobs
+        result_jobs.extend(hero_jobs)
+        result_jobs.extend(questmaster_jobs)
+        
+        return result_jobs
 
     def _analyze_village_plan(
         self,
@@ -95,11 +180,9 @@ class DefendArmyPolicy(Strategy):
         :return: Dictionary with village analysis and recommendations
         """
         # === MILITARY ANALYSIS ===
-        
-        total_attack = self.estimate_total_attack(village.troops)
-        total_defense_infantry = self.estimate_total_defense_infantry(village.troops)
-        total_defense_cavalry = self.estimate_total_defense_cavalry(village.troops)
-        grain_consumption = self.estimate_grain_consumption_per_hour(village.troops)
+
+        tribe = village.tribe
+        troops_statistics = self.calculate_troops_statistics(tribe, village.troops)
         
         barracks = village.get_building(BuildingType.BARRACKS)
         stable = village.get_building(BuildingType.STABLE)
@@ -112,40 +195,26 @@ class DefendArmyPolicy(Strategy):
             iron=village.iron_hourly_production,
             crop=village.crop_hourly_production
         )
+
+        trainable_units = self.estimate_trainable_units_per_hour(tribe, hourly_production)
+        trainable_units_statistics = self.calculate_troops_statistics(tribe, trainable_units)
         
-        potential_attack_per_hour = self.estimate_potential_attack_per_hour(
-            village.tribe,
-            hourly_production
-        )
-        potential_defense_infantry_per_hour = self.estimate_potential_defense_infantry_per_hour(
-            village.tribe,
-            hourly_production
-        )
-        potential_defense_cavalry_per_hour = self.estimate_potential_defense_cavalry_per_hour(
-            village.tribe,
-            hourly_production
-        )
-        
-        trainable_units = self.estimate_trainable_units_per_hour(
-            village.tribe,
-            hourly_production
-        )
-        
-        military_building_priorities = self.estimate_military_building_priority(village, village.tribe)
+        military_building_priorities = self.estimate_military_building_priority(village, tribe)
         
         military_analysis = {
             "current_strength": {
-                "total_attack": total_attack,
-                "total_defense_infantry": total_defense_infantry,
-                "total_defense_cavalry": total_defense_cavalry,
-                "grain_consumption_per_hour": grain_consumption,
+                "total_attack": troops_statistics.get("attack", 0),
+                "total_defense_infantry": troops_statistics.get("defense_infantry", 0),
+                "total_defense_cavalry": troops_statistics.get("defense_cavalry", 0),
+                "grain_consumption_per_hour": troops_statistics.get("grain_consumption", 0),
                 "troop_count": sum(village.troops.values()),
             },
             "potential_production_per_hour": {
-                "attack": potential_attack_per_hour,
-                "defense_infantry": potential_defense_infantry_per_hour,
-                "defense_cavalry": potential_defense_cavalry_per_hour,
-                "trainable_units": trainable_units,
+                "attack": trainable_units_statistics.get("attack", 0),
+                "defense_infantry": trainable_units_statistics.get("defense_infantry", 0),
+                "defense_cavalry": trainable_units_statistics.get("defense_cavalry", 0),
+                "grain_consumption": trainable_units_statistics.get("grain_consumption", 0),
+                "trainable_units": trainable_units
             },
             "training_buildings": {
                 "barracks_level": barracks_level,
@@ -162,12 +231,12 @@ class DefendArmyPolicy(Strategy):
         
         economy_analysis = {
             "development_stage": dev_stage,
-            "hourly_production": {
-                "lumber": village.lumber_hourly_production,
-                "clay": village.clay_hourly_production,
-                "iron": village.iron_hourly_production,
-                "crop": village.crop_hourly_production,
-            },
+            "hourly_production": Resources(
+                lumber= village.lumber_hourly_production,
+                clay= village.clay_hourly_production,
+                iron= village.iron_hourly_production,
+                crop= village.crop_hourly_production,
+            ),
             "building_upgrades": economy_upgrades,
         }
         
@@ -204,6 +273,136 @@ class DefendArmyPolicy(Strategy):
             "merchants": merchant_analysis,
             "residence": residence_analysis,
         }
+
+    def _consolidate_building_recommendations(
+        self,
+        village_plans: list[dict],
+        marketplace_needed_globally: bool,
+        residence_requirements: dict[str, int | float],
+    ) -> list[dict]:
+        """
+        Consolidate building recommendations from all village plans into a prioritized list.
+        
+        Collects ALL possible recommendations and selects the one with highest priority.
+
+        Priority order (highest to lowest):
+        1. Critical military buildings (missing barracks, stable, workshop)
+        2. Economy upgrades to support troop training
+        3. Marketplace if multiple villages exist
+        4. Residences/settlers if approaching culture threshold
+
+        :param village_plans: List of village analysis dictionaries
+        :param marketplace_needed_globally: Whether marketplace is needed (multi-village)
+        :param residence_requirements: Global residence/settler requirements
+        :return: List with single highest-priority building recommendation
+        """
+        all_recommendations: list[dict] = []
+
+        # Collect all possible recommendations
+        all_recommendations.extend(self._collect_military_recommendations(village_plans))
+        all_recommendations.extend(self._collect_economy_recommendations(village_plans))
+
+        if marketplace_needed_globally:
+            all_recommendations.extend(self._collect_marketplace_recommendations(village_plans))
+
+        days_to_village = residence_requirements.get("days_to_next_village", 999)
+        residence_priority = residence_requirements.get("priority", 0.0)
+        if days_to_village <= 30 and residence_priority > 0:
+            all_recommendations.extend(
+                self._collect_residence_recommendations(village_plans, residence_priority, days_to_village)
+            )
+
+        # Sort by priority (descending) and return top recommendation
+        if not all_recommendations:
+            return []
+
+        all_recommendations.sort(key=lambda x: x["priority"], reverse=True)
+        return [all_recommendations[0]]
+
+    def _collect_military_recommendations(self, village_plans: list[dict]) -> list[dict]:
+        """Collect all military building recommendations with priority 1000+."""
+        recommendations: list[dict] = []
+
+        for plan in village_plans:
+            village_id = plan["village_id"]
+            military_priorities = plan["military"]["building_priorities"]
+            
+            for building_type, priority_value in military_priorities.items():
+                if priority_value > 0:
+                    recommendations.append({
+                        "village_id": village_id,
+                        "building_type": building_type,
+                        "priority": 1000.0 + priority_value,
+                        "reason": f"Military building critical for defense - {building_type.name}",
+                        "category": "military",
+                    })
+
+        return recommendations
+
+    def _collect_economy_recommendations(self, village_plans: list[dict]) -> list[dict]:
+        """Collect all economy building recommendations with priority 500+."""
+        recommendations: list[dict] = []
+
+        for plan in village_plans:
+            village_id = plan["village_id"]
+            economy_upgrades = plan["economy"]["building_upgrades"]
+            
+            for building_type, priority_value in economy_upgrades:
+                recommendations.append({
+                    "village_id": village_id,
+                    "building_type": building_type,
+                    "priority": 500.0 + priority_value,
+                    "reason": f"Economy upgrade to increase production - {building_type.name}",
+                    "category": "economy",
+                })
+
+        return recommendations
+
+    def _collect_marketplace_recommendations(self, village_plans: list[dict]) -> list[dict]:
+        """Collect all marketplace building recommendations with priority 100-300."""
+        recommendations: list[dict] = []
+
+        for plan in village_plans:
+            village_id = plan["village_id"]
+            marketplace_level = plan["merchants"]["marketplace_level"]
+
+            if marketplace_level < 1:
+                priority = 300.0
+                reason = "Build marketplace for multi-village trade"
+            elif marketplace_level < 5:
+                priority = 250.0 + (10 - marketplace_level)
+                reason = f"Upgrade marketplace to level {marketplace_level + 1}"
+            else:
+                priority = 100.0
+                reason = "Marketplace upgrade (low priority)"
+
+            recommendations.append({
+                "village_id": village_id,
+                "building_type": BuildingType.MARKETPLACE,
+                "priority": priority,
+                "reason": reason,
+                "category": "marketplace",
+            })
+
+        return recommendations
+
+    def _collect_residence_recommendations(
+        self, village_plans: list[dict], residence_priority: float, days_to_village: int
+    ) -> list[dict]:
+        """Collect all residence building recommendations with priority 200+."""
+        recommendations: list[dict] = []
+
+        for plan in village_plans:
+            village_id = plan["village_id"]
+            recommendations.append({
+                "village_id": village_id,
+                "building_type": BuildingType.RESIDENCE,
+                "priority": 200.0 + residence_priority,
+                "reason": f"Residence/settlers - {days_to_village} days to next village",
+                "category": "residence",
+            })
+
+        return recommendations
 
     def evaluate_military_building_requirements(
         self, villages: list[Village]
@@ -536,6 +735,11 @@ class DefendArmyPolicy(Strategy):
             upgrades[BuildingType.CROPLAND] = 100.0
         
         return sorted(upgrades.items(), key=lambda x: x[1], reverse=True)
+
+    @staticmethod
+    def _is_building_in_center(building_name: str) -> bool:
+        """Check if building is in the center (inside) or outside (source pits)."""
+        return building_name not in ["Woodcutter", "Clay Pit", "Iron Mine", "Cropland"]
 
 
 

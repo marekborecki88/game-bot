@@ -74,7 +74,14 @@ class Village:
     def building_queue_duration(self) -> int:
         return self.building_queue.duration
 
-    def get_building(self, building_type: "BuildingType") -> "Building | None":
+    def get_building(self, building_type: "BuildingType") -> "Building | ResourcePit | None":
+        if building_type.gid <= 4:
+            resource_type = ResourceType.find_by_gid(gid=building_type.gid)
+            fields = [r for r in self.resource_pits if r.type == resource_type]
+            return min(fields, key=lambda p: p.level)
+
+
+
         return next((b for b in self.buildings if b.type == building_type), None)
 
     def upgradable_resource_pits(self) -> list["ResourcePit"]:

@@ -2,7 +2,7 @@ import logging
 
 from src.config.config import LogicConfig, HeroConfig, Strategy as StrategyType
 from src.core.calculator.calculator import TravianCalculator
-from src.core.model.model import GameState
+from src.core.model.game_state import GameState
 from src.core.strategy.defend_army_policy import DefendArmyPolicy
 from src.core.strategy.strategy import Strategy
 from src.core.strategy.balanced_economic_growth_old import BalancedEconomicGrowthOld

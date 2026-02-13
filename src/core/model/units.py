@@ -45,8 +45,8 @@ LEGIONNAIRE = Unit(
 )
 
 # Gaul units
-PHALANX = Unit(
-    name="Phalanx",
+PHALANXES = Unit(
+    name="Phalanxes",
     tribe=Tribe.GAULS,
     costs=Resources(lumber=100, clay=130, iron=55, crop=30),
     attack=15,
@@ -70,7 +70,7 @@ def get_units_for_tribe(tribe: Tribe) -> list[Unit]:
     """
     units_by_tribe: dict[Tribe, list[Unit]] = {
         Tribe.ROMANS: [LEGIONNAIRE],
-        Tribe.GAULS: [PHALANX],
+        Tribe.GAULS: [PHALANXES],
         Tribe.TEUTONS: [],
         Tribe.HUNS: [],
         Tribe.SPARTANS: [],

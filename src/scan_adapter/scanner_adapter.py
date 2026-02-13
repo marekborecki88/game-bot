@@ -7,6 +7,7 @@ existing `src.scan_adapter.scanner` functions.
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from bs4 import Tag, BeautifulSoup
@@ -113,18 +114,11 @@ class Scanner(ScannerProtocol):
         coordinate_x = self._extract_number(entry, '.coordinateX')
         coordinate_y = self._extract_number(entry, '.coordinateY')
 
-        class_attr = entry.get('class', [])
-        classes = class_attr if isinstance(class_attr, list) else str(class_attr).split()
-        has_attack_class = "attack" in classes
-        has_attack_icon = entry.select_one(".incomingTroops svg.attack") is not None
-        is_under_attack = has_attack_class or has_attack_icon
-
         return VillageBasicInfo(
             id=int(village_id),
             name=name,
             coordinate_x=coordinate_x,
             coordinate_y=coordinate_y,
-            is_under_attack=is_under_attack,
         )
 
     def scan_village_list(self, html: str) -> list[VillageBasicInfo]:
@@ -243,7 +237,7 @@ class Scanner(ScannerProtocol):
 
     def scan_hero_info(self, hero_html: str, inventory_html: str) -> HeroInfo:
         soup = BeautifulSoup(hero_html, HTML_PARSER)
-        # Try to find .stats, then fallback to .attributeBox .stats
+        # Try to find .stats with multiple fallbacks
         stats_container = soup.select_one(".stats")
         if not stats_container:
             stats_container = soup.select_one(".attributeBox .stats")
