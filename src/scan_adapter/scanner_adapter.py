@@ -197,7 +197,6 @@ class Scanner(ScannerProtocol):
             clay_hourly_production=production.get("clay_hourly_production", 0),
             iron_hourly_production=production.get("iron_hourly_production", 0),
             crop_hourly_production=production.get("crop_hourly_production", 0),
-            free_crop_hourly_production=production.get("free_crop_hourly_production", 0),
             is_under_attack=village_basic_info.is_under_attack or incoming_attacks.attack_count > 0,
             incoming_attack_count=incoming_attacks.attack_count,
             next_attack_seconds=incoming_attacks.next_attack_seconds,

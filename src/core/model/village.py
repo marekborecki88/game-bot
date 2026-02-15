@@ -28,7 +28,6 @@ class Village:
     clay_hourly_production: int = 0
     iron_hourly_production: int = 0
     crop_hourly_production: int = 0
-    free_crop_hourly_production: int = 0
     is_upgraded_to_city: bool = False
     is_permanent_capital: bool = False
     has_quest_master_reward: bool = False
@@ -77,12 +76,12 @@ class Village:
     def get_building(self, building_type: "BuildingType") -> "Building | ResourcePit | None":
         if building_type.gid <= 4:
             resource_type = ResourceType.find_by_gid(gid=building_type.gid)
-            fields = [r for r in self.resource_pits if r.type == resource_type]
-            return min(fields, key=lambda p: p.level)
-
-
-
+            return self.get_resource_pit(resource_type)
         return next((b for b in self.buildings if b.type == building_type), None)
+
+    def get_resource_pit(self, resource_type: "ResourceType") -> "ResourcePit":
+        fields = [r for r in self.resource_pits if r.type == resource_type]
+        return min(fields, key=lambda p: p.level)
 
     def upgradable_resource_pits(self) -> list["ResourcePit"]:
         return [p for p in self.resource_pits if p.level < self.max_source_pit_level()]
@@ -119,6 +118,7 @@ class Village:
             crop=max(0, building_cost.resources.crop - self.resources.crop),
         )
 
+    @property
     def resources_hourly_production(self) -> Resources:
         return Resources(
             lumber=self.lumber_hourly_production,

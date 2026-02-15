@@ -94,7 +94,7 @@ def new_village() -> Village:
         coordinates=(0, 0),
         tribe=Tribe.ROMANS,
         resources=Resources(lumber=750, clay=750, iron=750, crop=750),
-        free_crop=5,
+        free_crop=crop_production - 2,  # -2 for base consumption
         resource_pits=resource_pits,
         buildings=buildings,
         warehouse_capacity=800,
@@ -104,7 +104,6 @@ def new_village() -> Village:
         clay_hourly_production=clay_production,
         iron_hourly_production=iron_production,
         crop_hourly_production=crop_production,
-        free_crop_hourly_production=crop_production - 2,  # -2 for base consumption
     )
 
 

@@ -86,6 +86,14 @@ class Resources:
             crop=self.crop / other.crop
         )
 
+    def __mul__(self, multiplier: int) -> "Resources":
+        return Resources(
+            lumber=self.lumber * multiplier,
+            clay=self.clay * multiplier,
+            iron=self.iron * multiplier,
+            crop=self.crop * multiplier
+        )
+
     def __floordiv__(self, other: "Resources") -> "Resources":
         """
         Divide resources by another Resources object (floor division).
@@ -109,6 +117,15 @@ class Resources:
 
     def min(self):
         return min(self.lumber, self.clay, self.iron, self.crop)
+
+    def min_type(self):
+        resource_dict = {
+            ResourceType.LUMBER: self.lumber,
+            ResourceType.CLAY: self.clay,
+            ResourceType.IRON: self.iron,
+            ResourceType.CROP: self.crop,
+        }
+        return min(resource_dict, key=resource_dict.get)
 
     def max(self):
         return max(self.lumber, self.clay, self.iron, self.crop)

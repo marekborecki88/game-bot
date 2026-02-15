@@ -1,13 +1,26 @@
 from src.core.calculator.calculator import TravianCalculator
+from src.core.job import Job
 from src.core.model.game_state import GameState
 from src.core.model.model import ResourceType, Building, BuildingType, BuildingCost, Resources
 from src.core.model.village import Village
 from src.core.strategy.strategy import Strategy
 from src.core.job.build_job import BuildJob
 from datetime import datetime, timedelta
+from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PrioritizedJob:
+    """Represents a building upgrade job with priority."""
+    building_type: BuildingType
+    priority: float
+
+    def __lt__(self, other: "PrioritizedJob") -> bool:
+        """Compare by priority for sorting (higher priority first)."""
+        return self.priority > other.priority
 
 
 class DefendArmyPolicy(Strategy):
@@ -28,7 +41,7 @@ class DefendArmyPolicy(Strategy):
         self.logic_config = logic_config
         self.hero_config = hero_config
 
-    def plan_jobs(self, game_state: GameState, calculator: TravianCalculator) -> list:
+    def plan_jobs(self, game_state: GameState, calculator: TravianCalculator) -> list[Job]:
         """
         Plan jobs to develop defensive army considering current troop strength and resources.
         
@@ -48,57 +61,58 @@ class DefendArmyPolicy(Strategy):
         """
         jobs = []
         villages = game_state.villages
-        
+
         # === HERO JOBS (independent of policy) ===
         # These jobs are added regardless of the strategy chosen
         hero_jobs = self.create_plan_for_hero(game_state.hero_info)
-        
+
         # === QUESTMASTER REWARDS (independent of policy) ===
         questmaster_jobs = self.plan_questmaster_rewards(villages)
-        
+
         # === GLOBAL ANALYSIS ===
-        
+
         # Check merchant requirements across all villages
         marketplace_requirements = self.estimate_marketplace_requirement(villages)
 
         # Check residence/settler requirements
         residence_requirements = self.estimate_residence_requirement(game_state)
-        
+
         # === PER-VILLAGE ANALYSIS ===
-        
+
         village_plans = []
-        
+
+        global_lowest_production = game_state.estimate_global_lowest_resource_production_in_next_hours(2)
+
         for village in villages:
             village_plan = self._analyze_village_plan(
                 village=village,
-                game_state=game_state,
-                calculator=calculator,
                 needs_marketplace=marketplace_requirements.get(village.id, False),
                 residence_requirements=residence_requirements,
+                global_lowest_production=global_lowest_production
             )
             village_plans.append(village_plan)
-        
+
         # === CONSOLIDATE AND PRIORITIZE ===
-        
+
         # Aggregate all building priorities from village plans
         all_building_recommendations = self._consolidate_building_recommendations(
             village_plans=village_plans,
             marketplace_needed_globally=len(villages) > 1,
             residence_requirements=residence_requirements,
         )
-        
+
         # Create BuildJob objects from recommendations
         for recommendation in all_building_recommendations:
             village_id = recommendation["village_id"]
             building_type = recommendation["building_type"]
             priority = recommendation["priority"]
             reason = recommendation["reason"]
-            
+
             # Find the village and building details
             village = next((v for v in villages if v.id == village_id), None)
             if not village:
                 continue
-            
+
             # Check if building queue allows adding this building
             if self._is_building_in_center(building_type.name):
                 if not village.building_queue.can_build_inside():
@@ -108,14 +122,14 @@ class DefendArmyPolicy(Strategy):
                 if not village.building_queue.can_build_outside():
                     logger.debug(f"Skipping {building_type.name} in village {village_id}: outside queue is occupied")
                     continue
-            
+
             # Get or create the building
             building = village.get_building(building_type)
             if building is None:
                 # Building doesn't exist yet, skip for now (TODO: handle new building construction)
                 logger.debug(f"Building {building_type} not yet available in village {village_id}")
                 continue
-            
+
             # Create BuildJob for this building
             job = BuildJob(
                 scheduled_time=datetime.now(),  # Can be adjusted based on priority
@@ -128,7 +142,7 @@ class DefendArmyPolicy(Strategy):
                 target_name=building_type.name,
                 target_level=building.level + 1,
             )
-            
+
             jobs.append({
                 "job": job,
                 "priority": priority,
@@ -136,38 +150,37 @@ class DefendArmyPolicy(Strategy):
                 "village_id": village_id,
                 "building_type": building_type,
             })
-        
+
         # Sort jobs by priority (descending)
         jobs.sort(key=lambda x: x["priority"], reverse=True)
-        
+
         # Log job planning summary
         logger.info(f"Planned {len(jobs)} jobs across {len(villages)} villages")
         for i, job_info in enumerate(jobs[:5]):  # Log top 5 jobs
             if isinstance(job_info, dict) and "building_type" in job_info:
                 logger.debug(f"  {i+1}. Village {job_info['village_id']}: {job_info['building_type'].name} "
                             f"(priority: {job_info['priority']:.1f}) - {job_info['reason']}")
-        
+
         # Return Job objects: extract from dicts and keep hero/questmaster jobs
         result_jobs = []
-        
+
         # Add extracted BuildJob objects from building recommendations
         for job_item in jobs:
             if isinstance(job_item, dict) and "job" in job_item:
                 result_jobs.append(job_item["job"])
-        
+
         # Add hero jobs and questmaster jobs
         result_jobs.extend(hero_jobs)
         result_jobs.extend(questmaster_jobs)
-        
+
         return result_jobs
 
     def _analyze_village_plan(
         self,
         village: Village,
-        game_state: GameState,
-        calculator: TravianCalculator,
         needs_marketplace: bool,
         residence_requirements: dict[str, int | float],
+        global_lowest_production: ResourceType
     ) -> dict:
         """
         Analyze a single village and determine optimal building/training plan.
@@ -183,12 +196,12 @@ class DefendArmyPolicy(Strategy):
 
         tribe = village.tribe
         troops_statistics = self.calculate_troops_statistics(tribe, village.troops)
-        
+
         barracks = village.get_building(BuildingType.BARRACKS)
         stable = village.get_building(BuildingType.STABLE)
         barracks_level = barracks.level if barracks else 0
         stable_level = stable.level if stable else 0
-        
+
         hourly_production = Resources(
             lumber=village.lumber_hourly_production,
             clay=village.clay_hourly_production,
@@ -198,9 +211,9 @@ class DefendArmyPolicy(Strategy):
 
         trainable_units = self.estimate_trainable_units_per_hour(tribe, hourly_production)
         trainable_units_statistics = self.calculate_troops_statistics(tribe, trainable_units)
-        
+
         military_building_priorities = self.estimate_military_building_priority(village, tribe)
-        
+
         military_analysis = {
             "current_strength": {
                 "total_attack": troops_statistics.get("attack", 0),
@@ -222,13 +235,13 @@ class DefendArmyPolicy(Strategy):
             },
             "building_priorities": military_building_priorities,
         }
-        
+
         # === ECONOMY ANALYSIS ===
-        
+
         dev_stage = self.estimate_village_development_stage(village)
-        
-        economy_upgrades = self.plan_economy_upgrades(village)
-        
+
+        economy_upgrades = self.plan_economy_upgrades(village, global_lowest_production)
+
         economy_analysis = {
             "development_stage": dev_stage,
             "hourly_production": Resources(
@@ -239,20 +252,20 @@ class DefendArmyPolicy(Strategy):
             ),
             "building_upgrades": economy_upgrades,
         }
-        
+
         # === MERCHANT ANALYSIS ===
-        
+
         merchants_needed = self.calculate_merchants_needed(village)
-        
+
         merchant_analysis = {
             "merchants_needed": merchants_needed,
             "needs_marketplace": needs_marketplace,
             "marketplace_level": village.get_building(BuildingType.MARKETPLACE).level
                 if village.get_building(BuildingType.MARKETPLACE) else 0,
         }
-        
+
         # === RESIDENCE/SETTLER ANALYSIS ===
-        
+
         residence_analysis = {
             "days_to_next_village": residence_requirements.get("days_to_next_village", 999),
             "residence_priority": residence_requirements.get("priority", 0.0),
@@ -265,7 +278,7 @@ class DefendArmyPolicy(Strategy):
                 "available": residence_requirements.get("village_slots_available", 0),
             },
         }
-        
+
         return {
             "village_id": village.id,
             "military": military_analysis,
@@ -326,13 +339,13 @@ class DefendArmyPolicy(Strategy):
         for plan in village_plans:
             village_id = plan["village_id"]
             military_priorities = plan["military"]["building_priorities"]
-            
+
             for building_type, priority_value in military_priorities.items():
                 if priority_value > 0:
                     recommendations.append({
                         "village_id": village_id,
                         "building_type": building_type,
-                        "priority": 1000.0 + priority_value,
+                        "priority": priority_value,
                         "reason": f"Military building critical for defense - {building_type.name}",
                         "category": "military",
                     })
@@ -345,14 +358,14 @@ class DefendArmyPolicy(Strategy):
 
         for plan in village_plans:
             village_id = plan["village_id"]
-            economy_upgrades = plan["economy"]["building_upgrades"]
-            
-            for building_type, priority_value in economy_upgrades:
+            economy_upgrades: list[PrioritizedJob] = plan["economy"]["building_upgrades"]
+
+            for prioritized_job in economy_upgrades:
                 recommendations.append({
                     "village_id": village_id,
-                    "building_type": building_type,
-                    "priority": 500.0 + priority_value,
-                    "reason": f"Economy upgrade to increase production - {building_type.name}",
+                    "building_type": prioritized_job.building_type,
+                    "priority": prioritized_job.priority,
+                    "reason": f"Economy upgrade to increase production - {prioritized_job.building_type.name}",
                     "category": "economy",
                 })
 
@@ -418,11 +431,11 @@ class DefendArmyPolicy(Strategy):
         :return: Dictionary mapping village_id to dict of (BuildingType -> priority_coefficient)
         """
         building_priorities: dict[int, dict[BuildingType, float]] = {}
-        
+
         for village in villages:
             priorities = self.estimate_military_building_priority(village, village.tribe)
             building_priorities[village.id] = priorities
-        
+
         return building_priorities
 
 
@@ -478,120 +491,127 @@ class DefendArmyPolicy(Strategy):
         ...
 
     def plan_economy_upgrades(
-        self, village: Village, planned_units: dict[str, int] | None = None
-    ) -> list[tuple[BuildingType, float]]:
-        """
-        Plan economy building upgrades for a village based on its development stage.
-        
-        Returns a list of building upgrades sorted by priority (highest first).
-        Each tuple contains (BuildingType, priority_coefficient).
-        
-        **Economy Development Stages:**
-        
-        **EARLY STAGE** (any primary pit < level 5):
-        - Phase 1: Build all resource pits (woodcutter, clay_pit, iron_mine) to level 2
-        - Upgrade main building to level 5
-        - Upgrade warehouse/granary to hold 12h production
-        - Phase 2: Crop only if free_crop is too low (< 0.1 ratio to hourly production)
-        - Upgrade all primary pits to level 5
-        
-        **MID STAGE** (all primary pits >= level 5):
-        - Continue upgrading primary pits towards max village level
-        - Build/upgrade secondary production buildings (sawmill, brickyard, iron_foundry)
-        - Balance resource proportions based on planned unit costs
-        - For Legionnaires: iron costs 150, lumber 120 (highest priorities)
-        - For Phalanx: clay costs 130, lumber 100
-        
-        **ADVANCED STAGE** (at least one resource fully developed):
-        - Primary pits only upgraded if that resource has > 30% proportion in unit costs
-        - Prioritize secondary buildings to maximum level
-        - Specialize production based on planned military units
-        
-        **Resource Proportion Calculation:**
-        When units are specified, production targets are proportionally adjusted:
-        - Legionnaire: 120 lumber + 100 clay + 150 iron + 30 crop = heavy on iron
-        - Empty unit list: balanced 25% each
-        
-        :param village: The village to plan for
-        :param planned_units: Optional dict mapping unit name to quantity (e.g., {"Legionnaire": 100})
-        :return: List of (BuildingType, priority) tuples sorted by priority (descending)
-        """
+        self, village: Village, global_lowest_production: ResourceType, planned_units: dict[str, int] | None = None
+    ) -> list[PrioritizedJob]:
         dev_stage = self.estimate_village_development_stage(village)
-        
-        if dev_stage == 'early':
-            return self.plan_economy_upgrades_early_stage(village)
-        elif dev_stage == 'mid':
-            return self.plan_economy_upgrades_mid_stage(village, planned_units or {})
-        else:  # advanced
-            return self.plan_economy_upgrades_advanced_stage(village, planned_units or {})
 
-    def plan_economy_upgrades_early_stage(
-        self, village: Village
-    ) -> list[tuple[BuildingType, float]]:
+        match dev_stage:
+            case 'early':
+                return self.plan_economy_upgrades_early_stage(village, global_lowest_production)
+            case 'mid':
+                return self.plan_economy_upgrades_mid_stage(village, global_lowest_production, planned_units or {})
+            case _:  # advanced
+                return self.plan_economy_upgrades_advanced_stage(village, global_lowest_production, planned_units or {})
+
+    def plan_economy_upgrades_early_stage(self, village: Village, global_lowest_production: ResourceType) -> list[PrioritizedJob]:
         """
-        Plan economy upgrades for early stage village.
-        
-        Phase 1 (levels 2):
-        - Build all primary resource pits to level 2 (woodcutter, clay_pit, iron_mine)
-        - Upgrade main building to level 5
-        - Upgrade warehouse and granary to hold 12h production
-        
-        Phase 2 (levels 2->5):
-        - Upgrade crop only if free_crop is too low (ratio < 0.1 to hourly production)
-        - Upgrade all primary resource pits to level 5
-        - Maintain warehouse/granary capacity
-        
+        Plan economy upgrades for early-stage village.
+
+        Priority order:
+        1. Crop if free_crop < 5 (priority 1000)
+        2. Woodcutter, Clay Pit, Iron Mine to level 2 (priority 700, ordered by lowest level)
+        3. Warehouse/Granary if capacity < 12h production (priority 500)
+        4. All resource pits according to global_lowest_production (priority 100)
+
         :param village: The village to plan for
-        :return: List of (BuildingType, priority) tuples sorted by priority
+        :param global_lowest_production: The resource type with lowest global production
+        :return: List of PrioritizedJob sorted by priority (highest first)
         """
-        upgrades: dict[BuildingType, float] = {}
-        priority_counter = 1000  # Start with high priority
-        
-        # === PHASE 1: Get pits to level 2 ===
-        primary_pits = [BuildingType.WOODCUTTER, BuildingType.CLAY_PIT, BuildingType.IRON_MINE]
-        
-        for pit_type in primary_pits:
-            pit = village.get_building(pit_type)
-            pit_level = pit.level if pit else 0
-            
-            if pit_level < 2:
-                upgrades[pit_type] = float(priority_counter)
-                priority_counter -= 100
-        
-        # === Upgrade main building to level 5 ===
-        main_building = village.get_building(BuildingType.MAIN_BUILDING)
-        main_level = main_building.level if main_building else 0
-        
-        if main_level < 5:
-            # Lower priority than pits to level 2, but still high
-            upgrades[BuildingType.MAIN_BUILDING] = float(priority_counter)
-            priority_counter -= 100
-        
-        # === Ensure warehouse/granary can hold 12h production ===
-        # (This is handled separately in storage planning, keeping for now)
-        
-        # === PHASE 2: Upgrade pits to level 5 ===
-        for pit_type in primary_pits:
-            pit = village.get_building(pit_type)
-            pit_level = pit.level if pit else 0
-            
-            if 2 <= pit_level < 5:
-                upgrades[pit_type] = float(priority_counter)
-                priority_counter -= 50
-        
-        # === PHASE 2: Crop handling - only if free_crop is too low ===
-        cropland = village.get_building(BuildingType.CROPLAND)
-        crop_level = cropland.level if cropland else 0
-        
-        if village.needs_more_free_crop() and crop_level < 5:
-            upgrades[BuildingType.CROPLAND] = float(priority_counter)
-            priority_counter -= 30
-        
-        return sorted(upgrades.items(), key=lambda x: x[1], reverse=True)
+        jobs = [
+            *self._calculate_critical_crop_upgrade(village),
+            *self._calculate_primary_pits_to_level_2(village, global_lowest_production),
+            *self._calculate_storage_upgrades_for_12h_production(village),
+            *self._calculate_lowest_production_resource_upgrade(village, global_lowest_production),
+        ]
+
+        return sorted(jobs, reverse=True)
+
+    def _calculate_critical_crop_upgrade(self, village: Village) -> list[PrioritizedJob]:
+        """
+        Calculate cropland upgrade if free_crop < 5 with priority 1000.
+
+        :param village: The village to check
+        :return: List with PrioritizedJob or empty list
+        """
+        if village.free_crop < 5:
+            cropland = village.get_building(BuildingType.CROPLAND)
+            if cropland and cropland.level < village.max_source_pit_level():
+                return [PrioritizedJob(building_type=BuildingType.CROPLAND, priority=1000.0)]
+        return []
+
+    def _calculate_primary_pits_to_level_2(self, village: Village, global_lowest_production: ResourceType) -> list[PrioritizedJob]:
+        """
+        Calculate woodcutter, clay pit, and iron mine upgrades to level 2 with priority 700.
+        Only if free_crop >= 5. Ordered by lowest level first.
+
+        :param village: The village to check
+        :return: List of PrioritizedJob or empty list
+        """
+        if village.free_crop < 5:
+            return []
+
+        pit = village.get_resource_pit(global_lowest_production)
+        if pit.level < 2:
+            building_type = BuildingType.from_gid(pit.type.gid)
+            return [PrioritizedJob(building_type=building_type, priority=700.0)]
+
+        return []
+
+    def _calculate_storage_upgrades_for_12h_production(self, village: Village) -> list[PrioritizedJob]:
+        """
+        Calculate warehouse/granary upgrades if capacity < 12h production with priority 500.
+
+        :param village: The village to check
+        :return: List of PrioritizedJob or empty list
+        """
+        jobs: list[PrioritizedJob] = []
+
+        hourly_resources_production = (
+            village.lumber_hourly_production +
+            village.clay_hourly_production +
+            village.iron_hourly_production
+        )
+        resources_12h_production = hourly_resources_production * 12
+
+        if village.warehouse_capacity < resources_12h_production:
+            jobs.append(PrioritizedJob(building_type=BuildingType.WAREHOUSE, priority=500.0))
+
+        crop_12h_production = village.crop_hourly_production * 12
+
+        if village.granary_capacity < crop_12h_production:
+            jobs.append(PrioritizedJob(building_type=BuildingType.GRANARY, priority=500.0))
+
+        return jobs
+
+    def _calculate_lowest_production_resource_upgrade(
+        self,
+        village: Village,
+        global_lowest_production: ResourceType
+    ) -> list[PrioritizedJob]:
+        """
+        Calculate resource pit upgrade for the globally lowest production resource with priority 100.
+
+        :param village: The village to check
+        :param global_lowest_production: The resource type with lowest global production
+        :return: List with PrioritizedJob or empty list
+        """
+        resource_to_building = {
+            ResourceType.LUMBER: BuildingType.WOODCUTTER,
+            ResourceType.CLAY: BuildingType.CLAY_PIT,
+            ResourceType.IRON: BuildingType.IRON_MINE,
+            ResourceType.CROP: BuildingType.CROPLAND,
+        }
+
+        target_building_type = resource_to_building.get(global_lowest_production)
+        target_building = village.get_building(target_building_type)
+        if target_building and target_building.level < village.max_source_pit_level():
+            return [PrioritizedJob(building_type=target_building_type, priority=100.0)]
+
+        return []
 
     def plan_economy_upgrades_mid_stage(
-        self, village: Village, planned_units: dict[str, int]
-    ) -> list[tuple[BuildingType, float]]:
+        self, village: Village, global_lowest_production: ResourceType, planned_units: dict[str, int]
+    ) -> list[PrioritizedJob]:
         """
         Plan economy upgrades for mid-stage village.
         
@@ -604,72 +624,70 @@ class DefendArmyPolicy(Strategy):
         
         :param village: The village to plan for
         :param planned_units: Dict mapping unit name to quantity (e.g., {"Legionnaire": 100})
-        :return: List of (BuildingType, priority) tuples sorted by priority
+        :return: List of PrioritizedJob sorted by priority (highest first)
         """
-        upgrades: dict[BuildingType, float] = {}
-        priority_counter = 1000
-        
+        jobs: list[PrioritizedJob] = []
+
         # Get target resource proportions based on planned units
         resource_proportions = self.estimate_resource_production_proportions(planned_units)
-        
+
         # === Primary resource pits to level 10 (or village max) ===
         primary_pits = {
             BuildingType.WOODCUTTER: ResourceType.LUMBER,
             BuildingType.CLAY_PIT: ResourceType.CLAY,
             BuildingType.IRON_MINE: ResourceType.IRON,
         }
-        
+
         max_pit_level = village.max_source_pit_level()
-        
+
         for pit_type, resource_type in primary_pits.items():
             pit = village.get_building(pit_type)
             pit_level = pit.level if pit else 0
-            
+
             if pit_level < max_pit_level:
                 # Priority based on target proportion for this resource
                 proportion = resource_proportions.get(resource_type, 0.25)
                 # Higher proportion = higher priority
-                priority = 500 + (proportion * 300)
-                upgrades[pit_type] = priority
-                priority_counter -= 50
-        
+                priority = 500.0 + (proportion * 300.0)
+                jobs.append(PrioritizedJob(building_type=pit_type, priority=priority))
+
         # === Secondary production buildings (sawmill, brickyard, iron_foundry) ===
         secondary_buildings = [
             (BuildingType.SAWMILL, ResourceType.LUMBER),
             (BuildingType.BRICKYARD, ResourceType.CLAY),
             (BuildingType.IRON_FOUNDRY, ResourceType.IRON),
         ]
-        
+
         for building_type, resource_type in secondary_buildings:
             building = village.get_building(building_type)
             building_level = building.level if building else 0
-            
+
             if building is None:
                 # Not yet built
                 proportion = resource_proportions.get(resource_type, 0.25)
-                priority = 300 + (proportion * 150)
-                upgrades[building_type] = priority
+                priority = 300.0 + (proportion * 150.0)
+                jobs.append(PrioritizedJob(building_type=building_type, priority=priority))
             elif building_level < 5:
                 # Upgrade existing
                 proportion = resource_proportions.get(resource_type, 0.25)
-                priority = 250 + (proportion * 100)
-                upgrades[building_type] = priority
-        
+                priority = 250.0 + (proportion * 100.0)
+                jobs.append(PrioritizedJob(building_type=building_type, priority=priority))
+
         # === Crop handling - balanced approach ===
         cropland = village.get_building(BuildingType.CROPLAND)
         crop_level = cropland.level if cropland else 0
-        
+
         if crop_level < max_pit_level:
             # Crop priority based on its proportion in unit costs
             crop_proportion = resource_proportions.get(ResourceType.CROP, 0.25)
-            priority = 200 + (crop_proportion * 200)
-            upgrades[BuildingType.CROPLAND] = priority
-        
-        return sorted(upgrades.items(), key=lambda x: x[1], reverse=True)
+            priority = 200.0 + (crop_proportion * 200.0)
+            jobs.append(PrioritizedJob(building_type=BuildingType.CROPLAND, priority=priority))
+
+        return sorted(jobs, reverse=True)
 
     def plan_economy_upgrades_advanced_stage(
-        self, village: Village, planned_units: dict[str, int]
-    ) -> list[tuple[BuildingType, float]]:
+            self, village: Village, global_lowest_production: ResourceType, planned_units: dict[str, int]
+    ) -> list[PrioritizedJob]:
         """
         Plan economy upgrades for advanced-stage village.
         
@@ -682,59 +700,58 @@ class DefendArmyPolicy(Strategy):
         
         :param village: The village to plan for
         :param planned_units: Dict mapping unit name to quantity
-        :return: List of (BuildingType, priority) tuples sorted by priority
+        :return: List of PrioritizedJob sorted by priority (highest first)
         """
-        upgrades: dict[BuildingType, float] = {}
-        priority_counter = 1000
-        
+        jobs: list[PrioritizedJob] = []
+
         resource_proportions = self.estimate_resource_production_proportions(planned_units)
         max_pit_level = village.max_source_pit_level()
-        
+
         # === Secondary buildings to maximum level ===
         secondary_buildings = [
             (BuildingType.SAWMILL, ResourceType.LUMBER),
             (BuildingType.BRICKYARD, ResourceType.CLAY),
             (BuildingType.IRON_FOUNDRY, ResourceType.IRON),
         ]
-        
+
         for building_type, resource_type in secondary_buildings:
             building = village.get_building(building_type)
             building_level = building.level if building else 0
-            
+
             if building_level < 5:
                 # Prioritize based on specialization needs
                 proportion = resource_proportions.get(resource_type, 0.25)
-                priority = 500 + (proportion * 300)
-                upgrades[building_type] = priority
-        
+                priority = 500.0 + (proportion * 300.0)
+                jobs.append(PrioritizedJob(building_type=building_type, priority=priority))
+
         # === Specialty: boost primary pits for specialized resources ===
         primary_pits = {
             BuildingType.WOODCUTTER: ResourceType.LUMBER,
             BuildingType.CLAY_PIT: ResourceType.CLAY,
             BuildingType.IRON_MINE: ResourceType.IRON,
         }
-        
+
         # Only upgrade pits if they're below max AND the resource has high proportion
         for pit_type, resource_type in primary_pits.items():
             pit = village.get_building(pit_type)
             pit_level = pit.level if pit else 0
-            
+
             proportion = resource_proportions.get(resource_type, 0.25)
-            
+
             # Upgrade pits with high resource proportion to maximum
             if pit_level < max_pit_level and proportion > 0.30:
-                priority = 300 + (proportion * 200)
-                upgrades[pit_type] = priority
-        
+                priority = 300.0 + (proportion * 200.0)
+                jobs.append(PrioritizedJob(building_type=pit_type, priority=priority))
+
         # === Crop to comfortable level ===
         cropland = village.get_building(BuildingType.CROPLAND)
         crop_level = cropland.level if cropland else 0
-        
+
         if crop_level < max_pit_level:
             # Lower priority at this stage, but still upgrade
-            upgrades[BuildingType.CROPLAND] = 100.0
-        
-        return sorted(upgrades.items(), key=lambda x: x[1], reverse=True)
+            jobs.append(PrioritizedJob(building_type=BuildingType.CROPLAND, priority=100.0))
+
+        return sorted(jobs, reverse=True)
 
     @staticmethod
     def _is_building_in_center(building_name: str) -> bool:
