@@ -126,9 +126,11 @@ class DefendArmyPolicy(Strategy):
             # Get or create the building
             building = village.get_building(building_type)
             if building is None:
-                # Building doesn't exist yet, skip for now (TODO: handle new building construction)
-                logger.debug(f"Building {building_type} not yet available in village {village_id}")
-                continue
+                free_slot = village.find_free_building_slot()
+                if not free_slot:
+                    logger.debug(f"Skipping {building_type.name} in village {village_id}: no free building slot")
+                    continue
+                building = Building(id=free_slot, level=1, type=building_type)
 
             # Create BuildJob for this building
             job = BuildJob(
@@ -533,7 +535,7 @@ class DefendArmyPolicy(Strategy):
         :param village: The village to check
         :return: List with PrioritizedJob or empty list
         """
-        if village.free_crop < 5:
+        if village.free_crop <= 5:
             cropland = village.get_building(BuildingType.CROPLAND)
             if cropland and cropland.level < village.max_source_pit_level():
                 return [PrioritizedJob(building_type=BuildingType.CROPLAND, priority=1000.0)]
@@ -561,17 +563,16 @@ class DefendArmyPolicy(Strategy):
         """
         Calculate warehouse/granary upgrades if capacity < 12h production with priority 500.
 
+        In Travian, each resource (lumber, clay, iron) has separate storage in warehouse,
+        so we check if ANY resource's 12h production exceeds warehouse capacity.
+
         :param village: The village to check
         :return: List of PrioritizedJob or empty list
         """
         jobs: list[PrioritizedJob] = []
 
-        hourly_resources_production = (
-            village.lumber_hourly_production +
-            village.clay_hourly_production +
-            village.iron_hourly_production
-        )
-        resources_12h_production = hourly_resources_production * 12
+        # Check each resource separately - each has its own limit in warehouse
+        resources_12h_production = max(village.lumber_hourly_production, village.clay_hourly_production, village.iron_hourly_production) * 12
 
         if village.warehouse_capacity < resources_12h_production:
             jobs.append(PrioritizedJob(building_type=BuildingType.WAREHOUSE, priority=500.0))

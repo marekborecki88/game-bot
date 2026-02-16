@@ -182,3 +182,13 @@ class Village:
                 return self.iron_hourly_production
             case ResourceType.CROP:
                 return self.crop_hourly_production
+
+    def find_free_building_slot(self) -> int | None:
+        if len(self.buildings) == 20:
+            return None
+        ids = [i.id for i in self.buildings]
+        for i in range(18, 39):
+            if i not in ids:
+                return i
+        return None # because python wants
+
