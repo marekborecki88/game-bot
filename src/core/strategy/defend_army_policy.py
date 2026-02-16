@@ -4,8 +4,6 @@ from src.core.model.game_state import GameState
 from src.core.model.model import ResourceType, Building, BuildingType, BuildingCost, Resources
 from src.core.model.village import Village
 from src.core.strategy.strategy import Strategy
-from src.core.job.build_job import BuildJob
-from datetime import datetime, timedelta
 from dataclasses import dataclass
 import logging
 
@@ -132,17 +130,15 @@ class DefendArmyPolicy(Strategy):
                     continue
                 building = Building(id=free_slot, level=1, type=building_type)
 
-            # Create BuildJob for this building
-            job = BuildJob(
-                scheduled_time=datetime.now(),  # Can be adjusted based on priority
-                success_message=f"Built/upgraded {building_type.name} in village {village.name}",
-                failure_message=f"Failed to build/upgrade {building_type.name} in village {village.name}",
-                village_name=village.name,
-                village_id=village_id,
+            # Create BuildJob for this building using the shared method
+            job = self._create_build_job(
+                village=village,
                 building_id=building.id,
                 building_gid=building_type.gid,
                 target_name=building_type.name,
                 target_level=building.level + 1,
+                hero_info=game_state.hero_info,
+                calculator=calculator,
             )
 
             jobs.append({

@@ -1,15 +1,19 @@
 from typing import Protocol
-from datetime import datetime
+from datetime import datetime, timedelta
+import logging
+import math
 
 from src.config.config import HeroConfig, LogicConfig
 from src.core.calculator.calculator import TravianCalculator
 from src.core.model.game_state import GameState
-from src.core.model.model import Resources, BuildingType, Tribe, HeroInfo
+from src.core.model.model import Resources, BuildingType, Tribe, HeroInfo, BuildingCost, ReservationStatus
 from src.core.model.village import Village
 from src.core.model.units import get_unit_by_name, get_units_for_tribe
 from src.core.job.job import Job
 from src.core.model.model import ResourceType
-from src.core.job import HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob
+from src.core.job import HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildJob
+
+logger = logging.getLogger(__name__)
 
 
 class Strategy(Protocol):
@@ -568,3 +572,100 @@ class Strategy(Protocol):
                 if qm_job:
                     jobs.append(qm_job)
         return jobs
+
+    def _create_build_job(
+        self,
+        village: Village,
+        building_id: int,
+        building_gid: int,
+        target_name: str,
+        target_level: int,
+        hero_info: HeroInfo,
+        calculator: TravianCalculator,
+    ) -> Job:
+        """Create a build job. If resources are insufficient, compute delay based on hourly production
+        (village + hero inventory) and schedule job in the future. Also set village.is_queue_building_freeze
+        when scheduling a future job to prevent duplicate planning.
+
+        :param village: Village where the building will be constructed
+        :param building_id: ID of the building slot
+        :param building_gid: Game ID of the building type
+        :param target_name: Name of the building
+        :param target_level: Target level for the building
+        :param hero_info: Hero information for resource reservation
+        :param calculator: Calculator for building costs
+        :return: BuildJob with appropriate scheduling and resource support
+        """
+        now = datetime.now()
+
+        building_cost: BuildingCost = calculator.get_building_details(building_gid, target_level)
+        duration: int = building_cost.time_seconds
+        reservation_request = village.create_reservation_request(building_cost)
+
+        if reservation_request.is_empty():
+            # No shortages -> immediate job
+            return BuildJob(
+                success_message=f"construction of {target_name} level {target_level} in {village.name} started",
+                failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
+                village_name=village.name,
+                village_id=village.id,
+                building_id=building_id,
+                building_gid=building_gid,
+                target_name=target_name,
+                target_level=target_level,
+                support=None,
+                scheduled_time=now,
+                duration=duration,
+            )
+
+        # send reservation request to hero
+        response = hero_info.send_request(reservation_request)
+        support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
+
+        shortage = reservation_request - response.provided_resources
+        max_delay_seconds = self._calculate_delay(shortage, village)
+
+        scheduled = now
+        freeze_until: datetime | None = None
+        freeze_queue_key: str | None = None
+        if not shortage.is_empty():
+            scheduled += timedelta(seconds=max_delay_seconds)
+            freeze_until = scheduled + timedelta(seconds=duration)
+            # Mark village queue frozen to avoid duplicate scheduling
+            freeze_queue_key = village.building_queue.queue_key_for_building_name(target_name)
+            village.freeze_building_queue_until(freeze_until, freeze_queue_key, job_id=None)
+
+        job = BuildJob(
+            success_message=f"construction of {target_name} level {target_level} in {village.name} started",
+            failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
+            village_name=village.name,
+            village_id=village.id,
+            building_id=building_id,
+            building_gid=building_gid,
+            target_name=target_name,
+            target_level=target_level,
+            support=support,
+            scheduled_time=scheduled,
+            duration=duration,
+            freeze_until=freeze_until,
+            freeze_queue_key=freeze_queue_key,
+        )
+
+        if not shortage.is_empty():
+            logger.info(
+                f"Scheduling build job for {village.name} {target_name} level {target_level} "
+                f"in the future at {scheduled} due to resource shortage: {shortage}, "
+                f"max delay seconds: {max_delay_seconds}"
+            )
+
+        return job
+
+    def _calculate_delay(self, shortage: Resources, village: Village) -> int:
+        """Calculate delay in seconds based on resource shortage and village production.
+
+        :param shortage: Resources that are needed
+        :param village: Village with resource production
+        :return: Delay in seconds
+        """
+        village_production = shortage / village.resources_hourly_production()
+        return math.ceil(village_production.max() * 3600)
