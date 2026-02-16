@@ -129,6 +129,25 @@ class DefendArmyPolicy(Strategy):
                     logger.debug(f"Skipping {building_type.name} in village {village_id}: no free building slot")
                     continue
                 building = Building(id=free_slot, level=1, type=building_type)
+                job = self._create_build_job(
+                    village=village,
+                    building_id=building.id,
+                    building_gid=building_type.gid,
+                    target_name=building_type.name,
+                    target_level=building.level + 1,
+                    hero_info=game_state.hero_info,
+                    calculator=calculator,
+                    new=True
+                )
+
+                jobs.append({
+                    "job": job,
+                    "priority": priority,
+                    "reason": reason,
+                    "village_id": village_id,
+                    "building_type": building_type,
+                })
+
 
             # Create BuildJob for this building using the shared method
             job = self._create_build_job(

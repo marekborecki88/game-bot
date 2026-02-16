@@ -11,7 +11,8 @@ from src.core.model.village import Village
 from src.core.model.units import get_unit_by_name, get_units_for_tribe
 from src.core.job.job import Job
 from src.core.model.model import ResourceType
-from src.core.job import HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildJob
+from src.core.job import HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, \
+    BuildJob, BuildNewJob
 
 logger = logging.getLogger(__name__)
 
@@ -582,6 +583,7 @@ class Strategy(Protocol):
         target_level: int,
         hero_info: HeroInfo,
         calculator: TravianCalculator,
+        new = False
     ) -> Job:
         """Create a build job. If resources are insufficient, compute delay based on hourly production
         (village + hero inventory) and schedule job in the future. Also set village.is_queue_building_freeze
@@ -602,9 +604,11 @@ class Strategy(Protocol):
         duration: int = building_cost.time_seconds
         reservation_request = village.create_reservation_request(building_cost)
 
+        task = BuildNewJob if new else BuildJob
+
         if reservation_request.is_empty():
             # No shortages -> immediate job
-            return BuildJob(
+            return task(
                 success_message=f"construction of {target_name} level {target_level} in {village.name} started",
                 failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
                 village_name=village.name,
@@ -635,7 +639,9 @@ class Strategy(Protocol):
             freeze_queue_key = village.building_queue.queue_key_for_building_name(target_name)
             village.freeze_building_queue_until(freeze_until, freeze_queue_key, job_id=None)
 
-        job = BuildJob(
+
+
+        job = task(
             success_message=f"construction of {target_name} level {target_level} in {village.name} started",
             failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
             village_name=village.name,
