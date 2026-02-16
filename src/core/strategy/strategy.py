@@ -660,12 +660,14 @@ class Strategy(Protocol):
 
         return job
 
-    def _calculate_delay(self, shortage: Resources, village: Village) -> int:
+    def _calculate_delay(self, shortage: "Resources", village: Village) -> int:
         """Calculate delay in seconds based on resource shortage and village production.
 
         :param shortage: Resources that are needed
         :param village: Village with resource production
         :return: Delay in seconds
         """
+        if shortage.is_empty():
+            return 0
         village_production = shortage / village.resources_hourly_production()
         return math.ceil(village_production.max() * 3600)
