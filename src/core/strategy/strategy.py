@@ -207,7 +207,7 @@ class Strategy(Protocol):
 
         # Until all resource pits are at least level 5, we consider the village in early stage
         all_levels_below_5 = [p.level for p in village.resource_pits
-                              if p.type in buildings_by_resource_type.values() and p.level < 5]
+                              if p.type is not ResourceType.CROP and p.level < 5]
         if len(all_levels_below_5) > 0:
             return 'early'
 
