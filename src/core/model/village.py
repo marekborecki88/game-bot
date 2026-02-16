@@ -187,7 +187,7 @@ class Village:
         if len(self.buildings) == 20:
             return None
         ids = [i.id for i in self.buildings]
-        for i in range(18, 39):
+        for i in range(19, 39):
             if i not in ids:
                 return i
         return None # because python wants
