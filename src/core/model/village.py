@@ -84,14 +84,14 @@ class Village:
         return min(fields, key=lambda p: p.level)
 
     def upgradable_resource_pits(self) -> list["ResourcePit"]:
-        return [p for p in self.resource_pits if p.level < self.max_source_pit_level()]
+        return [p for p in self.resource_pits if p.level < self.max_resource_pit_level()]
 
     def needs_more_free_crop(self) -> bool:
 
         crop_ratio = 0 if self.crop_hourly_production == 0 else self.free_crop / self.crop_hourly_production
         return crop_ratio < 0.1 and self.any_crop_is_upgradable()
 
-    def max_source_pit_level(self):
+    def max_resource_pit_level(self):
         if self.is_permanent_capital:
             return 20
         if self.is_upgraded_to_city:
@@ -101,7 +101,7 @@ class Village:
     # TODO: better would be return particular id to upgrade
     def any_crop_is_upgradable(self):
         self_source_pits = [p for p in self.resource_pits if
-                            p.type == ResourceType.CROP and p.level < self.max_source_pit_level()]
+                            p.type == ResourceType.CROP and p.level < self.max_resource_pit_level()]
         return len(self_source_pits) > 0
 
     def create_reservation_request(self, building_cost: BuildingCost) -> Resources:

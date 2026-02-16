@@ -198,43 +198,26 @@ class Strategy(Protocol):
         :param village: The village to analyze
         :return: Development stage as string: 'early', 'mid', or 'advanced'
         """
-        # Get resource pit levels by type
-        pit_levels = {
-            ResourceType.LUMBER: [],
-            ResourceType.CLAY: [],
-            ResourceType.IRON: [],
-            ResourceType.CROP: [],
+
+        buildings_by_resource_type = {
+            ResourceType.LUMBER: BuildingType.WOODCUTTER,
+            ResourceType.CLAY: BuildingType.CLAY_PIT,
+            ResourceType.IRON: BuildingType.IRON_MINE,
         }
-        
-        for pit in village.resource_pits:
-            pit_levels[pit.type].append(pit.level)
-        
-        # Check for early stage: any primary resource pit < 5
-        for resource_type in [ResourceType.LUMBER, ResourceType.CLAY, ResourceType.IRON]:
-            if pit_levels[resource_type]:
-                min_level = min(pit_levels[resource_type])
-                if min_level < 5:
-                    return 'early'
-        
-        # Check for advanced stage - combinations of primary + secondary buildings
-        # Lumber: woodcutter (primary) + sawmill (secondary)
-        sawmill = village.get_building(BuildingType.SAWMILL)
-        sawmill_level = sawmill.level if sawmill else 0
-        if pit_levels[ResourceType.LUMBER] and min(pit_levels[ResourceType.LUMBER]) == 10 and sawmill_level >= 5:
-            return 'advanced'
-        
-        # Clay: clay_pit (primary) + brickyard (secondary)
-        brickyard = village.get_building(BuildingType.BRICKYARD)
-        brickyard_level = brickyard.level if brickyard else 0
-        if pit_levels[ResourceType.CLAY] and min(pit_levels[ResourceType.CLAY]) == 10 and brickyard_level >= 5:
-            return 'advanced'
-        
-        # Iron: iron_mine (primary) + iron_foundry (secondary)
-        iron_foundry = village.get_building(BuildingType.IRON_FOUNDRY)
-        iron_foundry_level = iron_foundry.level if iron_foundry else 0
-        if pit_levels[ResourceType.IRON] and min(pit_levels[ResourceType.IRON]) == 10 and iron_foundry_level >= 5:
-            return 'advanced'
-        
+
+        # Until all resource pits are at least level 5, we consider the village in early stage
+        all_levels_below_5 = [p.level for p in village.resource_pits
+                              if p.type in buildings_by_resource_type.values() and p.level < 5]
+        if len(all_levels_below_5) > 0:
+            return 'early'
+
+        # if one resource type is fully developed, we consider the village advanced
+        for rest_type, building_type in buildings_by_resource_type.items():
+            pits = [p.level for p in village.resource_pits if p.type == rest_type]
+            bonus_building = village.get_building(building_type)
+            if all(l >= 10 for l in pits) and bonus_building and bonus_building.level >= 5:
+                return 'advanced'
+
         # Otherwise mid stage
         return 'mid'
 

@@ -552,7 +552,7 @@ class DefendArmyPolicy(Strategy):
         """
         if village.free_crop <= 5:
             cropland = village.get_building(BuildingType.CROPLAND)
-            if cropland and cropland.level < village.max_source_pit_level():
+            if cropland and cropland.level < village.max_resource_pit_level():
                 return [PrioritizedJob(building_type=BuildingType.CROPLAND, priority=1000.0)]
         return []
 
@@ -620,7 +620,7 @@ class DefendArmyPolicy(Strategy):
 
         target_building_type = resource_to_building.get(global_lowest_production)
         target_building = village.get_building(target_building_type)
-        if target_building and target_building.level < village.max_source_pit_level():
+        if target_building and target_building.level < village.max_resource_pit_level():
             return [PrioritizedJob(building_type=target_building_type, priority=100.0)]
 
         return []
@@ -654,13 +654,11 @@ class DefendArmyPolicy(Strategy):
             BuildingType.IRON_MINE: ResourceType.IRON,
         }
 
-        max_pit_level = village.max_source_pit_level()
-
         for pit_type, resource_type in primary_pits.items():
             pit = village.get_building(pit_type)
             pit_level = pit.level if pit else 0
 
-            if pit_level < max_pit_level:
+            if pit_level < 10:
                 # Priority based on target proportion for this resource
                 proportion = resource_proportions.get(resource_type, 0.25)
                 # Higher proportion = higher priority
@@ -693,7 +691,7 @@ class DefendArmyPolicy(Strategy):
         cropland = village.get_building(BuildingType.CROPLAND)
         crop_level = cropland.level if cropland else 0
 
-        if crop_level < max_pit_level:
+        if crop_level < 10:
             # Crop priority based on its proportion in unit costs
             crop_proportion = resource_proportions.get(ResourceType.CROP, 0.25)
             priority = 200.0 + (crop_proportion * 200.0)
@@ -721,7 +719,7 @@ class DefendArmyPolicy(Strategy):
         jobs: list[PrioritizedJob] = []
 
         resource_proportions = self.estimate_resource_production_proportions(planned_units)
-        max_pit_level = village.max_source_pit_level()
+        max_pit_level = village.max_resource_pit_level()
 
         # === Secondary buildings to maximum level ===
         secondary_buildings = [
