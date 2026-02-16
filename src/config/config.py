@@ -28,8 +28,8 @@ class DriverConfig:
 @dataclass(frozen=True)
 class HeroAdventuresConfig:
     """Configuration for hero adventures."""
-    minimal_health: int
-    increase_difficulty: bool
+    minimal_health: int = 1
+    increase_difficulty: bool = False
 
 
 @dataclass(frozen=True)
@@ -62,16 +62,16 @@ class AttributeAllocation:
 @dataclass(frozen=True)
 class HeroResourcesConfig:
     """Configuration for hero resource gathering."""
-    support_villages: bool
-    attributes_ratio: AttributeAllocation
-    attributes_steps: AttributeAllocation
+    support_villages: bool = False
+    attributes_ratio: AttributeAllocation | None = None
+    attributes_steps: AttributeAllocation | None = None
 
 
 @dataclass(frozen=True)
 class HeroConfig:
     """Configuration for hero behavior and attributes."""
-    adventures: HeroAdventuresConfig
-    resources: HeroResourcesConfig
+    adventures: HeroAdventuresConfig = HeroAdventuresConfig()
+    resources: HeroResourcesConfig = HeroResourcesConfig()
 
 
 @dataclass(frozen=True)

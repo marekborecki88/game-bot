@@ -1,8 +1,9 @@
 import pytest
 from bs4 import BeautifulSoup
 
-from src.core.model.model import VillageBasicInfo, SourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
-    Tribe, HeroInfo, HeroAttributes, Village, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
+from src.core.model.model import VillageBasicInfo, ResourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
+    Tribe, HeroInfo, HeroAttributes, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
+from src.core.model.village import Village
 from src.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
@@ -52,45 +53,6 @@ def test_scan_village_list(dorf1_html):
     ]
     assert result == expected
 
-
-def test_scan_village_list_with_attack() -> None:
-    # Given
-    scanner = Scanner(server_speed=1)
-    html = """
-           <div class="dropContainer" data-sortid="village51246" data-sortlevel="0">
-               <div class="listEntry village active attack" data-did="51246" data-sortid="village51246">
-                   <a href="#" class="active">
-                       <div class="iconAndNameWrapper">
-                           <span class="incomingTroops" data-id="51246"
-                                 data-load-tooltip="incomingTroops"
-                                 data-load-tooltip-data="{&quot;villageIds&quot;:[51246]}">
-                           </span>
-                           <span
-                                   class="name" data-did="51246">Travix`s village
-                           </span>
-                       </div>
-                   </a>
-                   <span class="coordinatesGrid">&#x202D;
-                       <span
-                           class="coordinates coordinatesWrapper coordinatesAligned coordinatesltr"><span
-                           class="coordinateX">(&#x202D;104&#x202C;</span><span
-                           class="coordinatePipe">|</span><span class="coordinateY">&#x202D;104&#x202C;)</span>
-                       </span>&#x202C;
-                   </span>
-               </div>
-           </div>
-           """
-    soup = BeautifulSoup(html, "html.parser")
-    village_entry = soup.select_one('.listEntry.village')
-
-    # When
-    result = scanner._parse_village_entry(village_entry)
-
-    # Then
-    expected = VillageBasicInfo(id=51246, name="Travix`s village", coordinate_x=104, coordinate_y=104, is_under_attack=True)
-    assert result == expected
-
-
 def test_scan_village_source(dorf1_html):
     # Given
     scanner = Scanner(server_speed=1)
@@ -100,24 +62,24 @@ def test_scan_village_source(dorf1_html):
 
     # Then
     expected = [
-        SourcePit(id=1, type=ResourceType.LUMBER, level=8),
-        SourcePit(id=2, type=ResourceType.CROP, level=10),
-        SourcePit(id=3, type=ResourceType.CROP, level=0),
-        SourcePit(id=4, type=ResourceType.LUMBER, level=5),
-        SourcePit(id=5, type=ResourceType.CLAY, level=5),
-        SourcePit(id=6, type=ResourceType.CLAY, level=6),
-        SourcePit(id=7, type=ResourceType.IRON, level=5),
-        SourcePit(id=8, type=ResourceType.CROP, level=3),
-        SourcePit(id=9, type=ResourceType.CROP, level=5),
-        SourcePit(id=10, type=ResourceType.IRON, level=2),
-        SourcePit(id=11, type=ResourceType.IRON, level=5),
-        SourcePit(id=12, type=ResourceType.CROP, level=4),
-        SourcePit(id=13, type=ResourceType.CROP, level=5),
-        SourcePit(id=14, type=ResourceType.LUMBER, level=8),
-        SourcePit(id=15, type=ResourceType.CROP, level=3),
-        SourcePit(id=16, type=ResourceType.CLAY, level=7),
-        SourcePit(id=17, type=ResourceType.LUMBER, level=5),
-        SourcePit(id=18, type=ResourceType.CLAY, level=9)
+        ResourcePit(id=1, type=ResourceType.LUMBER, level=8),
+        ResourcePit(id=2, type=ResourceType.CROP, level=10),
+        ResourcePit(id=3, type=ResourceType.CROP, level=0),
+        ResourcePit(id=4, type=ResourceType.LUMBER, level=5),
+        ResourcePit(id=5, type=ResourceType.CLAY, level=5),
+        ResourcePit(id=6, type=ResourceType.CLAY, level=6),
+        ResourcePit(id=7, type=ResourceType.IRON, level=5),
+        ResourcePit(id=8, type=ResourceType.CROP, level=3),
+        ResourcePit(id=9, type=ResourceType.CROP, level=5),
+        ResourcePit(id=10, type=ResourceType.IRON, level=2),
+        ResourcePit(id=11, type=ResourceType.IRON, level=5),
+        ResourcePit(id=12, type=ResourceType.CROP, level=4),
+        ResourcePit(id=13, type=ResourceType.CROP, level=5),
+        ResourcePit(id=14, type=ResourceType.LUMBER, level=8),
+        ResourcePit(id=15, type=ResourceType.CROP, level=3),
+        ResourcePit(id=16, type=ResourceType.CLAY, level=7),
+        ResourcePit(id=17, type=ResourceType.LUMBER, level=5),
+        ResourcePit(id=18, type=ResourceType.CLAY, level=9)
     ]
 
     assert result == expected
@@ -211,8 +173,7 @@ def test_scan_village(dorf1_html, dorf2_html):
         clay_hourly_production=1040,
         iron_hourly_production=690,
         crop_hourly_production=1504,
-        free_crop_hourly_production=1503,
-        source_pits=result.source_pits,
+        resource_pits=result.resource_pits,
         buildings=result.buildings,
         building_queue=result.building_queue,
         is_under_attack=False,

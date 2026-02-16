@@ -7,6 +7,7 @@ existing `src.scan_adapter.scanner` functions.
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from bs4 import Tag, BeautifulSoup
@@ -14,17 +15,17 @@ from bs4 import Tag, BeautifulSoup
 from src.core.bot import CLASS_TO_RESOURCE_MAP
 from src.core.model.model import (
     VillageBasicInfo,
-    Village,
     HeroInfo,
     HeroAttributes,
     Account,
-    SourcePit,
+    ResourcePit,
     Building,
     BuildingJob,
     BuildingContract,
     Resources,
     Tribe, BuildingType, ResourceType, BuildingQueue, IncomingAttackInfo,
 )
+from src.core.model.village import Village
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
 HTML_PARSER = 'html.parser'
@@ -113,18 +114,11 @@ class Scanner(ScannerProtocol):
         coordinate_x = self._extract_number(entry, '.coordinateX')
         coordinate_y = self._extract_number(entry, '.coordinateY')
 
-        class_attr = entry.get('class', [])
-        classes = class_attr if isinstance(class_attr, list) else str(class_attr).split()
-        has_attack_class = "attack" in classes
-        has_attack_icon = entry.select_one(".incomingTroops svg.attack") is not None
-        is_under_attack = has_attack_class or has_attack_icon
-
         return VillageBasicInfo(
             id=int(village_id),
             name=name,
             coordinate_x=coordinate_x,
             coordinate_y=coordinate_y,
-            is_under_attack=is_under_attack,
         )
 
     def scan_village_list(self, html: str) -> list[VillageBasicInfo]:
@@ -194,7 +188,7 @@ class Scanner(ScannerProtocol):
             tribe=tribe,
             resources=resources,
             free_crop=stock.get("free_crop", 0),
-            source_pits=self.scan_village_source(dorf1),
+            resource_pits=self.scan_village_source(dorf1),
             buildings=self.scan_village_center(dorf2),
             building_queue=self.scan_building_queue(dorf1, parallel_building_allowed),
             warehouse_capacity=stock.get("warehouse_capacity", 0),
@@ -203,7 +197,6 @@ class Scanner(ScannerProtocol):
             clay_hourly_production=production.get("clay_hourly_production", 0),
             iron_hourly_production=production.get("iron_hourly_production", 0),
             crop_hourly_production=production.get("crop_hourly_production", 0),
-            free_crop_hourly_production=production.get("free_crop_hourly_production", 0),
             is_under_attack=village_basic_info.is_under_attack or incoming_attacks.attack_count > 0,
             incoming_attack_count=incoming_attacks.attack_count,
             next_attack_seconds=incoming_attacks.next_attack_seconds,
@@ -243,7 +236,7 @@ class Scanner(ScannerProtocol):
 
     def scan_hero_info(self, hero_html: str, inventory_html: str) -> HeroInfo:
         soup = BeautifulSoup(hero_html, HTML_PARSER)
-        # Try to find .stats, then fallback to .attributeBox .stats
+        # Try to find .stats with multiple fallbacks
         stats_container = soup.select_one(".stats")
         if not stats_container:
             stats_container = soup.select_one(".attributeBox .stats")
@@ -351,7 +344,7 @@ class Scanner(ScannerProtocol):
 
         return building_queue
 
-    def scan_village_source(self, html: str) -> list[SourcePit]:
+    def scan_village_source(self, html: str) -> list[ResourcePit]:
         soup = BeautifulSoup(html, HTML_PARSER)
         container = soup.select_one("#resourceFieldContainer")
         if not container:
@@ -380,7 +373,7 @@ class Scanner(ScannerProtocol):
             level_match = re.search(r'level(\d+)', class_str)
             level = int(level_match.group(1)) if level_match else 0
 
-            source_pits.append(SourcePit(
+            source_pits.append(ResourcePit(
                 id=field_id,
                 type=source_type,
                 level=level,

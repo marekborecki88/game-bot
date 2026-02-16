@@ -2,8 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from src.core.job.job import Job
+from src.core.model.model import Resources
 from src.core.protocols.driver_protocol import DriverProtocol
+import logging
 
+logger = logging.getLogger(__name__)
 
 @dataclass(kw_only=True)
 class BuildNewJob(Job):
@@ -12,6 +15,8 @@ class BuildNewJob(Job):
     building_id: int
     building_gid: int
     target_name: str
+    target_level: int
+    support:Resources | None = None
     freeze_until: datetime | None = None
     freeze_queue_key: str | None = None
 
@@ -46,4 +51,5 @@ class BuildNewJob(Job):
 
             return False
         except Exception:
+            logger.error("Error executing BuildNewJob", exc_info=True)
             return False

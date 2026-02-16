@@ -2,10 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-
 from playwright.sync_api import Page
-
-from src.config.config import DriverConfig
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +45,16 @@ class TileAbandonedValley(Tile):
     field_type: str = ""  # Translated: "5-4-3-6"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Resources:
     lumber: int | float = 0
     clay: int | float = 0
     iron: int | float = 0
     crop: int | float = 0
+
+    def total(self) -> int | float:
+        """Calculate the total of all resource types."""
+        return self.lumber + self.clay + self.iron + self.crop
 
     def __sub__(self, other):
         return Resources(
@@ -85,10 +86,46 @@ class Resources:
             crop=self.crop / other.crop
         )
 
+    def __mul__(self, multiplier: int) -> "Resources":
+        return Resources(
+            lumber=self.lumber * multiplier,
+            clay=self.clay * multiplier,
+            iron=self.iron * multiplier,
+            crop=self.crop * multiplier
+        )
 
+    def __floordiv__(self, other: "Resources") -> "Resources":
+        """
+        Divide resources by another Resources object (floor division).
+        Used for calculating how many items can be made from available resources.
+        If cost is 0 for a resource, it's unlimited (returns max int).
+        
+        :param other: Resource cost per item
+        :return: Resources with floor division results
+        """
+        return Resources(
+            lumber=self.lumber // other.lumber if other.lumber > 0 else float('inf'),
+            clay=self.clay // other.clay if other.clay > 0 else float('inf'),
+            iron=self.iron // other.iron if other.iron > 0 else float('inf'),
+            crop=self.crop // other.crop if other.crop > 0 else float('inf')
+        )
+
+    def count_how_many_can_be_made(self, cost: "Resources") -> float:
+        division_result = self / cost
+        values = [division_result.lumber, division_result.clay, division_result.iron, division_result.crop]
+        return int(min(values))
 
     def min(self):
         return min(self.lumber, self.clay, self.iron, self.crop)
+
+    def min_type(self):
+        resource_dict = {
+            ResourceType.LUMBER: self.lumber,
+            ResourceType.CLAY: self.clay,
+            ResourceType.IRON: self.iron,
+            ResourceType.CROP: self.crop,
+        }
+        return min(resource_dict, key=resource_dict.get)
 
     def max(self):
         return max(self.lumber, self.clay, self.iron, self.crop)
@@ -110,20 +147,19 @@ class Resources:
         return True
 
     def calculate_how_much_can_provide(self, request: "Resources") -> "Resources":
-        provided = Resources()
-        for source_type in vars(self).keys():
-            available = getattr(self, source_type)
-            requested = getattr(request, source_type)
-
-            transfer = min(available, requested)
-
-            setattr(provided, source_type, transfer)
-
-        return provided
+        """Calculate how much of each requested resource can be provided.
+        
+        Returns a new Resources object with the minimum of available or requested for each resource type.
+        """
+        return Resources(
+            lumber=min(self.lumber, request.lumber),
+            clay=min(self.clay, request.clay),
+            iron=min(self.iron, request.iron),
+            crop=min(self.crop, request.crop),
+        )
 
     def is_empty(self):
         return self.lumber == 0 and self.clay == 0 and self.iron == 0 and self.crop == 0
-
 
 @dataclass
 class BuildingCost:
@@ -158,6 +194,26 @@ def scan_contract(page: Page) -> BuildingContract:
 @dataclass
 class Account:
     when_beginners_protection_expires: int = 0
+    culture_points: int = 0
+    culture_points_per_day: float = 0.0
+    village_slots: int = 1
+
+    def days_to_new_village(self, culture_threshold: int = 10000) -> int:
+        """
+        Calculate the number of days until next village can be founded.
+        
+        :param culture_threshold: Culture points needed for a new village (default: 10000)
+        :return: Days remaining until threshold is reached (minimum 0)
+        """
+        if self.culture_points_per_day <= 0:
+            return 999  # Very large number if not producing culture
+        
+        points_needed = culture_threshold - self.culture_points
+        if points_needed <= 0:
+            return 0
+        
+        days_needed = points_needed / self.culture_points_per_day
+        return int(days_needed)
 
 
 class ReservationStatus(Enum):
@@ -295,139 +351,6 @@ class BuildingQueue:
         self.in_jobs = [job for job in self.in_jobs if job.job_id != job_id]
         self.out_jobs = [job for job in self.out_jobs if job.job_id != job_id]
 
-
-@dataclass
-class Village:
-    id: int
-    name: str
-    coordinates: tuple[int, int]
-    tribe: "Tribe"
-    resources: Resources
-    free_crop: int
-    source_pits: list["SourcePit"]
-    buildings: list["Building"]
-    warehouse_capacity: int
-    granary_capacity: int
-    building_queue: BuildingQueue
-    lumber_hourly_production: int = 0
-    clay_hourly_production: int = 0
-    iron_hourly_production: int = 0
-    crop_hourly_production: int = 0
-    free_crop_hourly_production: int = 0
-    is_upgraded_to_city: bool = False
-    is_permanent_capital: bool = False
-    has_quest_master_reward: bool = False
-    is_under_attack: bool = False
-    incoming_attack_count: int = 0
-    next_attack_seconds: int | None = None
-    troops: dict[str, int] = field(default_factory=dict)
-    last_train_time: datetime | None = None
-
-
-    def build(self, page: Page, driver_config: DriverConfig, id: int):
-        source_pit = next((s for s in self.source_pits if s.id == id), None)
-        if not source_pit:
-            return
-
-        page.goto(f"{driver_config.server_url}/build.php?id={id}&gid={source_pit.type.value}")
-        page.wait_for_selector("#contract ")
-
-        logger.info("Scanning building contract...")
-        contract = scan_contract(page)
-
-        logger.debug("Contract details: %s", contract)
-
-        # Click the upgrade button (first one, not the video feature button)
-        upgrade_button = page.locator("button.textButtonV1.green.build").first
-        upgrade_button.click()
-        logger.info("Clicked upgrade button")
-
-    def lowest_source(self) -> "ResourceType":
-        source_dict = {
-            ResourceType.LUMBER: self.resources.lumber,
-            ResourceType.CLAY: self.resources.clay,
-            ResourceType.IRON: self.resources.iron,
-            ResourceType.CROP: self.resources.crop,
-        }
-
-        return min(source_dict, key=source_dict.get)
-
-    def pit_with_lowest_level_building(self, lowest_source: "ResourceType"):
-        pits_with_given_type = [pit for pit in self.source_pits if pit.type == lowest_source]
-        return min(pits_with_given_type, key=lambda p: p.level)
-
-    def building_queue_duration(self) -> int:
-        return self.building_queue.duration
-
-    def get_building(self, building_type: "BuildingType") -> "Building | None":
-        return next((b for b in self.buildings if b.type == building_type), None)
-
-    def upgradable_source_pits(self) -> list["SourcePit"]:
-        return [p for p in self.source_pits if p.level < self.max_source_pit_level()]
-
-    def needs_more_free_crop(self) -> bool:
-
-        crop_ratio = 0 if self.crop_hourly_production == 0 else self.free_crop / self.crop_hourly_production
-        return crop_ratio < 0.1 and self.any_crop_is_upgradable()
-
-    def max_source_pit_level(self):
-        if self.is_permanent_capital:
-            return 20
-        if self.is_upgraded_to_city:
-            return 12
-        return 10
-
-    # TODO: better would be return particular id to upgrade
-    def any_crop_is_upgradable(self):
-        self_source_pits = [p for p in self.source_pits if
-                            p.type == ResourceType.CROP and p.level < self.max_source_pit_level()]
-        return len(self_source_pits) > 0
-
-    def create_reservation_request(self, building_cost: BuildingCost) -> Resources:
-        """Return shortages for a building cost based on current village resources.
-
-        Result is a dict keyed by SourceType with non-negative integer shortages
-        (cost - available, floored at 0). This is a pure calculation and does not
-        mutate village state.
-        """
-        return Resources(
-            lumber=max(0, building_cost.resources.lumber - self.resources.lumber),
-            clay=max(0, building_cost.resources.clay - self.resources.clay),
-            iron=max(0, building_cost.resources.iron - self.resources.iron),
-            crop=max(0, building_cost.resources.crop - self.resources.crop),
-        )
-
-    def resources_hourly_production(self) -> Resources:
-        return Resources(
-            lumber=self.lumber_hourly_production,
-            clay=self.clay_hourly_production,
-            iron=self.iron_hourly_production,
-            crop=self.crop_hourly_production,
-        )
-
-    def freeze_building_queue_until(self, until: datetime, queue_key: str, job_id: str | None) -> None:
-        self.building_queue.freeze_until(until=until, queue_key=queue_key, job_id=job_id)
-
-    def has_military_building_for_training(self):
-        military_buildings = [
-            BuildingType.BARRACKS,
-            # BuildingType.STABLE,
-            # BuildingType.WORKSHOP,
-        ]
-        return any(self.get_building(building_type) for building_type in military_buildings)
-
-    def con_train(self):
-        return self.building_queue.is_empty and self.has_military_building_for_training() and not self._is_train_queue_freeze()
-
-    def _is_train_queue_freeze(self) -> bool:
-        if not self.last_train_time:
-            return False
-        time_since_last_train = (datetime.now() - self.last_train_time).total_seconds()
-        # at least 15 minutes should pass between training sessions
-        return time_since_last_train < 15 * 60
-
-
-
 class BuildingType(Enum):
     # (gid, max_level)
     # Resources
@@ -494,6 +417,18 @@ class BuildingType(Enum):
                 return member
         raise ValueError(f"No {cls.__name__} with gid {gid}")
 
+economy_building_types = {
+    BuildingType.WOODCUTTER,
+    BuildingType.CLAY_PIT,
+    BuildingType.IRON_MINE,
+    BuildingType.CROPLAND,
+    BuildingType.SAWMILL,
+    BuildingType.BRICKYARD,
+    BuildingType.IRON_FOUNDRY,
+    BuildingType.GRAIN_MILL,
+    BuildingType.BAKERY,
+}
+
 
 class ResourceType(Enum):
     # (gid, max_level)
@@ -506,16 +441,27 @@ class ResourceType(Enum):
         self.gid = gid
         self.max_level = max_level
 
+    @staticmethod
+    def find_by_gid(gid: int) -> "ResourceType":
+        for member in ResourceType:
+            if member.gid == gid:
+                return member
+        raise ValueError(f"No ResourceType with id: {gid}")
+
 
 @dataclass
 class Building:
-    id: int
+    id: int | None # None for future buildings not yet built
     level: int
     type: BuildingType
 
+    @property
+    def has_max_level(self) -> bool:
+        return self.level == self.type.max_level
+
 
 @dataclass
-class SourcePit:
+class ResourcePit:
     id: int
     type: ResourceType
     level: int
@@ -550,13 +496,6 @@ class VillageBasicInfo:
 class IncomingAttackInfo:
     attack_count: int = 0
     next_attack_seconds: int | None = None
-
-
-@dataclass
-class GameState:
-    account: "Account"
-    villages: list[Village]
-    hero_info: "HeroInfo"
 
 
 class AttributePointType(Enum):

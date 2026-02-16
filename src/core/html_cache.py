@@ -1,5 +1,7 @@
 from typing import Dict, Optional, Tuple
 
+from src.core.model.model import VillageBasicInfo
+
 
 class HtmlCache:
     """Simple per-scan HTML cache keyed by (village_name, index).
@@ -8,13 +10,13 @@ class HtmlCache:
     """
 
     def __init__(self) -> None:
-        self._cache: Dict[Tuple[str, int], str] = {}
+        self._cache: Dict[Tuple[VillageBasicInfo, int], str] = {}
 
     def clear(self) -> None:
         self._cache.clear()
 
-    def get(self, village_identity: str, idx: int) -> Optional[str]:
-        return self._cache.get((village_identity, idx))
+    def get(self, village_basic_info: VillageBasicInfo, idx: int) -> Optional[str]:
+        return self._cache.get((village_basic_info, idx))
 
-    def set(self, village_identity: str, idx: int, html: str) -> None:
-        self._cache[(village_identity, idx)] = html
+    def set(self, village_basic_info: VillageBasicInfo, idx: int, html: str) -> None:
+        self._cache[(village_basic_info, idx)] = html

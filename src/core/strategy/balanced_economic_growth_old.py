@@ -1,19 +1,18 @@
 import logging
-import math
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime
 
 from src.core.calculator.calculator import TravianCalculator
 from src.config.config import HeroConfig, LogicConfig
 from src.core.job.train_job import TrainJob
-from src.core.model.model import ResourceType, Village, GameState, HeroInfo, Resources, BuildingType, ReservationStatus, \
-    BuildingJob, BuildingCost
-from src.core.strategy.Strategy import Strategy
+from src.core.model.game_state import GameState
+from src.core.model.model import ResourceType, HeroInfo, Resources, BuildingType, BuildingJob
+from src.core.model.village import Village
+from src.core.strategy.strategy import Strategy
 from src.core.job import Job, HeroAdventureJob, AllocateAttributesJob, CollectDailyQuestsJob, CollectQuestmasterJob, BuildNewJob, BuildJob, FoundNewVillageJob
 
 logger = logging.getLogger(__name__)
 
-class BalancedEconomicGrowth(Strategy):
+class BalancedEconomicGrowthOld(Strategy):
 
     def __init__(self, logic_config: LogicConfig, hero_config: HeroConfig):
         self.logic_config = logic_config
@@ -221,8 +220,15 @@ class BalancedEconomicGrowth(Strategy):
             return self._create_new_build_job(village, building_type.gid, building_type.name)
 
         if building and building.level < building_type.max_level:
-            return self._create_build_job(village, building.id, building_type.gid, building_type.name,
-                                          building.level + 1, hero_info=hero_info)
+            return self._create_build_job(
+                village=village,
+                building_id=building.id,
+                building_gid=building_type.gid,
+                target_name=building_type.name,
+                target_level=building.level + 1,
+                hero_info=hero_info,
+                calculator=self.calculator,
+            )
 
         # TODO: build next storage building if possible
         return None
@@ -266,7 +272,7 @@ class BalancedEconomicGrowth(Strategy):
             return None
 
     def _plan_source_pit_upgrade(self, village: Village, game_state: GameState, global_lowest: ResourceType | None) -> Job | None:
-        upgradable = village.upgradable_source_pits()
+        upgradable = village.upgradable_resource_pits()
         if not upgradable:
             return None
 
@@ -276,77 +282,20 @@ class BalancedEconomicGrowth(Strategy):
 
         pit = min(pits_to_consider, key=lambda p: p.level)
 
-        return self._create_build_job(village, pit.id, pit.type.gid, pit.type.name, pit.level + 1, hero_info=game_state.hero_info)
-
-    def _create_build_job(self, village: Village, building_id: int, building_gid: int, target_name: str,
-                          target_level: int, hero_info: HeroInfo) -> Job:
-        """Create a build job. If resources are insufficient, compute delay based on hourly production
-        (village + hero inventory) and schedule job in the future. Also set village.is_queue_building_freeze
-        when scheduling a future job to prevent duplicate planning.
-        """
-        now = datetime.now()
-
-        building_cost: BuildingCost = self.calculator.get_building_details(building_gid, target_level)
-        duration: int = building_cost.time_seconds
-        reservation_request = village.create_reservation_request(building_cost)
-
-        if reservation_request.is_empty():
-            # No shortages -> immediate job
-            return BuildJob(
-                success_message=f"construction of {target_name} level {target_level} in {village.name} started",
-                failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
-                village_name=village.name, village_id=village.id, building_id=building_id,
-                building_gid=building_gid, target_name=target_name, target_level=target_level,
-                support=None,
-                scheduled_time=now,
-                duration=duration
-            )
-
-        # send reservation request to hero
-        response = hero_info.send_request(reservation_request)
-        support = response.provided_resources if response.status is not ReservationStatus.REJECTED else None
-
-        shortage = reservation_request - response.provided_resources
-        max_delay_seconds = self.calculate_delay(shortage, village)
-
-        scheduled = now
-        freeze_until: datetime | None = None
-        freeze_queue_key: str | None = None
-        if not shortage.is_empty():
-            scheduled += timedelta(seconds=max_delay_seconds)
-            freeze_until = scheduled + timedelta(seconds=duration)
-            # Mark village queue frozen to avoid duplicate scheduling
-            freeze_queue_key = village.building_queue.queue_key_for_building_name(target_name)
-            village.freeze_building_queue_until(freeze_until, freeze_queue_key, job_id=None)
-
-        job = BuildJob(
-            success_message=f"construction of {target_name} level {target_level} in {village.name} started",
-            failure_message=f"construction of {target_name} level {target_level} in {village.name} failed",
-            village_name=village.name, village_id=village.id, building_id=building_id,
-            building_gid=building_gid, target_name=target_name, target_level=target_level,
-            support=support,
-            scheduled_time=scheduled,
-            duration=duration,
-            freeze_until=freeze_until,
-            freeze_queue_key=freeze_queue_key,
+        return self._create_build_job(
+            village=village,
+            building_id=pit.id,
+            building_gid=pit.type.gid,
+            target_name=pit.type.name,
+            target_level=pit.level + 1,
+            hero_info=game_state.hero_info,
+            calculator=self.calculator,
         )
-
-        if not shortage.is_empty():
-            logger.info(f"Scheduling build job for {village.name} {target_name} level {target_level} in the future at {scheduled} due to resource shortage: {shortage}, max delay seconds: {max_delay_seconds}")
-
-        return job
-
-
-
-    def calculate_delay(self, shortage: Resources, village: Village) -> int:
-        village_production = shortage / village.resources_hourly_production()
-
-        return math.ceil(village_production.max() * 3600)
 
     def plan_troop_training(self, calculator: TravianCalculator, village: Village) -> Job:
         # just for Legionnaire
         legionnaire_cost = Resources(lumber=120, clay=100, iron=150, crop=30)
-        quantity = min(vars(village.resources / legionnaire_cost).values()).__int__()
+        quantity = village.resources.count_how_many_can_be_made(legionnaire_cost)
 
         village.last_train_time = datetime.now()
 

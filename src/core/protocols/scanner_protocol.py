@@ -1,6 +1,7 @@
 from typing import Protocol
 
-from src.core.model.model import VillageBasicInfo, Village, HeroInfo, Account, IncomingAttackInfo
+from src.core.model.model import VillageBasicInfo, HeroInfo, Account, IncomingAttackInfo
+from src.core.model.village import Village
 
 
 class ScannerProtocol(Protocol):

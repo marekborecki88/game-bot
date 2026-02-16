@@ -46,6 +46,30 @@ class TimeT5w(TimeT5):
     def __init__(self):
         super().__init__(300, 0)
 
+# training building levels and their reduction factors for training time
+TRAININT_SPEEDS = {
+    1: 100,
+    2: 90,
+    3: 81,
+    4: 73,
+    5: 66,
+    6: 59,
+    7: 53,
+    8: 48,
+    9: 43,
+    10: 39,
+    11: 35,
+    12: 31,
+    13: 28,
+    14: 25,
+    15: 23,
+    16: 21,
+    17: 19,
+    18: 17,
+    19: 15,
+    20: 14,
+}
+
 BUILDINGS_DATA = [
     {"gid": 1, "name": "Woodcutter", "cost": [40, 100, 50, 60], "k": 1.67, "time": TimeT3(1780/3, 1.6, 1000/3)},
     {"gid": 2, "name": "Clay Pit", "cost": [80, 40, 80, 50], "k": 1.67, "time": TimeT3(1660/3, 1.6, 1000/3)},
@@ -151,6 +175,33 @@ T5_OVERRIDES = {
     43: {"name": "Natarian wall", "cost": [120, 200, 0, 80], "k": 1.28, "time": TimeT5b(11.4)},
 }
 
+production_per_level = {
+    0: 3,
+    1: 7,
+    2: 13,
+    3: 21,
+    4: 31,
+    5: 46,
+    6: 70,
+    7: 98,
+    8: 140,
+    9: 203,
+    10: 280,
+    11: 392,
+    12: 525,
+    13: 693,
+    14: 889,
+    15: 1120,
+    16: 1400,
+    17: 1820,
+    18: 2240,
+    19: 2800,
+    20: 3430,
+    21: 4270,
+    22: 5250
+}
+
+
 def round_mul(v, n):
     return round(v / n) * n
 
@@ -176,6 +227,11 @@ class TravianCalculator:
             for gid, overrides in T5_OVERRIDES.items():
                 if gid in self.buildings:
                     self.buildings[gid].update(overrides)
+
+    def production_improvement_by_upgrade_level(self, level: int) -> int:
+        current = production_per_level.get(level, 0)
+        future = production_per_level.get(level + 1, 0)
+        return (future - current) * self.speed
 
     def get_building_by_name(self, name):
         for b in self.buildings.values():
@@ -262,4 +318,26 @@ class TravianCalculator:
         minutes = (seconds % 3600) // 60
         seconds = seconds % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def calculate_unit_training_time(self, unit_training_time_seconds: int, building_level: int) -> int:
+        """
+        Calculate actual training time for a unit based on building level.
+        
+        :param unit_training_time_seconds: Base training time of the unit (at level 1 building)
+        :param building_level: Level of the training building (barracks, stable, or workshop)
+        :return: Actual training time in seconds
+        """
+        if building_level <= 0:
+            return 0
+
+        if building_level > 20:
+            building_level = 20
+
+        # Get speed multiplier from TRAININT_SPEEDS
+        speed_multiplier = TRAININT_SPEEDS.get(building_level, 100) / 100.0
+
+        # Calculate actual training time
+        actual_time = unit_training_time_seconds * speed_multiplier / self.speed
+
+        return max(0, round(actual_time))
 

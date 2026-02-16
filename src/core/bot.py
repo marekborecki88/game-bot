@@ -6,6 +6,9 @@ from datetime import datetime, timedelta
 from types import FrameType
 
 from src.config.config import LogicConfig, HeroConfig
+from src.core.model.game_state import GameState
+from src.core.model.model import HeroInfo
+from src.core.model.village import Village
 from src.core.protocols.driver_protocol import DriverProtocol
 from src.core.html_cache import HtmlCache
 from src.core.job.job import Job
@@ -13,7 +16,6 @@ from src.core.job.scheduler import ScheduledJobQueue
 from src.core.job.planning_job import PlanningJob
 from src.core.job.build_job import BuildJob
 from src.core.job.build_new_job import BuildNewJob
-from src.core.model.model import Village, GameState
 from src.core.planner.logic_engine import LogicEngine
 from src.core.protocols.scanner_protocol import ScannerProtocol
 
@@ -69,7 +71,6 @@ class Bot:
         # HTML cache keyed by (village_name, index) where index is 1 or 2
         self.html_cache = HtmlCache()
         # Remember active village name after create_game_state builds cache
-        self._active_village_name: str | None = None
         self._setup_signal_handlers()
         self._job_queue = ScheduledJobQueue()
         self._queue_freezes: dict[tuple[str, str], QueueFreeze] = {}
@@ -130,13 +131,7 @@ class Bot:
             logger.info(f"Next planning scheduled in {delay} seconds")
         except Exception as e:
             logger.error(f"Planning failed: {e}")
-            fallback_time = datetime.now() + timedelta(seconds=60)
-            self._job_queue.push(PlanningJob(
-                scheduled_time=fallback_time,
-                success_message=PLANNING_SUCCESS_MESSAGE,
-                failure_message=PLANNING_FAILURE_MESSAGE,
-                planning_context=self,
-            ))
+
 
     def _calculate_next_delay(self, game_state: GameState | None) -> int:
         if game_state is None:
@@ -222,23 +217,22 @@ class Bot:
         # Put active village pages into cache and remember active name
         self.html_cache.set(current_village, 1, dorf1_html)
         self.html_cache.set(current_village, 2, dorf2_html)
-        self._active_village_name = current_village
 
         # Prefetch other villages and fill cache
         for village in villages_identities:
             if village == current_village:
                 continue
             d1, d2 = self.driver.get_village_inner_html(village.id)
-            self.html_cache.set(village.name, 1, d1)
-            self.html_cache.set(village.name, 2, d2)
+            self.html_cache.set(village, 1, d1)
+            self.html_cache.set(village, 2, d2)
 
         # Build game state from cache
         account_info = self.scanner.scan_account_info(dorf1_html)
 
         villages = []
         for village in villages_identities:
-            d1 = self.html_cache.get(village.name, 1)
-            d2 = self.html_cache.get(village.name, 2)
+            d1 = self.html_cache.get(village, 1)
+            d2 = self.html_cache.get(village, 2)
             if d1 is None or d2 is None:
                 d1, d2 = self.driver.get_village_inner_html(village.id)
             village = self.scanner.scan_village(village, d1, d2)
@@ -249,7 +243,7 @@ class Bot:
 
         return GameState(hero_info=hero_info, account=account_info, villages=villages)
 
-    def fetch_hero_info(self):
+    def fetch_hero_info(self) -> HeroInfo:
         """Scan hero attributes and inventory and return HeroInfo."""
         logger.debug("Scanning hero info")
 
