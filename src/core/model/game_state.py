@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from src.core.model.model import HeroInfo, Resources, ResourceType
+from src.core.model.model import HeroInfo, Resources, ResourceType, Account
 from src.core.model.village import Village
 
 
@@ -25,4 +25,13 @@ class GameState:
         total_resources += self.hero_info.hero_inventory_resource()
 
         return total_resources.min_type()
+
+    def all_production_increased(self) -> bool:
+        return (
+            self.account.lumber_production_increased
+            and self.account.clay_production_increased
+            and self.account.iron_production_increased
+            and self.account.crop_production_increased
+        )
+
 

@@ -197,6 +197,10 @@ class Account:
     culture_points: int = 0
     culture_points_per_day: float = 0.0
     village_slots: int = 1
+    lumber_production_increased: bool = False
+    clay_production_increased: bool = False
+    iron_production_increased: bool = False
+    crop_production_increased: bool = False
 
     def days_to_new_village(self, culture_threshold: int = 10000) -> int:
         """

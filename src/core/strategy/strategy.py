@@ -5,6 +5,8 @@ import math
 
 from src.config.config import HeroConfig, LogicConfig
 from src.core.calculator.calculator import TravianCalculator
+from src.core.job.increase_resources_production_by_watching_commercials import \
+    IncreaseResourcesProductionByWatchingCommercialsJob
 from src.core.model.game_state import GameState
 from src.core.model.model import Resources, BuildingType, Tribe, HeroInfo, BuildingCost, ReservationStatus
 from src.core.model.village import Village
@@ -540,6 +542,14 @@ class Strategy(Protocol):
             success_message="reward from quest master collected",
             failure_message="reward from quest master collection failed",
             village=village,
+            scheduled_time=now,
+        )
+
+    def create_increase_production_by_watching_commercials_job(self) -> Job:
+        now = datetime.now()
+        return IncreaseResourcesProductionByWatchingCommercialsJob(
+            success_message="commercials watched for production boost",
+            failure_message="failed to watch commercials for production boost",
             scheduled_time=now,
         )
 
