@@ -62,18 +62,18 @@ class DefendArmyPolicy(Strategy):
 
         # === HERO JOBS (independent of policy) ===
         # These jobs are added regardless of the strategy chosen
-        # hero_jobs = self.create_plan_for_hero(game_state.hero_info)
+        hero_jobs = self.create_plan_for_hero(game_state.hero_info)
 
         # === QUESTMASTER REWARDS (independent of policy) ===
-        # questmaster_jobs = self.plan_questmaster_rewards(villages)
+        questmaster_jobs = self.plan_questmaster_rewards(villages)
 
         # === GLOBAL ANALYSIS ===
 
         # Check merchant requirements across all villages
-        # marketplace_requirements = self.estimate_marketplace_requirement(villages)
+        marketplace_requirements = self.estimate_marketplace_requirement(villages)
 
         # Check residence/settler requirements
-        # residence_requirements = self.estimate_residence_requirement(game_state)
+        residence_requirements = self.estimate_residence_requirement(game_state)
 
         # === PER-VILLAGE ANALYSIS ===
 
@@ -81,92 +81,92 @@ class DefendArmyPolicy(Strategy):
 
         global_lowest_production = game_state.estimate_global_lowest_resource_production_in_next_hours(2)
 
-        # for village in villages:
-        #     village_plan = self._analyze_village_plan(
-        #         village=village,
-        #         needs_marketplace=marketplace_requirements.get(village.id, False),
-        #         residence_requirements=residence_requirements,
-        #         global_lowest_production=global_lowest_production
-        #     )
-        #     village_plans.append(village_plan)
+        for village in villages:
+            village_plan = self._analyze_village_plan(
+                village=village,
+                needs_marketplace=marketplace_requirements.get(village.id, False),
+                residence_requirements=residence_requirements,
+                global_lowest_production=global_lowest_production
+            )
+            village_plans.append(village_plan)
 
         # === CONSOLIDATE AND PRIORITIZE ===
 
         # Aggregate all building priorities from village plans
-        # all_building_recommendations = self._consolidate_building_recommendations(
-        #     village_plans=village_plans,
-        #     marketplace_needed_globally=len(villages) > 1,
-        #     residence_requirements=residence_requirements,
-        # )
+        all_building_recommendations = self._consolidate_building_recommendations(
+            village_plans=village_plans,
+            marketplace_needed_globally=len(villages) > 1,
+            residence_requirements=residence_requirements,
+        )
 
         # Create BuildJob objects from recommendations
-        # for recommendation in all_building_recommendations:
-        #     village_id = recommendation["village_id"]
-        #     building_type = recommendation["building_type"]
-        #     priority = recommendation["priority"]
-        #     reason = recommendation["reason"]
-        #
-        #     # Find the village and building details
-        #     village = next((v for v in villages if v.id == village_id), None)
-        #     if not village:
-        #         continue
-        #
-        #     # Check if building queue allows adding this building
-        #     if self._is_building_in_center(building_type.name):
-        #         if not village.building_queue.can_build_inside():
-        #             logger.debug(f"Skipping {building_type.name} in village {village_id}: inside queue is occupied")
-        #             continue
-        #     else:
-        #         if not village.building_queue.can_build_outside():
-        #             logger.debug(f"Skipping {building_type.name} in village {village_id}: outside queue is occupied")
-        #             continue
-        #
-        #     # Get or create the building
-        #     building = village.get_building(building_type)
-        #     if building is None:
-        #         free_slot = village.find_free_building_slot()
-        #         if not free_slot:
-        #             logger.debug(f"Skipping {building_type.name} in village {village_id}: no free building slot")
-        #             continue
-        #         building = Building(id=free_slot, level=1, type=building_type)
-        #         job = self._create_build_job(
-        #             village=village,
-        #             building_id=building.id,
-        #             building_gid=building_type.gid,
-        #             target_name=building_type.name,
-        #             target_level=building.level + 1,
-        #             hero_info=game_state.hero_info,
-        #             calculator=calculator,
-        #             new=True
-        #         )
-        #
-        #         jobs.append({
-        #             "job": job,
-        #             "priority": priority,
-        #             "reason": reason,
-        #             "village_id": village_id,
-        #             "building_type": building_type,
-        #         })
-        #
-        #
-        #     # Create BuildJob for this building using the shared method
-        #     job = self._create_build_job(
-        #         village=village,
-        #         building_id=building.id,
-        #         building_gid=building_type.gid,
-        #         target_name=building_type.name,
-        #         target_level=building.level + 1,
-        #         hero_info=game_state.hero_info,
-        #         calculator=calculator,
-        #     )
-        #
-        #     jobs.append({
-        #         "job": job,
-        #         "priority": priority,
-        #         "reason": reason,
-        #         "village_id": village_id,
-        #         "building_type": building_type,
-        #     })
+        for recommendation in all_building_recommendations:
+            village_id = recommendation["village_id"]
+            building_type = recommendation["building_type"]
+            priority = recommendation["priority"]
+            reason = recommendation["reason"]
+
+            # Find the village and building details
+            village = next((v for v in villages if v.id == village_id), None)
+            if not village:
+                continue
+
+            # Check if building queue allows adding this building
+            if self._is_building_in_center(building_type.name):
+                if not village.building_queue.can_build_inside():
+                    logger.debug(f"Skipping {building_type.name} in village {village_id}: inside queue is occupied")
+                    continue
+            else:
+                if not village.building_queue.can_build_outside():
+                    logger.debug(f"Skipping {building_type.name} in village {village_id}: outside queue is occupied")
+                    continue
+
+            # Get or create the building
+            building = village.get_building(building_type)
+            if building is None:
+                free_slot = village.find_free_building_slot()
+                if not free_slot:
+                    logger.debug(f"Skipping {building_type.name} in village {village_id}: no free building slot")
+                    continue
+                building = Building(id=free_slot, level=1, type=building_type)
+                job = self._create_build_job(
+                    village=village,
+                    building_id=building.id,
+                    building_gid=building_type.gid,
+                    target_name=building_type.name,
+                    target_level=building.level + 1,
+                    hero_info=game_state.hero_info,
+                    calculator=calculator,
+                    new=True
+                )
+
+                jobs.append({
+                    "job": job,
+                    "priority": priority,
+                    "reason": reason,
+                    "village_id": village_id,
+                    "building_type": building_type,
+                })
+
+
+            # Create BuildJob for this building using the shared method
+            job = self._create_build_job(
+                village=village,
+                building_id=building.id,
+                building_gid=building_type.gid,
+                target_name=building_type.name,
+                target_level=building.level + 1,
+                hero_info=game_state.hero_info,
+                calculator=calculator,
+            )
+
+            jobs.append({
+                "job": job,
+                "priority": priority,
+                "reason": reason,
+                "village_id": village_id,
+                "building_type": building_type,
+            })
 
         # Sort jobs by priority (descending)
         jobs.sort(key=lambda x: x["priority"], reverse=True)
@@ -187,11 +187,11 @@ class DefendArmyPolicy(Strategy):
                 result_jobs.append(job_item["job"])
 
         # Add hero jobs and questmaster jobs
-        # result_jobs.extend(hero_jobs)
-        # result_jobs.extend(questmaster_jobs)
+        result_jobs.extend(hero_jobs)
+        result_jobs.extend(questmaster_jobs)
 
         # add job to increase production by watching commercials if not increased yet
-        if not game_state.all_production_increased():
+        if game_state.all_production_increased():
             result_jobs.append(self.create_increase_production_by_watching_commercials_job())
 
         return result_jobs
