@@ -191,7 +191,7 @@ class DefendArmyPolicy(Strategy):
         result_jobs.extend(questmaster_jobs)
 
         # add job to increase production by watching commercials if not increased yet
-        if game_state.all_production_increased():
+        if not game_state.all_production_increased():
             result_jobs.append(self.create_increase_production_by_watching_commercials_job())
 
         return result_jobs
