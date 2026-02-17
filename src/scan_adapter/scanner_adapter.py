@@ -645,9 +645,9 @@ class Scanner(ScannerProtocol):
         stock_bar = soup.select_one("#stockBar")
         if not stock_bar:
             return False, False, False, False
-        lumber_boost = stock_bar.select_one(".stockBarButton.resource1 .productionBoost")
-        clay_boost = stock_bar.select_one(".stockBarButton.resource2 .productionBoost")
-        iron_boost = stock_bar.select_one(".stockBarButton.resource3 .productionBoost")
-        crop_boost = stock_bar.select_one(".stockBarButton.resource4 .productionBoost")
+        lumber_boost = stock_bar.select_one(".stockBarButton.resource1 .videoFeature.advantageBonusArrow.productionBoost")
+        clay_boost = stock_bar.select_one(".stockBarButton.resource2 .videoFeature.advantageBonusArrow.productionBoost")
+        iron_boost = stock_bar.select_one(".stockBarButton.resource3 .videoFeature.advantageBonusArrow.productionBoost")
+        crop_boost = stock_bar.select_one(".stockBarButton.resource4 .videoFeature.advantageBonusArrow.productionBoost")
         return bool(lumber_boost), bool(clay_boost), bool(iron_boost), bool(crop_boost)
 
