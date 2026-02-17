@@ -158,8 +158,14 @@ class Scanner(ScannerProtocol):
                     if "beginner's protection" in text:
                         beginners_expires = timer_value
 
+        lumber_increased, clay_increased, iron_increased, crop_increased = self.scan_production_boost(soup)
+
         return Account(
-            when_beginners_protection_expires=beginners_expires
+            when_beginners_protection_expires=beginners_expires,
+            lumber_production_increased=lumber_increased,
+            clay_production_increased=clay_increased,
+            iron_production_increased=iron_increased,
+            crop_production_increased=crop_increased,
         )
 
     def scan_village(self, village_basic_info: VillageBasicInfo, dorf1: str, dorf2: str) -> Village:
@@ -633,4 +639,15 @@ class Scanner(ScannerProtocol):
                 troops[troop_type] = troop_count
 
         return troops
+
+    def scan_production_boost(self, soup: BeautifulSoup) -> tuple[bool, bool, bool, bool]:
+
+        stock_bar = soup.select_one("#stockBar")
+        if not stock_bar:
+            return False, False, False, False
+        lumber_boost = stock_bar.select_one(".stockBarButton.resource1 .productionBoost")
+        clay_boost = stock_bar.select_one(".stockBarButton.resource2 .productionBoost")
+        iron_boost = stock_bar.select_one(".stockBarButton.resource3 .productionBoost")
+        crop_boost = stock_bar.select_one(".stockBarButton.resource4 .productionBoost")
+        return bool(lumber_boost), bool(clay_boost), bool(iron_boost), bool(crop_boost)
 
