@@ -25,13 +25,6 @@ HERO_INVENTORY = "/hero/inventory"
 PLANNING_SUCCESS_MESSAGE = "planning completed"
 PLANNING_FAILURE_MESSAGE = "planning failed"
 
-CLASS_TO_RESOURCE_MAP = {
-    "item145": "lumber",
-    "item146": "clay",
-    "item147": "iron",
-    "item148": "crop"
-}
-
 RESOURCE_TO_CLASS_MAP = {
     "lumber": "item145",
     "clay": "item146",

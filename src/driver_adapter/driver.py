@@ -289,6 +289,21 @@ class Driver(DriverProtocol):
             pass
         return ""
 
+    def get_page_source(self, iframe_selector: str | None = None) -> str:
+        """Return the HTML source of the page or iframe content if iframe_selector is provided."""
+        try:
+            if iframe_selector:
+                # Get the iframe element and access its content
+                frame_locator = self.page.frame_locator(iframe_selector)
+                # Get the content of the iframe by evaluating document.documentElement.outerHTML
+                iframe_content = frame_locator.locator("body").evaluate("el => document.documentElement.outerHTML")
+                return iframe_content
+            else:
+                return self.page.content()
+        except Exception as e:
+            logger.debug(f"get_page_source failed for iframe_selector={iframe_selector} with error: {e}")
+            return ""
+
     def press_key(self, param):
         try:
             self.page.keyboard.press(param)

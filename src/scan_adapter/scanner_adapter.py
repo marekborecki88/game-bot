@@ -7,12 +7,16 @@ existing `src.scan_adapter.scanner` functions.
 from __future__ import annotations
 
 import json
-import logging
 import re
 
 from bs4 import Tag, BeautifulSoup
 
-from src.core.bot import CLASS_TO_RESOURCE_MAP
+CLASS_TO_RESOURCE_MAP = {
+    "item145": "lumber",
+    "item146": "clay",
+    "item147": "iron",
+    "item148": "crop"
+}
 from src.core.model.model import (
     VillageBasicInfo,
     HeroInfo,
@@ -651,3 +655,11 @@ class Scanner(ScannerProtocol):
         crop_boost = stock_bar.select_one(".stockBarButton.resource4 .videoFeature.advantageBonusArrow.productionBoost")
         return bool(lumber_boost), bool(clay_boost), bool(iron_boost), bool(crop_boost)
 
+    def scan_advertise_remaining_time(self, html: str) -> int:
+        """Parse the remaining time for advertisements from the HTML containing atg-gima-remaining-time."""
+        soup = BeautifulSoup(html, HTML_PARSER)
+        remaining_time_elem = soup.select_one(".atg-gima-remaining-time")
+        if not remaining_time_elem:
+            return 0
+
+        return self._parse_number_value(remaining_time_elem.get_text())

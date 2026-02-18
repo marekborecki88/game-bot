@@ -23,7 +23,7 @@ class IncreaseResourcesProductionByWatchingCommercialsJob(Job):
 
             self.watch_videos(driver)
 
-            driver.click("a#closeContentButton")
+            driver.click("div.dialogCancelButton.iconButton.buttonFramed.green.withIcon.rectangle.cancel")
 
             return True
         except Exception as e:
@@ -35,19 +35,21 @@ class IncreaseResourcesProductionByWatchingCommercialsJob(Job):
             # <button class="textButtonV2 buttonFramed withTextAndIcon rectangle withText purple" type="button"><div><span>Activate</span><i class="videoIcon"></i></div></button>
             watch_video_selectors = "button.textButtonV2.buttonFramed.withTextAndIcon.rectangle.withText.purple:has(i.videoIcon)"
             video_counter = 0
-
+            driver.wait_for_load_state()
             while driver.is_visible(watch_video_selectors):
+                driver.sleep(2)
                 logger.debug("Watching commercial to boost production...")
-                driver.click(watch_video_selectors)
+                driver.wait_for_selector_and_click(watch_video_selectors)
                 driver.wait_for_load_state()
 
                 # Click confirmation dialog button
+                driver.sleep(2)
                 confirmation_button = "button.textButtonV2.buttonFramed.dialogButtonOk.rectangle.withText.green"
-                driver.click(confirmation_button)
+                driver.wait_for_selector_and_click(confirmation_button)
                 driver.wait_for_load_state()
 
                 # Wait for video player to load
-                driver.sleep(3)
+                driver.sleep(2)
                 driver.wait_for_selector_and_click("#videoArea")
 
                 # Wait for advertisement to finish

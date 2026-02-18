@@ -380,3 +380,19 @@ def test_scan_incoming_attacks(movements_html: str) -> None:
 
     # Then
     assert result == IncomingAttackInfo(attack_count=1, next_attack_seconds=402)
+
+def test_scan_advertise_remaining_time():
+    # Given
+    scanner = Scanner(server_speed=1)
+    html = """
+           <div class="atg-gima-remaining-time-wrapper">
+               <div class="atg-gima-remaining-time-label">Ad Counter:</div>
+               <div class="atg-gima-remaining-time">10</div>
+           </div>
+           """
+
+    # When
+    result = scanner.scan_advertise_remaining_time(html)
+
+    # Then
+    assert result == 10

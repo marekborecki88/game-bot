@@ -5,6 +5,7 @@ import logging
 from src.core.model.model import Resources
 from src.core.job.job import Job
 from src.core.protocols.driver_protocol import DriverProtocol
+from src.scan_adapter.scanner_adapter import Scanner
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,8 @@ class BuildJob(Job):
         if self.support:
             # Fill in support resources if provided
             driver.transfer_resources_from_hero(self.support)
+            # after transfer go back to the contract site
+            driver.navigate(f"/build.php?newdid={self.village_id}&id={self.building_id}&gid={self.building_gid}")
 
         # Wait for contract UI to appear
         if not driver.wait_for_selector('#contract', timeout=3000):
@@ -49,9 +52,11 @@ class BuildJob(Job):
 
         duration_difference = normal_duration - faster_duration
 
-        if duration_difference > 120:  # 2 minutes in seconds
-            return self.watch_video(driver)
-            return driver.click()
+        if duration_difference > 0:  # 2 minutes in seconds
+            success = self.watch_video(driver, duration_difference)
+            if not success:
+                logger.debug("Failed to watch video or video time is not sufficient, proceeding with normal build")
+                return driver.click("button.textButtonV1.green.build")
         else:
             return driver.click("button.textButtonV1.green.build")
 
@@ -68,29 +73,35 @@ class BuildJob(Job):
         #.section1 .value
         # Try alternative selector for upgrade button
 
-    def watch_video(self, driver: DriverProtocol) -> bool:
+    def watch_video(self, driver: DriverProtocol, duration_difference: int) -> bool:
         try:
-            logger.debug("Try to watch video for hero adventure")
+            logger.debug("Try to watch video for shortening build time")
             # watch_video_button = "button.textButtonV2.buttonFramed.withTextAndIcon.rectangle.withText.purple:not(.buttonDisabled)"
             watch_video_button = "button.textButtonV1.purple.build.videoFeatureButton"
             # Should watch both video for shortening adventure time and unlocking additional difficulty levels
             video_counter = 0
             while driver.is_visible(watch_video_button):
+                driver.wait_for_selector_and_click(watch_video_button)
                 logger.debug("watching video for hero adventure")
-                driver.click(watch_video_button)
-                driver.wait_for_load_state()
 
                 # Click confirmation dialog button
-                confirmation_button = "button.textButtonV2.buttonFramed.dialogButtonOk.rectangle.withText.green"
-                driver.click(confirmation_button)
-                driver.wait_for_load_state()
+                driver.wait_for_selector_and_click("button.textButtonV2.buttonFramed.dialogButtonOk.rectangle.withText.green")
 
                 # Wait for video player to load
-                driver.sleep(3)
+                driver.sleep(2)
                 driver.wait_for_selector_and_click("#videoArea")
+
+                remaining_time = self.read_remaining_time(driver)
 
                 # Wait for advertisement to finish
                 while driver.is_visible("#videoArea"):
+                    remaining_time = self.read_remaining_time(driver)
+
+                    if remaining_time > duration_difference:
+                        logger.debug(f"Remaining video time {remaining_time} is longer than duration difference {duration_difference}")
+                        self.stop_video(driver)
+                        return False
+
                     driver.sleep(5)
 
                 video_counter += 1
@@ -98,6 +109,38 @@ class BuildJob(Job):
 
         except Exception as e:
             logger.warning(f"Failed to watch video for hero adventure: {e}", exc_info=True)
-        
+            return False
 
-        
+        return True
+
+    def read_remaining_time(self, driver: DriverProtocol) -> int:
+        """Read remaining time from video advertisement counter.
+
+        Returns 0 if the counter is not visible or not yet initialized.
+        """
+        html = driver.get_page_source(iframe_selector="#videoArea")
+
+        # Check if the remaining time wrapper is hidden
+        if "atg-gima-remaining-time-wrapper atg-gima-hidden" in html:
+            logger.debug("Video counter is hidden, video may not have started yet")
+            return 0
+
+        scanner = Scanner(server_speed=5)
+        remaining_time = scanner.scan_advertise_remaining_time(html)
+
+        if remaining_time == 0:
+            logger.debug("Video counter is empty or not initialized yet")
+
+        return remaining_time
+
+
+    def stop_video(self, driver: DriverProtocol) -> None:
+        logger.debug("Stopping video playback")
+        # This selector is based on the structure of the video player and may need to be updated if the player changes
+        stop_button_selector = "div.dialogCancelButton.iconButton.buttonFramed.green.withIcon.rectangle.cancel"
+        if driver.is_visible(stop_button_selector):
+            driver.wait_for_selector_and_click(stop_button_selector)
+            driver.wait_for_selector_and_click("button.textButtonV2.buttonFramed.rectangle.withText.green")
+            logger.debug("Video playback stopped successfully")
+        else:
+            logger.warning("Stop button not found, unable to stop video playback")

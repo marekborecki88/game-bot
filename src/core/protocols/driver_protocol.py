@@ -93,6 +93,9 @@ class DriverProtocol(Protocol):
     def get_text_content(self, selector: str) -> str:
         """Return the text content of the first element matching the selector, or empty string if not found."""
 
+    def get_page_source(self, iframe_selector: str | None = None) -> str:
+        """Return the HTML source of the page or iframe content if iframe_selector is provided."""
+
     def press_key(self, param) -> None:
         """Simulate pressing a key on the keyboard."""
 
