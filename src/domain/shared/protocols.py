@@ -1,0 +1,6 @@
+from typing import Protocol
+
+
+class VideoWatcher(Protocol):
+    def is_video_ready(self) -> bool: ...
+    def watch_video(self) -> bool: ...

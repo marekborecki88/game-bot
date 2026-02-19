@@ -1,11 +1,11 @@
 import pytest
 
-from src.config.config import LogicConfig, HeroConfig, Strategy
-from src.core.job.build_job import BuildJob
-from src.core.model.game_state import GameState
-from src.core.model.model import Account, HeroInfo, Resources, Tribe, BuildingQueue, ResourcePit, ResourceType, Building, BuildingType
-from src.core.model.village import Village
-from src.core.planner.logic_engine import LogicEngine
+from src.domain.config import LogicConfig, HeroConfig, Strategy
+from src.application.job import BuildJob
+from src.domain.model.game_state import GameState
+from src.domain.model.model import Account, HeroInfo, Resources, Tribe, BuildingQueue, ResourcePit, ResourceType, Building, BuildingType
+from src.domain.model.village import Village
+from src.domain.planner.logic_engine import LogicEngine
 
 
 @pytest.fixture

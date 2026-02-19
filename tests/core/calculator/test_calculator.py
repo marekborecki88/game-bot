@@ -1,5 +1,5 @@
-from src.core.calculator.calculator import TravianCalculator
-from src.core.model.model import Resources, BuildingCost
+from src.domain.calculator.calculator import TravianCalculator
+from src.domain.model.model import Resources, BuildingCost
 
 
 def test_warehouse_level_8_speed_5_mb_3():

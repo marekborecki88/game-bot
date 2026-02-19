@@ -1,10 +1,10 @@
 import pytest
 from bs4 import BeautifulSoup
 
-from src.core.model.model import VillageBasicInfo, ResourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
+from src.domain.model.model import VillageBasicInfo, ResourcePit, ResourceType, Building, BuildingType, BuildingJob, Account, \
     Tribe, HeroInfo, HeroAttributes, BuildingContract, Resources, BuildingQueue, IncomingAttackInfo
-from src.core.model.village import Village
-from src.scan_adapter.scanner_adapter import Scanner
+from src.domain.model.village import Village
+from src.infrastructure.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
 

@@ -147,7 +147,7 @@ When no planned units are provided, default to balanced:
 ### Usage Example
 
 ```python
-from src.core.strategy.defend_army_policy import DefendArmyPolicy
+from src.domain.strategy.defend_army_policy import DefendArmyPolicy
 
 policy = DefendArmyPolicy(logic_config, hero_config)
 

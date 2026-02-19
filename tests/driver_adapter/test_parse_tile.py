@@ -1,7 +1,7 @@
 import pytest
 
-from src.core.model.model import TileVillage, TileOasisFree, TileOasisOccupied
-from src.driver_adapter.driver import Driver
+from src.domain.model.model import TileVillage, TileOasisFree, TileOasisOccupied
+from src.infrastructure.driver_adapter.driver import Driver
 
 
 class TestParseTile:

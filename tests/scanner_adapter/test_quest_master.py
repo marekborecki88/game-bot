@@ -1,4 +1,4 @@
-from src.scan_adapter.scanner_adapter import Scanner
+from src.infrastructure.scan_adapter.scanner_adapter import Scanner
 from tests.scanner_adapter.html_utils import HtmlUtils
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from src.core.model.model import (
+from src.domain.model.model import (
     HeroInfo,
     ReservationResponse,
     Resources, ReservationStatus,
